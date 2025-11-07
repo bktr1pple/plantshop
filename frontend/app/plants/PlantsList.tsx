@@ -57,7 +57,7 @@ export default function PlantsList({ plants }: Props) {
     const el = trackRef.current;
     if (!el) return;
 
-    const onTouchStart = (e: TouchEvent) => (startX.current = e.touches[0].clientX);
+    const onTouchStart = (e: TouchEvent) => (startX.current = e.touches[0].clientX); //test
     const onTouchEnd = (e: TouchEvent) => {
       if (startX.current == null) return;
       const diff = e.changedTouches[0].clientX - startX.current;
