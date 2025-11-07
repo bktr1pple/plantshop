@@ -19,7 +19,9 @@ export default function PlantsList({ plants }: Props) {
   useEffect(() => {
     document.body.style.overflow = selectedPlant ? 'hidden' : '';
     if (selectedPlant) setTimeout(() => closeBtnRef.current?.focus(), 60);
-    return () => (document.body.style.overflow = '');
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [selectedPlant]);
 
   // keyboard nav
