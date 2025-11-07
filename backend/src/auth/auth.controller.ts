@@ -20,7 +20,7 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const user = await this.authService.validateUser(dto.email, dto.password);
-    if (!user) return { status: 'error', message: 'Invalid credentials' };
+    if (!user) return { status: 'error', message: 'Невірний email або пароль' };
 
     const tokens = await this.authService.login(user.id, user.email);
 

@@ -1,13 +1,35 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { PlantsModule } from './plants/plants.module';
+import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
 
 @Module({
-  imports: [AuthModule, PrismaModule, PlantsModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'global',
+          ttl: 60_000, // 1 хвилина
+          limit: 10,   // максимум 10 запитів за ttl
+        },
+      ],
+    }),
+    AuthModule,
+    PrismaModule,
+    PlantsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: ThrottlerExceptionFilter, // ✅ підключення твого кастомного фільтра
+    },
+  ],
 })
 export class AppModule {}

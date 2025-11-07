@@ -8,8 +8,82 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
-  const [activeTab, setActiveTab] = useState("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    rememberMe: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // 🔁 Оновлення токена при старті
+  useEffect(() => {
+    fetch("http://localhost:3001/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.status === "ok") fetchUser();
+      })
+      .catch(() => {});
+  }, []);
+
+  // 👤 Отримати поточного користувача
+  const fetchUser = async () => {
+    try {
+      const res = await fetch("http://localhost:3001/auth/me", {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.user) setUser(data.user);
+    } catch {}
+  };
+
+  // 📥 Логін або реєстрація
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const endpoint =
+      activeTab === "login" ? "login" : "register";
+
+    try {
+      const res = await fetch(`http://localhost:3001/auth/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+      if (data.status === "ok") {
+        await fetchUser();
+        setShowAuth(false);
+      } else {
+        setError(data.message || "Помилка входу");
+      }
+    } catch {
+      setError("Сервер недоступний");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 📤 Вихід
+  const handleLogout = async () => {
+    await fetch("http://localhost:3001/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+    setUser(null);
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -108,7 +182,7 @@ export default function Navbar() {
       </motion.nav>
 
       {/* 🔐 Auth Modal */}
-      <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait">
         {showAuth && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -130,7 +204,7 @@ export default function Navbar() {
               >
                 <X size={20} />
               </button>
-              
+
               {/* Tabs */}
               <div className="flex justify-center mb-6">
                 <button
@@ -154,8 +228,8 @@ export default function Navbar() {
                   Реєстрація
                 </button>
               </div>
-
-              {/* Forms */}
+              
+              {/* Form */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
@@ -164,35 +238,69 @@ export default function Navbar() {
                   exit={{ opacity: 0, y: 10 }}
                   transition={{ duration: 0.35, ease: "easeOut" }}
                 >
-                  {activeTab === "login" ? (
-                    <form className="space-y-5">
-                      {/* Email */}
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Register: Name */}
+                    {activeTab === "register" && (
                       <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
-                          type="email"
-                          placeholder="Email"
+                          type="text"
+                          placeholder="Ім'я"
+                          value={form.name}
+                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          required
                           className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 
-                                    focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all duration-200 
-                                    text-gray-800 placeholder-gray-400 shadow-sm focus:shadow-md"
+                            focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none 
+                            transition-all duration-200 text-gray-800 placeholder-gray-400 shadow-sm 
+                            focus:shadow-md"
                         />
                       </div>
+                    )}
 
-                      {/* Password */}
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                          type="password"
-                          placeholder="Пароль"
-                          className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 
-                                    focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all duration-200 
-                                    text-gray-800 placeholder-gray-400 shadow-sm focus:shadow-md"
-                        />
-                      </div>
+                    {/* Email */}
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        required
+                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 
+                          focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none 
+                          transition-all duration-200 text-gray-800 placeholder-gray-400 shadow-sm 
+                          focus:shadow-md"
+                      />
+                    </div>
 
+                    {/* Password */}
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                        type="password"
+                        placeholder="Пароль"
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        required
+                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 
+                          focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none 
+                          transition-all duration-200 text-gray-800 placeholder-gray-400 shadow-sm 
+                          focus:shadow-md"
+                      />
+                    </div>
+
+                    {/* Remember me & Forgot password */}
+                    {activeTab === "login" && (
                       <div className="flex justify-between text-sm text-gray-500">
                         <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="checkbox" className="accent-emerald-500 rounded" />
+                          <input
+                            type="checkbox"
+                            checked={form.rememberMe}
+                            onChange={(e) =>
+                              setForm({ ...form, rememberMe: e.target.checked })
+                            }
+                            className="accent-emerald-500 rounded"
+                          />
                           Запам’ятати мене
                         </label>
                         <a
@@ -202,67 +310,28 @@ export default function Navbar() {
                           Забули пароль?
                         </a>
                       </div>
+                    )}
 
-                      <button
-                        type="submit"
-                        className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold 
-                                  hover:bg-emerald-700 hover:shadow-lg hover:-translate-y-0.5 
-                                  active:translate-y-0 transition-all duration-200"
-                      >
-                        Увійти
-                      </button>
-                    </form>
-                  ) : (
-                    <form className="space-y-5">
-                      {/* Name */}
-                      <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                          type="text"
-                          placeholder="Ім'я"
-                          className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 
-                                    focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all duration-200 
-                                    text-gray-800 placeholder-gray-400 shadow-sm focus:shadow-md"
-                        />
-                      </div>
+                    {/* Error message */}
+                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
-                      {/* Email */}
-                      <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                          type="email"
-                          placeholder="Email"
-                          className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 
-                                    focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all duration-200 
-                                    text-gray-800 placeholder-gray-400 shadow-sm focus:shadow-md"
-                        />
-                      </div>
-
-                      {/* Password */}
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                          type="password"
-                          placeholder="Пароль"
-                          className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 
-                                    focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all duration-200 
-                                    text-gray-800 placeholder-gray-400 shadow-sm focus:shadow-md"
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold 
-                                  hover:bg-emerald-700 hover:shadow-lg hover:-translate-y-0.5 
-                                  active:translate-y-0 transition-all duration-200"
-                      >
-                        Зареєструватися
-                      </button>
-                    </form>
-                  )}
+                    {/* Submit button */}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold 
+                        hover:bg-emerald-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 
+                        transition-all duration-200"
+                    >
+                      {loading
+                        ? "Зачекайте..."
+                        : activeTab === "login"
+                        ? "Увійти"
+                        : "Зареєструватися"}
+                    </button>
+                  </form>
                 </motion.div>
               </AnimatePresence>
-
             </motion.div>
           </motion.div>
         )}
