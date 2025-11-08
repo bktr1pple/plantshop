@@ -1,371 +1,667 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, X, ChevronLeft, ChevronRight, Heart, Share2, Star, Truck, Shield, Zap, Sun, Droplets, Maximize2 } from 'lucide-react';
 import Image from 'next/image';
 import { Plant } from '../types/plant';
 
 type Props = { plants: Plant[] };
 
+const productFeatures = [
+  { icon: Truck, text: 'Free shipping over $50' },
+  { icon: Shield, text: '30-day guarantee' },
+  { icon: Zap, text: 'Easy care guide' }
+];
+
+const careFeatures = [
+  { icon: Sun, text: 'Bright Indirect', level: 'Easy' },
+  { icon: Droplets, text: 'Water weekly', level: 'Moderate' }
+];
+
+// Mobile-optimized image component
+const OptimizedImage = ({ src, alt, ...props }: any) => {
+  const [error, setError] = useState(false);
+  
+  return (
+    <Image
+      src={error ? '/images/placeholder.jpg' : src}
+      alt={alt}
+      onError={() => setError(true)}
+      {...props}
+    />
+  );
+};
+
 export default function PlantsList({ plants }: Props) {
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
-  const [index, setIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
-  const trackRef = useRef<HTMLDivElement | null>(null);
 
-  // block background scroll while modal open
+  // Memoized images array with error handling
+  const images = useMemo(() => {
+    if (!selectedPlant?.images?.length) return ['/images/placeholder.jpg'];
+    
+    return selectedPlant.images.map((img, index) => 
+      imageLoadErrors.has(index) ? '/images/placeholder.jpg' : img
+    );
+  }, [selectedPlant?.images, imageLoadErrors]);
+
+  const currentImage = images[currentIndex];
+
+  // Mock data for additional product info
+  const getProductInfo = useCallback((plant: Plant) => {
+    const isPopular = plant.id % 3 === 0;
+    const originalPrice = plant.id % 2 === 0 ? plant.price * 1.8 : null;
+    const rating = 4.3 + (plant.id * 0.1) % 0.7;
+    const reviewCount = 50 + (plant.id * 23) % 450;
+    
+    return { isPopular, originalPrice, rating, reviewCount };
+  }, []);
+
+  // Mobile-optimized modal open/close
+  const openModal = useCallback((plant: Plant, startIndex = 0) => {
+    setSelectedPlant(plant);
+    setCurrentIndex(startIndex);
+    setImageLoadErrors(new Set());
+    setIsModalOpen(true);
+    setIsFullscreen(false);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false);
+    setIsFullscreen(false);
+    setTimeout(() => {
+      setSelectedPlant(null);
+      setCurrentIndex(0);
+      setImageLoadErrors(new Set());
+    }, 300);
+  }, []);
+
+  // Mobile-optimized navigation
+  const next = useCallback(() => {
+    if (!images.length) return;
+    setCurrentIndex(prev => (prev + 1) % images.length);
+  }, [images.length]);
+
+  const prev = useCallback(() => {
+    if (!images.length) return;
+    setCurrentIndex(prev => (prev === 0 ? images.length - 1 : prev - 1));
+  }, [images.length]);
+
+  // Mobile scroll management
   useEffect(() => {
-    document.body.style.overflow = selectedPlant ? 'hidden' : '';
-    if (selectedPlant) setTimeout(() => closeBtnRef.current?.focus(), 60);
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+    
     return () => {
       document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
-  }, [selectedPlant]);
+  }, [isModalOpen]);
 
-  // keyboard nav
+  // Mobile keyboard navigation
   useEffect(() => {
-    if (!selectedPlant) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeModal();
+    if (!isModalOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else {
+          closeModal();
+        }
+      }
       if (e.key === 'ArrowLeft') prev();
       if (e.key === 'ArrowRight') next();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectedPlant, index]);
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen, closeModal, prev, next, isFullscreen]);
 
-  const openModal = (p: Plant, startIndex = 0) => {
-    setSelectedPlant(p);
-    setIndex(startIndex);
-  };
-  const closeModal = () => {
-    setSelectedPlant(null);
-    setIndex(0);
-  };
-  const next = () => {
-    if (!selectedPlant?.images?.length) return;
-    setIndex((i) => (i + 1) % selectedPlant.images!.length);
-  };
-  const prev = () => {
-    if (!selectedPlant?.images?.length) return;
-    setIndex((i) => (i === 0 ? selectedPlant.images!.length - 1 : i - 1));
-  };
-
-  // swipe handlers (simple reliable implementation)
-  const startX = useRef<number | null>(null);
+  // Mobile swipe handler - improved for touch
   useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
+    if (!isModalOpen) return;
 
-    const onTouchStart = (e: TouchEvent) => (startX.current = e.touches[0].clientX); //test2
-    const onTouchEnd = (e: TouchEvent) => {
-      if (startX.current == null) return;
-      const diff = e.changedTouches[0].clientX - startX.current;
-      const threshold = 60;
-      if (diff > threshold) prev();
-      if (diff < -threshold) next();
-      startX.current = null;
+    let startX = 0;
+    let startY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
     };
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchend', onTouchEnd);
-    // mouse drag (pointer)
-    let pointerDown = false;
-    const onPointerDown = (ev: PointerEvent) => {
-      pointerDown = true;
-      startX.current = ev.clientX;
-      el.setPointerCapture?.(ev.pointerId);
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const diffX = startX - endX;
+      const diffY = startY - endY;
+
+      // Only handle horizontal swipes (ignore vertical scrolls)
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
+        if (diffX > 0) next();
+        else prev();
+      }
     };
-    const onPointerUp = (ev: PointerEvent) => {
-      if (!pointerDown) return;
-      pointerDown = false;
-      if (startX.current == null) return;
-      const diff = ev.clientX - startX.current;
-      const threshold = 60;
-      if (diff > threshold) prev();
-      if (diff < -threshold) next();
-      startX.current = null;
-    };
-    el.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointerup', onPointerUp);
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchend', onTouchEnd);
-      el.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [selectedPlant, index]);
+  }, [isModalOpen, next, prev]);
 
-  const images = selectedPlant?.images && selectedPlant.images.length ? selectedPlant.images : ['/images/placeholder.jpg'];
-  const currentImage = images[index];
+  const toggleWishlist = (plantId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setWishlist(prev => {
+      const newSet = new Set(prev);
+      newSet.has(plantId) ? newSet.delete(plantId) : newSet.add(plantId);
+      return newSet;
+    });
+  };
 
-  const thumbsRef = useRef<HTMLButtonElement[]>([]);
+  const handleAddToCart = async (plant: Plant, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsAddingToCart(true);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    setIsAddingToCart(false);
+    console.log('Added to cart:', plant.name);
+  };
 
-  // під іншим useEffect (або поруч з ними)
-  useEffect(() => {
-    const el = thumbsRef.current[index];
-    if (!el) return;
-    // трохи відкладемо для плавності (щоб рендер завершився)
-    el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-  }, [index, images]);
+  const handleImageError = (index: number) => {
+    setImageLoadErrors(prev => new Set(prev).add(index));
+  };
 
-  return (
-    <div className="relative min-h-screen">
-      {/* page background visuals */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[url('/images/plants-bg.jpg')] bg-cover bg-center opacity-20" />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/95 to-white/100" />
+  // Mobile-optimized thumbnails
+  const renderThumbnails = () => {
+    if (images.length <= 6) {
+      return images.map((src, i) => (
+        <button
+          key={i}
+          onClick={() => setCurrentIndex(i)}
+          className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+            i === currentIndex
+              ? 'border-emerald-500 ring-2 ring-emerald-300 scale-105'
+              : 'border-gray-200 hover:border-emerald-300'
+          }`}
+        >
+          <OptimizedImage
+            src={src}
+            alt={`Thumbnail ${i + 1}`}
+            width={64}
+            height={48}
+            className="object-cover w-full h-full"
+          />
+        </button>
+      ));
+    }
+
+    // For many images on mobile, show limited set
+    const start = Math.max(0, currentIndex - 2);
+    const end = Math.min(images.length, currentIndex + 3);
+    
+    return (
+      <>
+        {start > 0 && (
+          <div className="flex-shrink-0 w-6 flex items-center justify-center text-gray-400 text-xs">
+            ...
+          </div>
+        )}
+        {images.slice(start, end).map((src, i) => {
+          const actualIndex = start + i;
+          return (
+            <button
+              key={actualIndex}
+              onClick={() => setCurrentIndex(actualIndex)}
+              className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                actualIndex === currentIndex
+                  ? 'border-emerald-500 ring-2 ring-emerald-300 scale-105'
+                  : 'border-gray-200 hover:border-emerald-300'
+              }`}
+            >
+              <OptimizedImage
+                src={src}
+                alt={`Thumbnail ${actualIndex + 1}`}
+                width={64}
+                height={48}
+                className="object-cover w-full h-full"
+              />
+            </button>
+          );
+        })}
+        {end < images.length && (
+          <div className="flex-shrink-0 w-6 flex items-center justify-center text-gray-400 text-xs">
+            ...
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // Fullscreen image viewer for mobile
+  const MobileFullscreenViewer = () => (
+    <motion.div
+      className="fixed inset-0 z-60 bg-black flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 bg-black/80 text-white">
+        <div className="text-lg font-medium">
+          {currentIndex + 1} / {images.length}
+        </div>
+        <button
+          onClick={() => setIsFullscreen(false)}
+          className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+        >
+          <X size={24} />
+        </button>
       </div>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-6 py-16">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-extrabold mb-3 bg-gradient-to-r from-green-700 to-emerald-500 bg-clip-text text-transparent">
-            Відкрийте для себе наші рослини
-          </h1>
-          <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-            Ознайомтеся з колекцією красивих рослин для вашого дому.
-          </p>
+      {/* Main Image */}
+      <div 
+        className="flex-1 flex items-center justify-center p-4 touch-pan-y"
+        onClick={() => setIsFullscreen(false)}
+      >
+        <div className="relative w-full h-full max-w-4xl">
+          <OptimizedImage
+            src={currentImage}
+            alt={`${selectedPlant?.name} ${currentIndex + 1}`}
+            fill
+            sizes="100vw"
+            className="object-contain"
+            priority
+          />
+        </div>
+      </div>
+
+      {/* Navigation */}
+      {images.length > 1 && (
+        <div className="flex items-center justify-between p-4 bg-black/80">
+          <button
+            onClick={prev}
+            className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+          >
+            <ChevronLeft size={24} className="text-white" />
+          </button>
+          <div className="text-white text-sm">
+            Swipe to navigate
+          </div>
+          <button
+            onClick={next}
+            className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+          >
+            <ChevronRight size={24} className="text-white" />
+          </button>
+        </div>
+      )}
+    </motion.div>
+  );
+
+  if (!plants || plants.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🌱</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No plants found</h2>
+          <p className="text-gray-600">Check back later for new additions!</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen bg-gradient-to-br from-emerald-50/30 to-cyan-50/30">
+      {/* Background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-200/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-200/20 rounded-full blur-3xl" />
+      </div>
+
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-12">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-200 text-emerald-700 text-sm font-medium mb-4">
+              <Zap size={16} />
+              Fresh Plants Delivered Weekly
+            </div>
+            <h1 className="text-4xl sm:text-6xl font-bold mb-4 bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
+              Green Paradise
+            </h1>
+            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Discover our curated collection of premium indoor plants.
+            </p>
+          </motion.div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {plants.map((plant, i) => (
-            <motion.article
-              key={plant.id}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: i * 0.03 }}
-              className="group relative cursor-pointer bg-white/95 rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition transform hover:-translate-y-1 border border-gray-100"
-              onClick={() => openModal(plant, 0)}
-              role="button"
-              aria-label={`Open ${plant.name}`}
-            >
-              <div className="relative h-56 w-full bg-gray-50">
-                <Image
-                  src={plant.images?.[0] ?? '/images/placeholder.jpg'}
-                  alt={plant.name}
-                  fill
-                  sizes="(max-width: 640px) 100vw, 33vw"
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition">
-                  <span className="opacity-0 group-hover:opacity-100 text-white bg-green-600 px-3 py-2 rounded-lg">
-                    View details
-                  </span>
-                </div>
-              </div>
+        {/* Plants Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          {plants.map((plant, i) => {
+            const productInfo = getProductInfo(plant);
+            
+            return (
+              <motion.article
+                key={plant.id}
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.4, delay: i * 0.05 }}
+                whileHover={{ y: -4 }}
+                className="group relative cursor-pointer bg-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100/60"
+                onClick={() => openModal(plant, 0)}
+              >
+                {productInfo.isPopular && (
+                  <div className="absolute top-2 left-2 z-20 bg-gradient-to-r from-orange-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-semibold shadow-lg">
+                    Popular
+                  </div>
+                )}
 
-              <div className="p-4 sm:p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">{plant.name}</h3>
-                <p className="text-sm text-gray-600 line-clamp-3">{plant.description ?? ''}</p>
+                <button
+                  onClick={(e) => toggleWishlist(plant.id.toString(), e)}
+                  className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/90 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+                >
+                  <Heart 
+                    size={16} 
+                    className={`transition-all duration-200 ${
+                      wishlist.has(plant.id.toString()) 
+                        ? 'fill-red-500 text-red-500 scale-110' 
+                        : 'text-gray-600 hover:text-red-400'
+                    }`}
+                  />
+                </button>
 
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-lg font-bold text-green-700">${plant.price.toFixed(2)}</div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openModal(plant, 0);
-                    }}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-full text-sm"
-                  >
-                    <ShoppingCart size={16} /> Buy
-                  </button>
+                <div className="relative h-48 sm:h-64 w-full bg-gradient-to-br from-emerald-50 to-cyan-50 overflow-hidden">
+                  <OptimizedImage
+                    src={plant.images?.[0] ?? '/images/placeholder.jpg'}
+                    alt={plant.name}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 33vw"
+                    className="object-cover transition-all duration-700 group-hover:scale-110"
+                    priority={i < 4}
+                  />
                 </div>
-              </div>
-            </motion.article>
-          ))}
+
+                <div className="p-3 sm:p-4">
+                  <div className="flex items-start justify-between mb-1">
+                    <h3 className="text-base font-bold text-gray-900 line-clamp-1 flex-1">{plant.name}</h3>
+                    <div className="flex items-center gap-1 ml-2">
+                      <Star size={12} className="fill-yellow-400 text-yellow-400" />
+                      <span className="text-xs font-medium text-gray-600">{productInfo.rating.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-gray-600 line-clamp-2 mb-3 leading-relaxed">
+                    {plant.description || 'Beautiful indoor plant.'}
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-lg font-bold text-emerald-700">${plant.price.toFixed(2)}</div>
+                    <button
+                      onClick={(e) => handleAddToCart(plant, e)}
+                      className="flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white py-1.5 px-3 rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                    >
+                      <ShoppingCart size={14} />
+                      <span className="hidden sm:inline">Add</span>
+                    </button>
+                  </div>
+                </div>
+              </motion.article>
+            );
+          })}
         </div>
       </main>
 
-      {/* Modal */}
-      <AnimatePresence>
-        {selectedPlant && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {/* overlay with smooth fade + blur */}
+      {/* Mobile-Optimized Modal */}
+      <AnimatePresence mode="wait">
+        {isModalOpen && selectedPlant && (
+          <>
+            {/* Fullscreen Viewer */}
+            {isFullscreen && <MobileFullscreenViewer />}
+            
+            {/* Main Modal */}
             <motion.div
-              className="absolute inset-0"
-              initial={{ backgroundColor: 'rgba(0,0,0,0)', backdropFilter: 'blur(0px)' }}
-              animate={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-              exit={{ backgroundColor: 'rgba(0,0,0,0)', backdropFilter: 'blur(0px)' }}
-              transition={{ duration: 0.35, ease: 'easeInOut', delay: 0.05 }}
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) closeModal();
-              }}
-            />
-
-            {/* Модальне вікно */}
-            <motion.div
-              ref={modalRef}
-              className="
-                relative bg-white rounded-2xl shadow-2xl overflow-hidden
-                w-[95vw] max-w-4xl sm:max-w-5xl 
-                max-h-[90vh] flex flex-col md:grid md:grid-cols-[1fr_360px]
-              "
-              initial={{ scale: 0.96, y: 10, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.96, y: 10, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              role="dialog"
-              aria-modal="true"
-              tabIndex={-1}
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              key={`modal-${selectedPlant.id}`}
             >
-              {/* кнопка закриття (завжди видима, темна іконка) */}
-              <button
-                ref={closeBtnRef}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeModal();
-                }}
-                aria-label="Close"
-                className="absolute top-3 right-3 z-50 bg-white/95 p-2 rounded-full shadow-md hover:bg-gray-200 focus:outline-none transition-transform hover:scale-110"
+              {/* Backdrop */}
+              <motion.div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={closeModal}
+              />
+
+              {/* Modal Content - Mobile Bottom Sheet, Desktop Center */}
+              <motion.div
+                ref={modalRef}
+                className="relative bg-white w-full max-w-2xl sm:max-w-4xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:flex-row max-h-[90vh] sm:max-h-[80vh]"
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '100%', opacity: 0 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
               >
-                <X size={22} className="text-black" />
-              </button>
-
-              {/* LEFT: карусель зображень */}
-              <div className="relative flex items-center justify-center bg-gray-50 overflow-hidden">
-                {/* розмитий фон */}
-                <div
-                  aria-hidden
-                  className="absolute inset-0 bg-center bg-cover blur-2xl opacity-30 scale-105"
-                  style={{ backgroundImage: `url(${currentImage})` }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
-
-                {/* слайдер */}
-                <div
-                  ref={trackRef}
-                  className="relative w-full h-[60vh] sm:h-[65vh] flex transition-transform duration-500 ease-in-out"
-                  style={{
-                    transform: `translateX(-${index * 100}%)`,
-                    touchAction: 'pan-y',
-                  }}
+                {/* Close Button */}
+                <button
+                  ref={closeBtnRef}
+                  onClick={closeModal}
+                  className="absolute top-3 right-3 z-50 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200 sm:top-4 sm:right-4"
                 >
-                  {images.map((src, i) => (
-                    <div key={i} className="min-w-full flex items-center justify-center bg-white">
-                      <div className="relative w-full h-full flex items-center justify-center">
-                        <Image
-                          src={src}
-                          alt={`${selectedPlant.name} ${i + 1}`}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 800px"
-                          className="object-contain transition-transform duration-500 rounded-md"
-                        />
+                  <X size={18} className="text-gray-700 sm:w-5 sm:h-5" />
+                </button>
+
+                {/* Image Section - Mobile First */}
+                <div className="relative h-64 sm:h-auto sm:flex-1 bg-gradient-to-br from-emerald-50 to-cyan-50 min-h-[40vh] sm:min-h-[500px]">
+                  {/* Background Blur */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-2xl opacity-20 scale-110"
+                    style={{ backgroundImage: `url(${currentImage})` }}
+                  />
+
+                  {/* Main Image - Click to fullscreen on mobile */}
+                  <div 
+                    className="relative w-full h-full flex items-center justify-center p-4"
+                    onClick={() => window.innerWidth < 640 && setIsFullscreen(true)}
+                  >
+                    <div className="relative w-full h-full max-w-2xl flex items-center justify-center">
+                      <OptimizedImage
+                        src={currentImage}
+                        alt={`${selectedPlant.name} ${currentIndex + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 100vw, 50vw"
+                        className="object-contain"
+                        priority
+                        onError={() => handleImageError(currentIndex)}
+                      />
+                    </div>
+
+                    {/* Fullscreen Button - Mobile Only */}
+                    {window.innerWidth < 640 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsFullscreen(true);
+                        }}
+                        className="absolute bottom-3 right-3 z-30 bg-black/50 text-white p-2 rounded-full backdrop-blur-sm"
+                      >
+                        <Maximize2 size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Navigation Arrows - Desktop Only */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        onClick={prev}
+                        className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-30 p-3 rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200"
+                      >
+                        <ChevronLeft size={20} className="text-gray-700" />
+                      </button>
+                      <button
+                        onClick={next}
+                        className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-30 p-3 rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200"
+                      >
+                        <ChevronRight size={20} className="text-gray-700" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Image Counter */}
+                  {images.length > 1 && (
+                    <div className="absolute top-3 left-3 z-30 bg-black/50 text-white px-2 py-1 rounded-full text-xs font-medium backdrop-blur-sm sm:top-4 sm:left-4">
+                      {currentIndex + 1} / {images.length}
+                    </div>
+                  )}
+
+                  {/* Thumbnails - Mobile Optimized */}
+                  {images.length > 1 && (
+                    <div className="absolute bottom-2 left-2 right-2 sm:bottom-4 sm:left-4 sm:right-4">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-2 sm:p-3">
+                        <div className="flex gap-2 overflow-x-auto py-1 scrollbar-thin">
+                          {renderThumbnails()}
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
 
-                {/* стрелки */}
-                {images.length > 1 && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        prev();
-                      }}
-                      aria-label="Previous"
-                      className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/95 shadow-lg hover:bg-gray-200 transition-transform hover:scale-110"
-                    >
-                      <ChevronLeft size={26} className="text-black" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        next();
-                      }}
-                      aria-label="Next"
-                      className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/95 shadow-lg hover:bg-gray-200 transition-transform hover:scale-110"
-                    >
-                      <ChevronRight size={26} className="text-black" />
-                    </button>
-                  </>
-                )}
-              </div>
+                {/* Product Info - Scrollable */}
+                <div className="flex-1 p-4 sm:p-6 overflow-y-auto max-h-[50vh] sm:max-h-none">
+                  <div className="space-y-4 sm:space-y-6">
+                    {/* Header */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        {getProductInfo(selectedPlant).isPopular && (
+                          <span className="bg-gradient-to-r from-orange-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                            Popular
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-1 rounded-full text-xs">
+                          <Star size={12} className="fill-amber-400 text-amber-400" />
+                          <span className="font-semibold">{getProductInfo(selectedPlant).rating.toFixed(1)}</span>
+                          <span className="text-amber-600">({getProductInfo(selectedPlant).reviewCount})</span>
+                        </div>
+                      </div>
+                      
+                      <h2 className="text-xl font-bold text-gray-900 mb-2 sm:text-2xl">{selectedPlant.name}</h2>
+                      <p className="text-gray-600 text-sm sm:text-base leading-relaxed">{selectedPlant.description}</p>
+                    </div>
 
-              {/* RIGHT: опис */}
-              <div className="p-5 sm:p-7 relative overflow-y-auto">
-                <h2 className="text-2xl font-semibold text-gray-900">{selectedPlant.name}</h2>
-                <p className="text-sm text-gray-600 mt-2">{selectedPlant.description}</p>
+                    {/* Price */}
+                    <div className="flex items-center gap-3">
+                      <div className="text-2xl font-bold text-emerald-700">${selectedPlant.price.toFixed(2)}</div>
+                      {getProductInfo(selectedPlant).originalPrice && (
+                        <>
+                          <div className="text-lg text-gray-400 line-through">
+                            ${getProductInfo(selectedPlant).originalPrice!.toFixed(2)}
+                          </div>
+                          <div className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-semibold">
+                            Save ${(getProductInfo(selectedPlant).originalPrice! - selectedPlant.price).toFixed(2)}
+                          </div>
+                        </>
+                      )}
+                    </div>
 
-                <div className="mt-5 flex items-center gap-4">
-                  <div className="text-2xl font-bold text-green-700">${selectedPlant.price.toFixed(2)}</div>
-                  <button className="ml-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition">
-                    <ShoppingCart size={16} /> Add to cart
-                  </button>
-                </div>
+                    {/* Features */}
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      {productFeatures.map((feature, i) => (
+                        <div key={i} className="flex items-center gap-2 text-gray-600">
+                          <feature.icon size={16} className="text-emerald-500 flex-shrink-0" />
+                          <span>{feature.text}</span>
+                        </div>
+                      ))}
+                    </div>
 
-                {/* мини-превью */}
-                <div className="mt-6 select-none relative">
-                  {/* маска для країв */}
-                  <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-10" />
-                  <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10" />
+                    {/* Care Info */}
+                    <div className="pt-3 border-t border-gray-200">
+                      <h3 className="font-semibold text-gray-900 mb-2 text-sm">Care Instructions</h3>
+                      <div className="grid grid-cols-1 gap-2">
+                        {careFeatures.map((feature, i) => (
+                          <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm">
+                            <feature.icon size={16} className="text-emerald-500 flex-shrink-0" />
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{feature.text}</div>
+                              <div className="text-gray-600">{feature.level}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-                  <div className="flex gap-3 overflow-x-auto px-3 py-3 snap-x snap-mandatory scrollbar-thin scroll-smooth">
-                    {images.map((src, i) => (
-                      <button
-                        key={i}
-                        ref={(el) => {
-                          // зберігаємо кнопку у масив refs; важливо — не викликаємо scrollIntoView тут
-                          if (el) thumbsRef.current[i] = el;
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIndex(i);
-                        }}
-                        className={`relative flex-shrink-0 snap-start w-24 h-20 md:w-28 md:h-22 rounded-xl overflow-hidden border-2 transition-all duration-300 
-                          ${i === index
-                            ? 'border-green-600 ring-4 ring-green-400/30 scale-105 shadow-lg'
-                            : 'border-transparent hover:scale-105 hover:shadow-md'
-                          }`}
-                        aria-label={`Thumbnail ${i + 1}`}
-                      >
-                        <Image
-                          src={src}
-                          alt={`Thumbnail ${i + 1}`}
-                          fill
-                          className="object-cover rounded-lg transition-transform duration-300"
-                        />
+                    {/* Action Buttons - Mobile Optimized */}
+                    <div className="space-y-3 pt-2">
+                      <div className="flex gap-2">
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => handleAddToCart(selectedPlant, e)}
+                          disabled={isAddingToCart}
+                          className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white py-3 px-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base"
+                        >
+                          {isAddingToCart ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Adding...
+                            </div>
+                          ) : (
+                            <>
+                              <ShoppingCart size={18} />
+                              Add to Cart
+                            </>
+                          )}
+                        </motion.button>
+                        
+                        <button
+                          onClick={(e) => toggleWishlist(selectedPlant.id.toString(), e)}
+                          className="p-3 rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 flex-shrink-0"
+                        >
+                          <Heart 
+                            size={18} 
+                            className={`transition-all ${
+                              wishlist.has(selectedPlant.id.toString()) 
+                                ? 'fill-red-500 text-red-500' 
+                                : 'text-gray-600'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      
+                      <button className="w-full py-2.5 px-4 rounded-xl border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-sm">
+                        <Share2 size={16} />
+                        Share Product
                       </button>
-                    ))}
-                  </div>
-
-                  {/* точки навігації */}
-                  <div className="mt-3 flex items-center justify-center gap-2">
-                    {images.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIndex(i);
-                        }}
-                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 
-                          ${i === index ? 'bg-green-700 scale-125' : 'bg-gray-300 hover:bg-gray-400'}`}
-                        aria-label={`Go to ${i + 1}`}
-                      />
-                    ))}
+                    </div>
                   </div>
                 </div>
-
-                {/* кнопки */}
-                <div className="mt-6 flex items-center gap-3">
-                  <button className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-full transition">
-                    Share
-                  </button>
-                  <button className="ml-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition">
-                    <ShoppingCart size={16} /> Buy
-                  </button>
-                </div>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
