@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Leaf, Sparkles, Sprout, Trees, ArrowRight, Play, Star, Shield, Truck, Clock, Users, Award } from "lucide-react";
+import Particles from "./components/Particles";
 
 export default function HomePage() {
   const { scrollY } = useScroll();
@@ -515,27 +516,8 @@ export default function HomePage() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-gray-900/95 via-gray-900/80 to-gray-900/95" />
             
-            {/* Animated particles */}
-            {[...Array(20)].map((_, i) => (
-              <motion.div
-                key={i}
-                animate={{
-                  y: [0, -100, 0],
-                  opacity: [0, 1, 0],
-                  scale: [0, 1, 0]
-                }}
-                transition={{
-                  duration: 3 + Math.random() * 2,
-                  repeat: Infinity,
-                  delay: Math.random() * 2
-                }}
-                className="absolute w-1 h-1 bg-emerald-400 rounded-full"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`
-                }}
-              />
-            ))}
+            {/* Fixed Animated particles - No random values */}
+            <Particles />
           </div>
 
           {/* Animated glow */}

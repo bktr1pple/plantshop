@@ -22,10 +22,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="uk">
-      <body className="bg-gray-50 text-gray-900 flex flex-col min-h-screen">
-        <Navbar />
-        <main className="flex-1 pt-17">{children}</main>
-        <Footer />
+      <body className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <div className="min-h-screen flex flex-col">
+          <Navbar />
+          {/* Видаляємо pt-17 звідси */}
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+        </div>
       </body>
     </html>
   );

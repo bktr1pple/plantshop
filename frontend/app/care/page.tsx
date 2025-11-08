@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from 'next/navigation';
 import { 
   Sprout, 
   Droplets, 
@@ -23,9 +24,87 @@ import {
   Heart
 } from "lucide-react";
 
+// Enhanced motion component that fixes the loading issues
+function AnimatedSection({ 
+  children, 
+  delay = 0,
+  className = "" 
+}: { 
+  children: React.ReactNode; 
+  delay?: number;
+  className?: string;
+}) {
+  const ref = useRef(null);
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated) {
+          setHasAnimated(true);
+        }
+      },
+      { 
+        threshold: 0.1,
+        rootMargin: '50px'
+      }
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => {
+      if (ref.current) {
+        observer.unobserve(ref.current);
+      }
+    };
+  }, [hasAnimated]);
+
+  // Fallback: if element is already in viewport on load, animate it
+  useEffect(() => {
+    const checkIfVisible = () => {
+      if (ref.current && !hasAnimated) {
+        const element = ref.current as HTMLElement;
+        const rect = element.getBoundingClientRect();
+        const isVisible = (
+          rect.top <= window.innerHeight * 0.9 &&
+          rect.bottom >= window.innerHeight * 0.1
+        );
+        
+        if (isVisible) {
+          setHasAnimated(true);
+        }
+      }
+    };
+
+    checkIfVisible();
+    const timer = setTimeout(checkIfVisible, 300);
+
+    return () => clearTimeout(timer);
+  }, [hasAnimated]);
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={hasAnimated ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+      transition={{ 
+        duration: 0.7, 
+        delay: hasAnimated ? delay : 0,
+        ease: "easeOut" 
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export default function PlantCarePage() {
   const [activeTab, setActiveTab] = useState("watering");
   const [activeSeason, setActiveSeason] = useState("spring");
+  const pathname = usePathname();
 
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -34,6 +113,16 @@ export default function PlantCarePage() {
   });
   const y = useTransform(scrollYProgress, [0, 1], [0, 100]);
   const opacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+
+  // Force re-check of animations when route changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('scroll'));
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   const careCategories = [
     {
@@ -212,11 +301,11 @@ export default function PlantCarePage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="content-with-navbar flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* 🌿 Hero Section */}
       <section 
         ref={heroRef}
-        className="relative min-h-[60vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20"
+        className="relative min-h-[50vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20"
       >
         {/* Background Elements */}
         <motion.div 
@@ -229,275 +318,217 @@ export default function PlantCarePage() {
         </motion.div>
 
         <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="mb-6"
-          >
-            <span className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-4 py-2 rounded-full text-sm font-medium border border-emerald-200 dark:border-emerald-800">
-              <Sparkles className="w-4 h-4" />
-              Догляд за рослинами
-            </span>
-          </motion.div>
+          <AnimatedSection>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight">
+              <span className="text-gray-900 dark:text-white">Майстерня</span>
+              <br />
+              <span className="bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent dark:from-emerald-400 dark:to-green-300">
+                догляду
+              </span>
+            </h1>
+          </AnimatedSection>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight"
-          >
-            <span className="text-gray-900 dark:text-white">Майстерня</span>
-            <br />
-            <span className="bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent dark:from-emerald-400 dark:to-green-300">
-              догляду
-            </span>
-          </motion.h1>
+          <AnimatedSection delay={0.2}>
+            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-8 leading-relaxed">
+              Професійні поради, покрокові інструкції та секрети досвідчених флористів 
+              для здорового та красивого росту ваших рослин
+            </p>
+          </AnimatedSection>
 
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-8 leading-relaxed"
-          >
-            Професійні поради, покрокові інструкції та секрети досвідчених флористів 
-            для здорового та красивого росту ваших рослин
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center"
-          >
-            <a
-              href="#care-guides"
-              className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-4 px-8 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
-            >
-              <BookOpen className="w-5 h-5" />
-              Почати навчання
-            </a>
-            <Link
-              href="/plants"
-              className="inline-flex items-center gap-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-4 px-8 rounded-2xl hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300"
-            >
-              Обрати рослини
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-          </motion.div>
+          <AnimatedSection delay={0.4}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <a
+                href="#care-guides"
+                className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-4 px-8 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
+              >
+                <BookOpen className="w-5 h-5" />
+                Почати навчання
+              </a>
+              <Link
+                href="/plants"
+                className="inline-flex items-center gap-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-4 px-8 rounded-2xl hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300"
+              >
+                Обрати рослини
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            </div>
+          </AnimatedSection>
         </div>
       </section>
 
       {/* 📚 Quick Care Guides */}
       <section id="care-guides" className="py-20 bg-white dark:bg-gray-900">
         <div className="max-w-6xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <AnimatedSection className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
               Основи <span className="text-emerald-600 dark:text-emerald-400">догляду</span>
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Все, що вам потрібно знати для успішного догляду за комнатними рослинами
             </p>
-          </motion.div>
+          </AnimatedSection>
 
           {/* Care Categories Navigation */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="flex overflow-x-auto gap-2 mb-12 pb-4 scrollbar-hide"
-          >
-            {careCategories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveTab(category.id)}
-                className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-semibold whitespace-nowrap transition-all duration-300 ${
-                  activeTab === category.id
-                    ? `bg-gradient-to-r ${category.color} text-white shadow-lg scale-105`
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                }`}
-              >
-                {category.icon}
-                {category.title}
-              </button>
-            ))}
-          </motion.div>
+          <AnimatedSection delay={0.1} className="mb-12">
+            <div className="flex overflow-x-auto gap-2 pb-4 scrollbar-hide">
+              {careCategories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveTab(category.id)}
+                  className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-semibold whitespace-nowrap transition-all duration-300 ${
+                    activeTab === category.id
+                      ? `bg-gradient-to-r ${category.color} text-white shadow-lg scale-105`
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {category.icon}
+                  {category.title}
+                </button>
+              ))}
+            </div>
+          </AnimatedSection>
 
           {/* Active Category Content */}
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-gray-50 dark:bg-gray-800/50 rounded-3xl p-8 mb-16"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                  {careCategories.find(c => c.id === activeTab)?.title}
-                </h3>
-                <div className="space-y-4">
-                  {careCategories.find(c => c.id === activeTab)?.tips.map((tip, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-emerald-500 mt-1 flex-shrink-0" />
-                      <p className="text-gray-700 dark:text-gray-300">{tip}</p>
-                    </div>
-                  ))}
+          <AnimatedSection key={activeTab} delay={0.2}>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-3xl p-8 mb-16">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                    {careCategories.find(c => c.id === activeTab)?.title}
+                  </h3>
+                  <div className="space-y-4">
+                    {careCategories.find(c => c.id === activeTab)?.tips.map((tip, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <CheckCircle className="w-5 h-5 text-emerald-500 mt-1 flex-shrink-0" />
+                        <p className="text-gray-700 dark:text-gray-300">{tip}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
-                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                  Корисні поради
-                </h4>
-                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-emerald-500" />
-                    <span>Регулярність - ключ до успіху</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Leaf className="w-4 h-4 text-emerald-500" />
-                    <span>Спостерігайте за реакцією рослини</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-emerald-500" />
-                    <span>Кожна рослина - індивідуальна</span>
+                
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+                  <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                    Корисні поради
+                  </h4>
+                  <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-emerald-500" />
+                      <span>Регулярність - ключ до успіху</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Leaf className="w-4 h-4 text-emerald-500" />
+                      <span>Спостерігайте за реакцією рослини</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-emerald-500" />
+                      <span>Кожна рослина - індивідуальна</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </motion.div>
+          </AnimatedSection>
         </div>
       </section>
 
       {/* 🌸 Seasonal Care */}
       <section className="py-20 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-6xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <AnimatedSection className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
               Сезонний <span className="text-emerald-600 dark:text-emerald-400">догляд</span>
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Адаптуйте догляд за рослинами відповідно до пори року
             </p>
-          </motion.div>
+          </AnimatedSection>
 
           {/* Season Selector */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12"
-          >
-            {Object.entries(seasonalCare).map(([key, season]) => (
-              <button
-                key={key}
-                onClick={() => setActiveSeason(key)}
-                className={`p-6 rounded-2xl text-center transition-all duration-300 ${
-                  activeSeason === key
-                    ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
-                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <div className="text-2xl mb-2">{season.title.split(' ')[1]}</div>
-                <div className="font-semibold">{season.title.split(' ')[0]}</div>
-              </button>
-            ))}
-          </motion.div>
+          <AnimatedSection delay={0.1} className="mb-12">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(seasonalCare).map(([key, season]) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveSeason(key)}
+                  className={`p-6 rounded-2xl text-center transition-all duration-300 ${
+                    activeSeason === key
+                      ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
+                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <div className="text-2xl mb-2">{season.title.split(' ')[1]}</div>
+                  <div className="font-semibold">{season.title.split(' ')[0]}</div>
+                </button>
+              ))}
+            </div>
+          </AnimatedSection>
 
           {/* Season Content */}
-          <motion.div
-            key={activeSeason}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-2">
-              <div className="p-8">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                  {seasonalCare[activeSeason].title} - Основні завдання
-                </h3>
-                <div className="space-y-4">
-                  {seasonalCare[activeSeason].tasks.map((task, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                        <span className="text-emerald-600 dark:text-emerald-400 text-sm font-bold">
-                          {index + 1}
-                        </span>
+          <AnimatedSection key={activeSeason} delay={0.2}>
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2">
+                <div className="p-8">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                    {seasonalCare[activeSeason].title} - Основні завдання
+                  </h3>
+                  <div className="space-y-4">
+                    {seasonalCare[activeSeason].tasks.map((task, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                          <span className="text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+                            {index + 1}
+                          </span>
+                        </div>
+                        <p className="text-gray-700 dark:text-gray-300">{task}</p>
                       </div>
-                      <p className="text-gray-700 dark:text-gray-300">{task}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-              
-              <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-8 text-white">
-                <h4 className="text-xl font-bold mb-4">Сезонні особливості</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Sun className="w-5 h-5" />
-                    <span>Тривалість світлового дня змінюється</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Thermometer className="w-5 h-5" />
-                    <span>Температура в приміщенні може коливатися</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Droplets className="w-5 h-5" />
-                    <span>Вологість повітря залежить від сезону</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Zap className="w-5 h-5" />
-                    <span>Період активного росту або спокою</span>
+                
+                <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-8 text-white">
+                  <h4 className="text-xl font-bold mb-4">Сезонні особливості</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Sun className="w-5 h-5" />
+                      <span>Тривалість світлового дня змінюється</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Thermometer className="w-5 h-5" />
+                      <span>Температура в приміщенні може коливатися</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Droplets className="w-5 h-5" />
+                      <span>Вологість повітря залежить від сезону</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Zap className="w-5 h-5" />
+                      <span>Період активного росту або спокою</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </motion.div>
+          </AnimatedSection>
         </div>
       </section>
 
       {/* 🌿 Plant Type Guides */}
       <section className="py-20 bg-white dark:bg-gray-900">
         <div className="max-w-6xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <AnimatedSection className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
               Догляд за типами <span className="text-emerald-600 dark:text-emerald-400">рослин</span>
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Кожен тип рослин має свої особливості догляду
             </p>
-          </motion.div>
+          </AnimatedSection>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plantTypes.map((plant, index) => (
-              <motion.div
+              <AnimatedSection 
                 key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
+                delay={index * 0.1}
                 className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border border-gray-100 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3 mb-4">
@@ -525,7 +556,7 @@ export default function PlantCarePage() {
                 <button className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-xl font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300">
                   Детальний гід
                 </button>
-              </motion.div>
+              </AnimatedSection>
             ))}
           </div>
         </div>
@@ -534,30 +565,18 @@ export default function PlantCarePage() {
       {/* 🩺 Problem Solver */}
       <section className="py-20 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-6xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <AnimatedSection className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
               Діагностика <span className="text-emerald-600 dark:text-emerald-400">проблем</span>
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Знайдіть рішення для поширених проблем з рослинами
             </p>
-          </motion.div>
+          </AnimatedSection>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Common Problems */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-              className="space-y-6"
-            >
+            <AnimatedSection className="space-y-6">
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
                 Поширені симптоми
               </h3>
@@ -586,16 +605,10 @@ export default function PlantCarePage() {
                   </div>
                 </div>
               ))}
-            </motion.div>
+            </AnimatedSection>
 
             {/* Expert Help */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-              className="space-y-6"
-            >
+            <AnimatedSection delay={0.2} className="space-y-6">
               <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-3xl p-8 text-white">
                 <h3 className="text-2xl font-bold mb-4">
                   Потрібна допомога експерта?
@@ -657,7 +670,7 @@ export default function PlantCarePage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </AnimatedSection>
           </div>
         </div>
       </section>
@@ -665,13 +678,7 @@ export default function PlantCarePage() {
       {/* 🎯 Final CTA */}
       <section className="py-20 bg-gradient-to-r from-emerald-600 to-green-700 text-white">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="space-y-8"
-          >
+          <AnimatedSection className="space-y-8">
             <h2 className="text-4xl md:text-5xl font-bold">
               Станьте експертом з догляду за рослинами!
             </h2>
@@ -713,7 +720,7 @@ export default function PlantCarePage() {
                 <span>Практичні майстер-класи</span>
               </div>
             </div>
-          </motion.div>
+          </AnimatedSection>
         </div>
       </section>
     </div>

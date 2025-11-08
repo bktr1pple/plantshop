@@ -157,6 +157,18 @@ html, body {
   background-color: #ffffff;
   scroll-behavior: smooth;
 }
-nav {
-  box-sizing: border-box;
+:root {
+  --navbar-height: 4.25rem; /* 68px - еквівалент pt-17 */
+}
+
+/* Автоматична корекція висоти для мобільних */
+@media (max-width: 768px) {
+  :root {
+    --navbar-height: 4rem; /* 64px */
+  }
+}
+
+/* Додайте цей клас до ваших сторінок */
+.content-with-navbar {
+  padding-top: var(--navbar-height);
 }
