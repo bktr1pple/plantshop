@@ -6,19 +6,56 @@ import { LoginDto } from './dto/login.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
+export async function verifyCaptcha(token: string): Promise<boolean> {
+  const secret = process.env.RECAPTCHA_SECRET_KEY; // secret ключ для бекенду
+  if (!secret) throw new Error("Не заданий RECAPTCHA_SECRET_KEY");
+
+  const params = new URLSearchParams();
+  params.append("secret", secret);
+  params.append("response", token);
+
+  const response = await fetch(
+    "https://www.google.com/recaptcha/api/siteverify",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    }
+  );
+
+  const data = await response.json();
+  return data.success;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService, private prisma: PrismaService) {}
 
   @Post('register')
   async register(@Body() dto: RegisterDto) {
+    const captchaValid = await verifyCaptcha(dto.captchaToken);
+    if (!captchaValid) {
+      return { status: 'error', message: 'Ви не пройшли перевірку reCAPTCHA!' };
+    }
+
     const user = await this.authService.register(dto.email, dto.password, dto.name);
     return { status: 'ok', user };
   }
 
   @HttpCode(200)
   @Post('login')
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() body: LoginDto & { captchaToken: string },
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const { captchaToken, ...dto } = body;
+
+    // Перевірка reCAPTCHA
+    const captchaValid = await verifyCaptcha(captchaToken);
+    if (!captchaValid)
+      return { status: 'error', message: 'Ви не пройшли перевірку reCAPTCHA!' };
+
+    // Перевірка користувача
     const user = await this.authService.validateUser(dto.email, dto.password);
     if (!user) return { status: 'error', message: 'Невірний email або пароль' };
 

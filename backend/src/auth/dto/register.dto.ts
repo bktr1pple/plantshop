@@ -11,4 +11,7 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @IsString()
+  captchaToken: string; // додали токен reCAPTCHA
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Menu, X, User, Mail, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReCAPTCHA from 'react-google-recaptcha';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -11,6 +12,8 @@ export default function Navbar() {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -45,27 +48,35 @@ export default function Navbar() {
     } catch {}
   };
 
+  const captchaRef = useRef<ReCAPTCHA>(null);
+
   // 📥 Логін або реєстрація
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const endpoint =
-      activeTab === "login" ? "login" : "register";
+    if (!captchaToken) {
+      setError("Підтвердіть, що ви не робот");
+      setLoading(false);
+      return;
+    }
+
+    const endpoint = activeTab === "login" ? "login" : "register";
 
     try {
       const res = await fetch(`http://localhost:3001/auth/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, captchaToken }),
       });
 
       const data = await res.json();
       if (data.status === "ok") {
         await fetchUser();
         setShowAuth(false);
+        setCaptchaToken(null);
       } else {
         setError(data.message || "Помилка входу");
       }
@@ -73,6 +84,8 @@ export default function Navbar() {
       setError("Сервер недоступний");
     } finally {
       setLoading(false);
+      setCaptchaToken(null);
+      captchaRef.current?.reset(); // 🔑 оновлюємо reCAPTCHA після submit
     }
   };
 
@@ -311,6 +324,15 @@ export default function Navbar() {
                         </a>
                       </div>
                     )}
+
+                    {/* reCAPTCHA */}
+                    <div className="flex justify-center">
+                      <ReCAPTCHA
+                        ref={captchaRef}
+                        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!} // твій site key з .env
+                        onChange={(token) => setCaptchaToken(token)}
+                      />
+                    </div>
 
                     {/* Error message */}
                     {error && <p className="text-red-500 text-sm text-center">{error}</p>}

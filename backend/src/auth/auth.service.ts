@@ -16,7 +16,7 @@ export class AuthService {
 
   async register(email: string, password: string, name?: string) {
     const exists = await this.prisma.user.findUnique({ where: { email } });
-    if (exists) throw new BadRequestException('Email already registered');
+    if (exists) throw new BadRequestException('Обліковий запис з таким email вже існує');
 
     const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
     const hashed = await bcrypt.hash(password, saltRounds);
