@@ -30,6 +30,11 @@ export default function Navbar() {
   const [wishlistItems, setWishlistItems] = useState(2);
   const [activeMobileSubmenu, setActiveMobileSubmenu] = useState<string | null>(null);
 
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [wishlistModalOpen, setWishlistModalOpen] = useState(false);
+  
+  const { totalItems } = useCart();
+
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -47,6 +52,16 @@ export default function Navbar() {
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const authModalRef = useRef<HTMLDivElement>(null);
   const searchModalRef = useRef<HTMLDivElement>(null);
+
+  const openCartModal = () => {
+    setOpen(false);
+    setCartModalOpen(true);
+  };
+
+  const openWishlistModal = () => {
+    setOpen(false);
+    setWishlistModalOpen(true);
+  };
 
   // Memoized navigation links to prevent unnecessary recalculations
   const links = useMemo(() => [
@@ -357,17 +372,12 @@ export default function Navbar() {
     setActiveMobileSubmenu(activeMobileSubmenu === label ? null : label);
   };
 
-  const [cartModalOpen, setCartModalOpen] = useState(false);
-  const [wishlistModalOpen, setWishlistModalOpen] = useState(false);
-  
-  const { totalItems } = useCart();
-
   // Десктоп версия кнопок
   const desktopButtons = (
     <>
       {/* Wishlist Button */}
       <button 
-        onClick={() => setWishlistModalOpen(true)}
+        onClick={openWishlistModal}
         className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
       >
         <Heart className="w-5 h-5" />
@@ -380,7 +390,7 @@ export default function Navbar() {
 
       {/* Cart Button */}
       <button 
-        onClick={() => setCartModalOpen(true)}
+        onClick={openCartModal}
         className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
       >
         <ShoppingBag className="w-5 h-5" />
@@ -397,7 +407,7 @@ export default function Navbar() {
   const mobileButtons = (
     <>
       <button 
-        onClick={() => setWishlistModalOpen(true)}
+        onClick={openWishlistModal}
         className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
       >
         <Heart className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
@@ -410,7 +420,7 @@ export default function Navbar() {
       </button>
       
       <button 
-        onClick={() => setCartModalOpen(true)}
+        onClick={openCartModal}
         className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
       >
         <ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
