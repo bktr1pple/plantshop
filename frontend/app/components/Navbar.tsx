@@ -9,6 +9,11 @@ import ReCAPTCHA from 'react-google-recaptcha';
 // Import our new theme system
 import { useTheme } from '@/components/ThemeContext';
 
+import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { CartModal } from '@/components/CartModal';
+import { WishlistModal } from '@/components/WishlistModal';
+
 // Optimized motion components with LazyMotion
 const MotionNav = m.nav;
 const MotionDiv = m.div;
@@ -352,8 +357,84 @@ export default function Navbar() {
     setActiveMobileSubmenu(activeMobileSubmenu === label ? null : label);
   };
 
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [wishlistModalOpen, setWishlistModalOpen] = useState(false);
+  
+  const { totalItems } = useCart();
+
+  // Десктоп версия кнопок
+  const desktopButtons = (
+    <>
+      {/* Wishlist Button */}
+      <button 
+        onClick={() => setWishlistModalOpen(true)}
+        className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
+      >
+        <Heart className="w-5 h-5" />
+        {wishlistItems > 0 && (
+          <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            {wishlistItems}
+          </span>
+        )}
+      </button>
+
+      {/* Cart Button */}
+      <button 
+        onClick={() => setCartModalOpen(true)}
+        className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
+      >
+        <ShoppingBag className="w-5 h-5" />
+        {totalItems > 0 && (
+          <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            {totalItems}
+          </span>
+        )}
+      </button>
+    </>
+  );
+
+  // Мобильная версия кнопок
+  const mobileButtons = (
+    <>
+      <button 
+        onClick={() => setWishlistModalOpen(true)}
+        className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
+      >
+        <Heart className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+        <span className="text-xs text-gray-600 dark:text-gray-400">Обране</span>
+        {wishlistItems > 0 && (
+          <span className="absolute top-1 right-2 bg-rose-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+            {wishlistItems}
+          </span>
+        )}
+      </button>
+      
+      <button 
+        onClick={() => setCartModalOpen(true)}
+        className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
+      >
+        <ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+        <span className="text-xs text-gray-600 dark:text-gray-400">Кошик</span>
+        {totalItems > 0 && (
+          <span className="absolute top-1 right-2 bg-emerald-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+            {totalItems}
+          </span>
+        )}
+      </button>
+    </>
+  );
+
   return (
     <LazyMotion features={domAnimation} strict>
+      {/* Модальные окна */}
+      <CartModal 
+        isOpen={cartModalOpen} 
+        onClose={() => setCartModalOpen(false)} 
+      />
+      <WishlistModal 
+        isOpen={wishlistModalOpen} 
+        onClose={() => setWishlistModalOpen(false)} 
+      />
       {/* 🧭 Enhanced Navbar */}
       <MotionNav
         variants={navVariants}
@@ -449,25 +530,7 @@ export default function Navbar() {
                 </AnimatePresence>
               </button>
 
-              {/* Wishlist */}
-              <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300">
-                <Heart className="w-5 h-5" />
-                {wishlistItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {wishlistItems}
-                  </span>
-                )}
-              </button>
-
-              {/* Cart */}
-              <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300">
-                <ShoppingBag className="w-5 h-5" />
-                {cartItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {cartItems}
-                  </span>
-                )}
-              </button>
+              {desktopButtons}
 
               {/* User Auth */}
               {user ? (
@@ -600,24 +663,7 @@ export default function Navbar() {
                     <Search className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
                     <span className="text-xs text-gray-600 dark:text-gray-400">Пошук</span>
                   </button>
-                  <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
-                    <Heart className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Обране</span>
-                    {wishlistItems > 0 && (
-                      <span className="absolute top-1 right-2 bg-rose-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                        {wishlistItems}
-                      </span>
-                    )}
-                  </button>
-                  <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
-                    <ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Кошик</span>
-                    {cartItems > 0 && (
-                      <span className="absolute top-1 right-2 bg-emerald-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                        {cartItems}
-                      </span>
-                    )}
-                  </button>
+                  {mobileButtons}
                   {/* NEW: Enhanced Mobile Theme Toggle */}
                   <button 
                     onClick={handleThemeToggle}

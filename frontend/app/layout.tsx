@@ -6,6 +6,8 @@ import Navbar from './components/Navbar';
 import Footer from "./components/Footer";
 import { ThemeProvider } from '@/components/ThemeContext';
 import { EnhancedThemeRipple } from '@/components/EnhancedThemeRipple';
+import { CartProvider } from '@/contexts/CartContext';
+import { WishlistProvider } from '@/contexts/WishlistContext';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,14 +50,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300`}>
         <ThemeProvider>
-          <EnhancedThemeRipple />
-          <div className="min-h-screen flex flex-col">
-            <Navbar />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-          </div>
+          <CartProvider>
+            <WishlistProvider>
+              <EnhancedThemeRipple />
+              <div className="min-h-screen flex flex-col">
+                <Navbar />
+                <main className="flex-1">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+            </WishlistProvider>
+          </CartProvider>
         </ThemeProvider>
       </body>
     </html>

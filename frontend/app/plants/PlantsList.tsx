@@ -6,6 +6,9 @@ import { ShoppingCart, X, ChevronLeft, ChevronRight, Heart, Share2, Star, Truck,
 import Image from 'next/image';
 import { Plant } from '../types/plant';
 
+import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
+
 // Optimized motion components
 const MotionDiv = m.div;
 const MotionArticle = m.article;
@@ -65,6 +68,9 @@ const useMobile = () => {
 };
 
 export default function PlantsList({ plants }: Props) {
+  const { addToCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
@@ -200,21 +206,37 @@ export default function PlantsList({ plants }: Props) {
     };
   }, [isModalOpen, next, prev, isMobile]);
 
-  const toggleWishlist = (plantId: string, e?: React.MouseEvent) => {
+  const toggleWishlist = (plant: Plant, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setWishlist(prev => {
-      const newSet = new Set(prev);
-      newSet.has(plantId) ? newSet.delete(plantId) : newSet.add(plantId);
-      return newSet;
-    });
+    const plantId = plant.id.toString();
+    
+    if (isInWishlist(plantId)) {
+      removeFromWishlist(plantId);
+    } else {
+      addToWishlist({
+        id: plantId,
+        name: plant.name,
+        price: plant.price,
+        image: plant.images?.[0] ?? '/images/placeholder.jpg'
+      });
+    }
   };
 
   const handleAddToCart = async (plant: Plant, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setIsAddingToCart(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Добавляем в корзину
+    addToCart({
+      id: plant.id.toString(),
+      name: plant.name,
+      price: plant.price,
+      image: plant.images?.[0] ?? '/images/placeholder.jpg'
+    });
+    
+    // Оставляем анимацию загрузки для UX
+    await new Promise(resolve => setTimeout(resolve, 500));
     setIsAddingToCart(false);
-    console.log('Added to cart:', plant.name);
   };
 
   const handleImageError = (index: number) => {
@@ -364,7 +386,7 @@ export default function PlantsList({ plants }: Props) {
 
   return (
     <LazyMotion features={domAnimation} strict>
-      <div className="relative min-h-screen bg-gradient-to-br from-emerald-50/30 to-cyan-50/30 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+      <div className="content-with-navbar relative min-h-screen bg-gradient-to-br from-emerald-50/30 to-cyan-50/30 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
         {/* Background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-200/20 dark:bg-emerald-900/10 rounded-full blur-3xl" />
@@ -380,10 +402,6 @@ export default function PlantsList({ plants }: Props) {
               transition={{ duration: 0.6 }}
               style={{ willChange: 'transform, opacity' }}
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium mb-4">
-                <Zap size={16} />
-                Fresh Plants Delivered Weekly
-              </div>
               <h1 className="text-4xl sm:text-6xl font-bold mb-4 bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
                 Green Paradise
               </h1>
@@ -420,14 +438,14 @@ export default function PlantsList({ plants }: Props) {
                   )}
 
                   <button
-                    onClick={(e) => toggleWishlist(plant.id.toString(), e)}
+                    onClick={(e) => toggleWishlist(plant, e)}
                     className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
                     style={{ willChange: 'transform' }}
                   >
                     <Heart 
                       size={16} 
                       className={`transition-all duration-200 ${
-                        wishlist.has(plant.id.toString()) 
+                        isInWishlist(plant.id.toString())
                           ? 'fill-red-500 text-red-500 scale-110' 
                           : 'text-gray-600 dark:text-gray-400 hover:text-red-400'
                       }`}
@@ -688,13 +706,13 @@ export default function PlantsList({ plants }: Props) {
                           </MotionButton>
                           
                           <button
-                            onClick={(e) => toggleWishlist(selectedPlant.id.toString(), e)}
+                            onClick={(e) => toggleWishlist(selectedPlant, e)}
                             className="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 flex-shrink-0"
                           >
                             <Heart 
                               size={18} 
                               className={`transition-all ${
-                                wishlist.has(selectedPlant.id.toString()) 
+                                isInWishlist(selectedPlant.id.toString()) 
                                   ? 'fill-red-500 text-red-500' 
                                   : 'text-gray-600 dark:text-gray-400'
                               }`}
