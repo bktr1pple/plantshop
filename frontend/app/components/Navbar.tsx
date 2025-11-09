@@ -1,65 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Menu, X, User, Mail, Lock, Search, ShoppingBag, Heart, ChevronDown, Sun, Moon, Sparkles, ChevronRight } from "lucide-react";
-import { LazyMotion, m, domAnimation, AnimatePresence } from "framer-motion";
-import dynamic from "next/dynamic";
+import { LazyMotion, m, AnimatePresence, domAnimation, cubicBezier, Variants } from "framer-motion";
 
-// Dynamically import heavy components
-import { ReCAPTCHA as ReCAPTCHAComponent } from 'react-google-recaptcha';
+import ReCAPTCHA from 'react-google-recaptcha';
 
-// Fix the dynamic import and type reference
-const ReCAPTCHA = dynamic(() => import('react-google-recaptcha'), {
-  ssr: false,
-  loading: () => <div className="h-12 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-}) as typeof ReCAPTCHAComponent;
-
-// Mobile detection hook with performance optimization
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    // Use debounce to prevent excessive re-renders
-    let timeoutId: NodeJS.Timeout;
-    const debouncedCheck = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(checkMobile, 100);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', debouncedCheck);
-    return () => {
-      window.removeEventListener('resize', debouncedCheck);
-      clearTimeout(timeoutId);
-    };
-  }, []);
-  
-  return isMobile;
-};
-
-// Performance-optimized stagger configuration
-const useStaggerConfig = (baseTime = 0.1) => {
-  const isMobile = useIsMobile();
-  return useMemo(() => ({
-    staggerChildren: isMobile ? baseTime * 0.3 : baseTime,
-    delayChildren: isMobile ? 0.1 : 0.2
-  }), [isMobile, baseTime]);
-};
-
-// Hardware-accelerated CSS for Safari
-const hardwareAcceleratedStyles: React.CSSProperties = {
-  transform: 'translateZ(0)',
-  willChange: 'transform, opacity',
-  WebkitBackfaceVisibility: 'hidden',
-  WebkitFontSmoothing: 'antialiased',
-  WebkitTransform: 'translateZ(0)'
-};
+// Optimized motion components with LazyMotion
+const MotionNav = m.nav;
+const MotionDiv = m.div;
+const MotionP = m.p;
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -72,6 +23,7 @@ export default function Navbar() {
   const [cartItems, setCartItems] = useState(3);
   const [wishlistItems, setWishlistItems] = useState(2);
   const [activeMobileSubmenu, setActiveMobileSubmenu] = useState<string | null>(null);
+
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -82,68 +34,194 @@ export default function Navbar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const isMobile = useIsMobile();
-  
   // Refs for click outside detection
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const authModalRef = useRef<HTMLDivElement>(null);
   const searchModalRef = useRef<HTMLDivElement>(null);
 
-  // Memoized expensive calculations
-  const navbarStyles = useMemo(() => 
-    scrolled 
-      ? "bg-white/95 dark:bg-gray-900/95 shadow-lg border-gray-200/50 dark:border-gray-700/50 py-2" 
-      : "bg-white/85 dark:bg-gray-900/85 border-transparent py-3 lg:py-4",
-    [scrolled]
-  );
+  // Memoized navigation links to prevent unnecessary recalculations
+  const links = useMemo(() => [
+    { href: "/", label: "Головна" },
+    { 
+      href: "/plants", 
+      label: "Рослини",
+      submenu: [
+        { href: "/plants/indoor", label: "Кімнатні рослини" },
+        { href: "/plants/outdoor", label: "Садові рослини" },
+        { href: "/plants/succulents", label: "Кактуси та сукуленти" },
+        { href: "/plants/rare", label: "Рідкісні види" },
+      ]
+    },
+    { href: "/pots", label: "Горщики" },
+    { href: "/care", label: "Догляд" },
+    { href: "/about", label: "Про нас" },
+    { href: "/contact", label: "Контакти" },
+  ], []);
 
-  const mobileMenuAnimation = useMemo(() => ({
-    initial: { x: '100%' },
-    animate: { x: 0 },
-    exit: { x: '100%' },
-    transition: { 
-      type: "tween" as const,
-      duration: isMobile ? 0.3 : 0.4,
-      ease: "easeOut" as const // Use proper easing value
+  // Memoized search terms
+  const popularSearches = useMemo(() => 
+    ['монстера', 'кактуси', 'орхідеї', 'фікус', 'сукуленти', 'пальми'], 
+  []);
+
+  const recentSearches = useMemo(() => 
+    ['філодендрон', 'калатея', 'заміокулькас'], 
+  []);
+
+  // Animation variants - optimized for GPU
+  const navVariants = {
+    hidden: {
+      opacity: 0,
+      y: -50,
+      willChange: "transform, opacity",
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.4,
+        ease: cubicBezier(0.25, 0.46, 0.45, 0.94),
+      },
+    },
+  };
+
+  const mobileMenuVariants = {
+    hidden: { 
+      opacity: 0,
+      willChange: "opacity"
+    },
+    visible: { 
+      opacity: 1,
+      transition: { duration: 0.2 }
+    },
+    exit: { 
+      opacity: 0,
+      transition: { duration: 0.15 }
     }
-  }), [isMobile]);
-  
-  // Optimized event handlers
-  const handleScroll = useCallback(() => {
-    setScrolled(window.scrollY > 10);
+  };
+
+  const slideInVariants: Variants = {
+    hidden: {
+      x: "100%",
+      willChange: "transform",
+    },
+    visible: {
+      x: 0,
+      transition: {
+        type: "spring",   // строго "spring"
+        damping: 30,
+        stiffness: 300,
+        mass: 0.8,
+      },
+    },
+    exit: {
+      x: "100%",
+      transition: {
+        type: "spring",
+        damping: 30,
+        stiffness: 300,
+      },
+    },
+  };
+
+  const scaleInVariants = {
+    hidden: { 
+      opacity: 0, 
+      scale: 0.9, 
+      y: -20,
+      willChange: "transform, opacity"
+    },
+    visible: { 
+      opacity: 1, 
+      scale: 1, 
+      y: 0,
+      transition: { 
+        duration: 0.3, 
+        ease: cubicBezier(0.25, 0.46, 0.45, 0.94)
+      }
+    },
+    exit: { 
+      opacity: 0, 
+      scale: 0.9, 
+      y: -20,
+      transition: { duration: 0.2 }
+    }
+  };
+
+  const modalBackdropVariants = {
+    hidden: { 
+      opacity: 0,
+      willChange: "opacity"
+    },
+    visible: { 
+      opacity: 1,
+      transition: { duration: 0.2 }
+    },
+    exit: { 
+      opacity: 0,
+      transition: { duration: 0.15 }
+    }
+  };
+
+  const tabContentVariants = {
+    hidden: (direction: number) => ({ 
+      opacity: 0, 
+      x: direction * 20,
+      willChange: "transform, opacity"
+    }),
+    visible: { 
+      opacity: 1, 
+      x: 0,
+      transition: { 
+        duration: 0.3, 
+        ease: cubicBezier(0.25, 0.46, 0.45, 0.94)
+      }
+    },
+    exit: (direction: number) => ({ 
+      opacity: 0, 
+      x: direction * -20,
+      transition: { duration: 0.2 }
+    })
+  };
+
+  const mobileSubmenuVariants: Variants = {
+    hidden: {
+      height: 0,
+      opacity: 0,
+      willChange: "height, opacity",
+    },
+    visible: {
+      height: "auto",
+      opacity: 1,
+      transition: {
+        duration: 0.3,
+        ease: cubicBezier(0.25, 0.46, 0.45, 0.94),
+      },
+    },
+    exit: {
+      height: 0,
+      opacity: 0,
+      transition: {
+        duration: 0.2,
+        ease: "easeOut",
+      },
+    },
+  };
+
+  // 🔁 Refresh token on mount
+  useEffect(() => {
+    fetch("http://localhost:3001/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.status === "ok") fetchUser();
+      })
+      .catch(() => {});
   }, []);
 
-  const handleClickOutside = useCallback((event: MouseEvent) => {
-    const target = event.target as HTMLElement;
-
-    if (open && mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
-      setOpen(false);
-      setActiveMobileSubmenu(null);
-    }
-
-    if (showAuth && authModalRef.current && !authModalRef.current.contains(target)) {
-      setShowAuth(false);
-    }
-
-    if (searchOpen && searchModalRef.current && !searchModalRef.current.contains(target)) {
-      setSearchOpen(false);
-    }
-  }, [open, showAuth, searchOpen]);
-
-  // 🔁 Refresh token on mount - memoized callback
-  const refreshToken = useCallback(async () => {
-    try {
-      const res = await fetch("http://localhost:3001/auth/refresh", {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.status === "ok") fetchUser();
-    } catch {}
-  }, []);
-
-  // 👤 Fetch current user - memoized
-  const fetchUser = useCallback(async () => {
+  // 👤 Fetch current user
+  const fetchUser = async () => {
     try {
       const res = await fetch("http://localhost:3001/auth/me", {
         credentials: "include",
@@ -151,12 +229,12 @@ export default function Navbar() {
       const data = await res.json();
       if (data.user) setUser(data.user);
     } catch {}
-  }, []);
+  };
 
-  const captchaRef = useRef<ReCAPTCHAComponent>(null);
+  const captchaRef = useRef<ReCAPTCHA>(null);
 
-  // 📥 Login or register - optimized
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  // 📥 Login or register
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -192,28 +270,37 @@ export default function Navbar() {
       setCaptchaToken(null);
       captchaRef.current?.reset();
     }
-  }, [activeTab, form, captchaToken, fetchUser]);
+  };
 
-  // 📤 Logout - memoized
-  const handleLogout = useCallback(async () => {
+  // 📤 Logout
+  const handleLogout = async () => {
     await fetch("http://localhost:3001/auth/logout", {
       method: "POST",
       credentials: "include",
     });
     setUser(null);
     setOpen(false);
+  };
+
+  // Scroll effect - throttled for performance
+  useEffect(() => {
+    let ticking = false;
+    
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 10);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Effects with cleanup
-  useEffect(() => {
-    refreshToken();
-  }, [refreshToken]);
-
-  useEffect(() => {
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
-
+  // Dark mode effect
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -222,11 +309,33 @@ export default function Navbar() {
     }
   }, [darkMode]);
 
+  // Close modals when clicking outside
   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Close mobile menu
+      if (open && mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
+        setOpen(false);
+        setActiveMobileSubmenu(null);
+      }
+
+      // Close auth modal
+      if (showAuth && authModalRef.current && !authModalRef.current.contains(target)) {
+        setShowAuth(false);
+      }
+
+      // Close search modal
+      if (searchOpen && searchModalRef.current && !searchModalRef.current.contains(target)) {
+        setSearchOpen(false);
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [handleClickOutside]);
+  }, [open, showAuth, searchOpen]);
 
+  // Prevent body scroll when modals are open
   useEffect(() => {
     if (open || showAuth || searchOpen) {
       document.body.style.overflow = 'hidden';
@@ -239,52 +348,34 @@ export default function Navbar() {
     };
   }, [open, showAuth, searchOpen]);
 
-  // Memoized navigation data
-  const links = useMemo(() => [
-    { href: "/", label: "Головна" },
-    { 
-      href: "/plants", 
-      label: "Рослини",
-      submenu: [
-        { href: "/plants/indoor", label: "Кімнатні рослини" },
-        { href: "/plants/outdoor", label: "Садові рослини" },
-        { href: "/plants/succulents", label: "Кактуси та сукуленти" },
-        { href: "/plants/rare", label: "Рідкісні види" },
-      ]
-    },
-    { href: "/pots", label: "Горщики" },
-    { href: "/care", label: "Догляд" },
-    { href: "/about", label: "Про нас" },
-    { href: "/contact", label: "Контакти" },
-  ], []);
-
-  const toggleMobileSubmenu = useCallback((label: string) => {
+  const toggleMobileSubmenu = (label: string) => {
     setActiveMobileSubmenu(activeMobileSubmenu === label ? null : label);
-  }, [activeMobileSubmenu]);
+  };
 
   return (
-    <LazyMotion features={domAnimation}>
-      {/* 🧭 Optimized Navbar */}
-      <m.nav
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className={`fixed top-0 left-0 w-full z-50 border-b transition-all duration-500 ease-out ${navbarStyles}`}
-        style={hardwareAcceleratedStyles}
+    <LazyMotion features={domAnimation} strict>
+      {/* 🧭 Enhanced Navbar */}
+      <MotionNav
+        variants={navVariants}
+        initial="hidden"
+        animate="visible"
+        className={`fixed top-0 left-0 w-full z-50 border-b transition-all duration-500 ease-out ${
+          scrolled 
+            ? "bg-white/95 dark:bg-gray-900/95 shadow-lg border-gray-200/50 dark:border-gray-700/50 py-2" 
+            : "bg-white/85 dark:bg-gray-900/85 border-transparent py-3 lg:py-4"
+        }`}
+        style={{ willChange: 'transform, opacity' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
-            {/* Optimized Logo */}
+            {/* Logo with gradient */}
             <Link
               href="/"
               className="flex items-center space-x-2 group flex-shrink-0"
               onClick={() => setOpen(false)}
             >
               <div className="relative">
-                <div 
-                  className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center"
-                  style={hardwareAcceleratedStyles}
-                >
+                <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
               </div>
@@ -300,7 +391,6 @@ export default function Navbar() {
                   <Link
                     href={link.href}
                     className="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300 font-medium rounded-lg hover:bg-gray-50/50 dark:hover:bg-gray-800/50"
-                    style={hardwareAcceleratedStyles}
                   >
                     {link.label}
                     {link.submenu && <ChevronDown className="ml-1 w-4 h-4" />}
@@ -308,12 +398,9 @@ export default function Navbar() {
                   
                   {/* Submenu Dropdown */}
                   {link.submenu && (
-                    <div className="absolute top-full left-0 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
+                    <div className="absolute top-full left-0 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform group-hover:translate-y-0 -translate-y-2">
                       <div className="pt-2">
-                        <div 
-                          className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-2"
-                          style={hardwareAcceleratedStyles}
-                        >
+                        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-2">
                           {link.submenu.map((subItem) => (
                             <Link
                               key={subItem.href}
@@ -337,7 +424,6 @@ export default function Navbar() {
               <button
                 onClick={() => setSearchOpen(true)}
                 className="p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
-                style={hardwareAcceleratedStyles}
               >
                 <Search className="w-5 h-5" />
               </button>
@@ -346,16 +432,12 @@ export default function Navbar() {
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
-                style={hardwareAcceleratedStyles}
               >
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
 
               {/* Wishlist */}
-              <button 
-                className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
-                style={hardwareAcceleratedStyles}
-              >
+              <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300">
                 <Heart className="w-5 h-5" />
                 {wishlistItems > 0 && (
                   <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -365,10 +447,7 @@ export default function Navbar() {
               </button>
 
               {/* Cart */}
-              <button 
-                className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
-                style={hardwareAcceleratedStyles}
-              >
+              <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300">
                 <ShoppingBag className="w-5 h-5" />
                 {cartItems > 0 && (
                   <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -380,18 +459,12 @@ export default function Navbar() {
               {/* User Auth */}
               {user ? (
                 <div className="relative group hidden sm:block">
-                  <button 
-                    className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg transition-all duration-300 font-medium"
-                    style={hardwareAcceleratedStyles}
-                  >
+                  <button className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
                     <User className="w-4 h-4" />
                     <span className="hidden sm:inline max-w-[100px] truncate">{user.name}</span>
                   </button>
                   <div className="absolute top-full right-0 mt-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
-                    <div 
-                      className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-2"
-                      style={hardwareAcceleratedStyles}
-                    >
+                    <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-2">
                       <button className="w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 font-medium">
                         Мій профіль
                       </button>
@@ -410,8 +483,7 @@ export default function Navbar() {
               ) : (
                 <button
                   onClick={() => setShowAuth(true)}
-                  className="hidden sm:flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg transition-all duration-300 font-medium"
-                  style={hardwareAcceleratedStyles}
+                  className="hidden sm:flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium"
                 >
                   <User className="w-4 h-4" />
                   <span>Увійти</span>
@@ -423,7 +495,6 @@ export default function Navbar() {
                 onClick={() => setOpen(!open)}
                 className="lg:hidden p-2 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300"
                 aria-label="Toggle menu"
-                style={hardwareAcceleratedStyles}
               >
                 {open ? <X size={22} /> : <Menu size={22} />}
               </button>
@@ -432,20 +503,24 @@ export default function Navbar() {
         </div>
 
         {/* Enhanced Mobile Menu */}
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {open && (
-            <m.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: isMobile ? 0.2 : 0.3 }}
+            <MotionDiv
+              variants={mobileMenuVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+              style={{ willChange: 'opacity' }}
             >
-              <m.div
+              <MotionDiv
                 ref={mobileMenuRef}
-                {...mobileMenuAnimation}
+                variants={slideInVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
                 className="absolute top-0 right-0 h-full w-full max-w-sm bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-l border-gray-200/50 dark:border-gray-700/50 overflow-y-auto"
-                style={hardwareAcceleratedStyles}
+                style={{ willChange: 'transform' }}
               >
                 {/* Mobile Menu Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-700/50">
@@ -464,7 +539,6 @@ export default function Navbar() {
                   <button
                     onClick={() => setOpen(false)}
                     className="p-2 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300"
-                    style={hardwareAcceleratedStyles}
                   >
                     <X size={20} />
                   </button>
@@ -493,7 +567,6 @@ export default function Navbar() {
                           setOpen(false);
                         }}
                         className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-4 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
-                        style={hardwareAcceleratedStyles}
                       >
                         <User className="w-5 h-5" />
                         <span>Увійти в акаунт</span>
@@ -509,14 +582,11 @@ export default function Navbar() {
                         setOpen(false);
                       }}
                       className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
-                      style={hardwareAcceleratedStyles}
                     >
                       <Search className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
                       <span className="text-xs text-gray-600 dark:text-gray-400">Пошук</span>
                     </button>
-                    <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
-                      style={hardwareAcceleratedStyles}
-                    >
+                    <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
                       <Heart className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
                       <span className="text-xs text-gray-600 dark:text-gray-400">Обране</span>
                       {wishlistItems > 0 && (
@@ -525,9 +595,7 @@ export default function Navbar() {
                         </span>
                       )}
                     </button>
-                    <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
-                      style={hardwareAcceleratedStyles}
-                    >
+                    <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
                       <ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
                       <span className="text-xs text-gray-600 dark:text-gray-400">Кошик</span>
                       {cartItems > 0 && (
@@ -539,7 +607,6 @@ export default function Navbar() {
                     <button 
                       onClick={() => setDarkMode(!darkMode)}
                       className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300"
-                      style={hardwareAcceleratedStyles}
                     >
                       {darkMode ? (
                         <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
@@ -561,7 +628,6 @@ export default function Navbar() {
                             <button
                               onClick={() => toggleMobileSubmenu(link.label)}
                               className="w-full flex items-center justify-between p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium"
-                              style={hardwareAcceleratedStyles}
                             >
                               <span>{link.label}</span>
                               <ChevronRight 
@@ -573,12 +639,14 @@ export default function Navbar() {
                             
                             <AnimatePresence>
                               {activeMobileSubmenu === link.label && (
-                                <m.div
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: 'auto', opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  transition={{ duration: isMobile ? 0.2 : 0.3 }}
+                                <MotionDiv
+                                  variants={mobileSubmenuVariants}
+                                  initial="hidden"
+                                  animate="visible"
+                                  exit="exit"
+                                  transition={{ duration: 0.3 }}
                                   className="overflow-hidden"
+                                  style={{ willChange: 'height, opacity' }}
                                 >
                                   <div className="ml-4 pl-4 border-l-2 border-emerald-200/50 dark:border-emerald-800/50 space-y-1 py-2">
                                     {link.submenu.map((subItem) => (
@@ -595,7 +663,7 @@ export default function Navbar() {
                                       </Link>
                                     ))}
                                   </div>
-                                </m.div>
+                                </MotionDiv>
                               )}
                             </AnimatePresence>
                           </div>
@@ -604,7 +672,6 @@ export default function Navbar() {
                             href={link.href}
                             onClick={() => setOpen(false)}
                             className="block p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium"
-                            style={hardwareAcceleratedStyles}
                           >
                             {link.label}
                           </Link>
@@ -631,30 +698,31 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
-              </m.div>
-            </m.div>
+              </MotionDiv>
+            </MotionDiv>
           )}
         </AnimatePresence>
-      </m.nav>
+      </MotionNav>
 
       {/* 🔍 Enhanced Search Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {searchOpen && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: isMobile ? 0.2 : 0.3 }}
+          <MotionDiv
+            variants={modalBackdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex justify-center items-start pt-20 lg:pt-32 px-4"
+            style={{ willChange: 'opacity' }}
           >
-            <m.div
+            <MotionDiv
               ref={searchModalRef}
-              initial={{ scale: 0.9, opacity: 0, y: -20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: -20 }}
-              transition={{ type: "tween", duration: isMobile ? 0.2 : 0.3 }}
+              variants={scaleInVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-auto"
-              style={hardwareAcceleratedStyles}
+              style={{ willChange: 'transform, opacity' }}
             >
               <div className="relative p-4 lg:p-6">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -663,12 +731,10 @@ export default function Navbar() {
                   placeholder="Пошук рослин, аксесуарів, порад..."
                   className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none transition-all duration-200 text-gray-800 dark:text-white placeholder-gray-500 text-base lg:text-lg"
                   autoFocus
-                  style={hardwareAcceleratedStyles}
                 />
                 <button
                   onClick={() => setSearchOpen(false)}
                   className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition p-2"
-                  style={hardwareAcceleratedStyles}
                 >
                   <X size={20} />
                 </button>
@@ -678,12 +744,11 @@ export default function Navbar() {
               <div className="px-4 lg:px-6 pb-4 lg:pb-6 space-y-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Популярні запити:</p>
                 <div className="flex flex-wrap gap-2">
-                  {['монстера', 'кактуси', 'орхідеї', 'фікус', 'сукуленти', 'пальми'].map((term) => (
+                  {popularSearches.map((term) => (
                     <button
                       key={term}
                       onClick={() => setSearchOpen(false)}
                       className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:text-emerald-700 dark:hover:text-emerald-400 transition-all duration-200 text-sm"
-                      style={hardwareAcceleratedStyles}
                     >
                       {term}
                     </button>
@@ -700,11 +765,10 @@ export default function Navbar() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {['філодендрон', 'калатея', 'заміокулькас'].map((term) => (
+                  {recentSearches.map((term) => (
                     <button
                       key={term}
                       className="w-full flex items-center justify-between p-3 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200"
-                      style={hardwareAcceleratedStyles}
                     >
                       <span className="truncate">{term}</span>
                       <X size={14} className="text-gray-400 flex-shrink-0" />
@@ -712,29 +776,30 @@ export default function Navbar() {
                   ))}
                 </div>
               </div>
-            </m.div>
-          </m.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
       {/* 🔐 Enhanced Auth Modal - Mobile Optimized */}
       <AnimatePresence mode="wait">
         {showAuth && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: isMobile ? 0.2 : 0.3 }}
+          <MotionDiv
+            variants={modalBackdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex justify-center items-center p-4"
+            style={{ willChange: 'opacity' }}
           >
-            <m.div
+            <MotionDiv
               ref={authModalRef}
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: "tween", duration: isMobile ? 0.2 : 0.3 }}
+              variants={scaleInVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-md mx-auto relative overflow-hidden max-h-[90vh] overflow-y-auto"
-              style={hardwareAcceleratedStyles}
+              style={{ willChange: 'transform, opacity' }}
             >
               {/* Background decoration */}
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-500 to-green-600"></div>
@@ -742,7 +807,6 @@ export default function Navbar() {
               <button
                 onClick={() => setShowAuth(false)}
                 className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition z-10 p-2"
-                style={hardwareAcceleratedStyles}
               >
                 <X size={20} />
               </button>
@@ -769,7 +833,6 @@ export default function Navbar() {
                         ? "bg-white dark:bg-gray-600 text-emerald-600 dark:text-emerald-400 shadow-sm"
                         : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
-                    style={hardwareAcceleratedStyles}
                   >
                     Увійти
                   </button>
@@ -780,7 +843,6 @@ export default function Navbar() {
                         ? "bg-white dark:bg-gray-600 text-emerald-600 dark:text-emerald-400 shadow-sm"
                         : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
-                    style={hardwareAcceleratedStyles}
                   >
                     Реєстрація
                   </button>
@@ -788,12 +850,15 @@ export default function Navbar() {
                 
                 {/* Form */}
                 <AnimatePresence mode="wait">
-                  <m.div
+                  <MotionDiv
                     key={activeTab}
-                    initial={{ opacity: 0, x: activeTab === "login" ? -20 : 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: activeTab === "login" ? -20 : 20 }}
+                    custom={activeTab === "login" ? -1 : 1}
+                    variants={tabContentVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
                     transition={{ duration: 0.3, ease: "easeOut" }}
+                    style={{ willChange: 'transform, opacity' }}
                   >
                     <form onSubmit={handleSubmit} className="space-y-4">
                       {/* Register: Name */}
@@ -810,7 +875,6 @@ export default function Navbar() {
                               focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none 
                               transition-all duration-200 text-gray-800 dark:text-white placeholder-gray-500 
                               shadow-sm focus:shadow-md text-base"
-                            style={hardwareAcceleratedStyles}
                           />
                         </div>
                       )}
@@ -828,7 +892,6 @@ export default function Navbar() {
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none 
                             transition-all duration-200 text-gray-800 dark:text-white placeholder-gray-500 
                             shadow-sm focus:shadow-md text-base"
-                          style={hardwareAcceleratedStyles}
                         />
                       </div>
 
@@ -845,7 +908,6 @@ export default function Navbar() {
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none 
                             transition-all duration-200 text-gray-800 dark:text-white placeholder-gray-500 
                             shadow-sm focus:shadow-md text-base"
-                          style={hardwareAcceleratedStyles}
                         />
                       </div>
 
@@ -883,13 +945,14 @@ export default function Navbar() {
 
                       {/* Error message */}
                       {error && (
-                        <m.p 
+                        <MotionP 
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 py-2 rounded-lg"
+                          style={{ willChange: 'transform, opacity' }}
                         >
                           {error}
-                        </m.p>
+                        </MotionP>
                       )}
 
                       {/* Submit button */}
@@ -897,8 +960,8 @@ export default function Navbar() {
                         type="submit"
                         disabled={loading}
                         className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-4 rounded-xl font-semibold 
-                          hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-base"
-                        style={hardwareAcceleratedStyles}
+                          hover:shadow-lg hover:scale-[1.02] active:scale-100 
+                          transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-base"
                       >
                         {loading ? (
                           <div className="flex items-center justify-center space-x-2">
@@ -926,25 +989,19 @@ export default function Navbar() {
                         </div>
                       </div>
                       <div className="mt-4 grid grid-cols-2 gap-3">
-                        <button 
-                          className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
-                          style={hardwareAcceleratedStyles}
-                        >
+                        <button className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200">
                           Google
                         </button>
-                        <button 
-                          className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
-                          style={hardwareAcceleratedStyles}
-                        >
+                        <button className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200">
                           Facebook
                         </button>
                       </div>
                     </div>
-                  </m.div>
+                  </MotionDiv>
                 </AnimatePresence>
               </div>
-            </m.div>
-          </m.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </LazyMotion>
