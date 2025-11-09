@@ -4,8 +4,10 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Menu, X, User, Mail, Lock, Search, ShoppingBag, Heart, ChevronDown, Sun, Moon, Sparkles, ChevronRight } from "lucide-react";
 import { LazyMotion, m, AnimatePresence, domAnimation, cubicBezier, Variants } from "framer-motion";
-
 import ReCAPTCHA from 'react-google-recaptcha';
+
+// Import our new theme system
+import { useTheme } from '@/components/ThemeContext';
 
 // Optimized motion components with LazyMotion
 const MotionNav = m.nav;
@@ -18,7 +20,6 @@ export default function Navbar() {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartItems, setCartItems] = useState(3);
   const [wishlistItems, setWishlistItems] = useState(2);
@@ -33,6 +34,9 @@ export default function Navbar() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Use our new theme system
+  const { theme, toggleTheme, isAnimating } = useTheme();
 
   // Refs for click outside detection
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -64,7 +68,7 @@ export default function Navbar() {
   []);
 
   const recentSearches = useMemo(() => 
-    ['філодендрон', 'калатея', 'заміокулькас'], 
+    ['філодендрон', 'калатея', 'заміокукулькас'], 
   []);
 
   // Animation variants - optimized for GPU
@@ -107,7 +111,7 @@ export default function Navbar() {
     visible: {
       x: 0,
       transition: {
-        type: "spring",   // строго "spring"
+        type: "spring",
         damping: 30,
         stiffness: 300,
         mass: 0.8,
@@ -207,6 +211,11 @@ export default function Navbar() {
     },
   };
 
+  // Theme toggle handler with ripple animation
+  const handleThemeToggle = (event: React.MouseEvent) => {
+    toggleTheme(event);
+  };
+
   // 🔁 Refresh token on mount
   useEffect(() => {
     fetch("http://localhost:3001/auth/refresh", {
@@ -299,15 +308,6 @@ export default function Navbar() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  // Dark mode effect
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   // Close modals when clicking outside
   useEffect(() => {
@@ -428,12 +428,25 @@ export default function Navbar() {
                 <Search className="w-5 h-5" />
               </button>
 
-              {/* Dark Mode Toggle */}
+              {/* NEW: Enhanced Dark Mode Toggle with Ripple Animation */}
               <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
+                onClick={handleThemeToggle}
+                disabled={isAnimating}
+                className={`relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 ${
+                  isAnimating ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                }`}
               >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                <AnimatePresence mode="wait">
+                  <MotionP
+                    key={theme}
+                    initial={{ scale: 0.8, rotate: -90, opacity: 0 }}
+                    animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                    exit={{ scale: 0.8, rotate: 90, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                  >
+                    {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                  </MotionP>
+                </AnimatePresence>
               </button>
 
               {/* Wishlist */}
@@ -501,208 +514,222 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+      </MotionNav>
 
-        {/* Enhanced Mobile Menu */}
-        <AnimatePresence mode="wait">
-          {open && (
+      {/* Enhanced Mobile Menu - MOVED OUTSIDE NAVBAR */}
+      <AnimatePresence mode="wait">
+        {open && (
+          <MotionDiv
+            variants={mobileMenuVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="lg:hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+            style={{ willChange: 'opacity' }}
+          >
             <MotionDiv
-              variants={mobileMenuVariants}
+              ref={mobileMenuRef}
+              variants={slideInVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
-              style={{ willChange: 'opacity' }}
+              className="absolute top-0 right-0 h-full w-full max-w-sm bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-l border-gray-200/50 dark:border-gray-700/50 overflow-y-auto"
+              style={{ willChange: 'transform' }}
             >
-              <MotionDiv
-                ref={mobileMenuRef}
-                variants={slideInVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="absolute top-0 right-0 h-full w-full max-w-sm bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-l border-gray-200/50 dark:border-gray-700/50 overflow-y-auto"
-                style={{ willChange: 'transform' }}
-              >
-                {/* Mobile Menu Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <Link
-                    href="/"
-                    className="flex items-center space-x-2"
-                    onClick={() => setOpen(false)}
-                  >
-                    <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center">
-                      <Sparkles className="w-4 h-4 text-white" />
+              {/* Mobile Menu Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-700/50">
+                <Link
+                  href="/"
+                  className="flex items-center space-x-2"
+                  onClick={() => setOpen(false)}
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent">
+                    PlantShop
+                  </span>
+                </Link>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Mobile Navigation */}
+              <div className="p-4">
+                {/* User Info Section */}
+                {user ? (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-emerald-500/10 to-green-600/10 rounded-2xl border border-emerald-200/50 dark:border-emerald-800/50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
+                      </div>
                     </div>
-                    <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent">
-                      PlantShop
-                    </span>
-                  </Link>
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="p-2 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300"
+                  </div>
+                ) : (
+                  <div className="mb-6">
+                    <button
+                      onClick={() => {
+                        setShowAuth(true);
+                        setOpen(false);
+                      }}
+                      className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-4 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
+                    >
+                      <User className="w-5 h-5" />
+                      <span>Увійти в акаунт</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Quick Actions */}
+                <div className="grid grid-cols-4 gap-2 mb-6">
+                  <button 
+                    onClick={() => {
+                      setSearchOpen(true);
+                      setOpen(false);
+                    }}
+                    className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
                   >
-                    <X size={20} />
+                    <Search className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Пошук</span>
+                  </button>
+                  <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
+                    <Heart className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Обране</span>
+                    {wishlistItems > 0 && (
+                      <span className="absolute top-1 right-2 bg-rose-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                        {wishlistItems}
+                      </span>
+                    )}
+                  </button>
+                  <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
+                    <ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Кошик</span>
+                    {cartItems > 0 && (
+                      <span className="absolute top-1 right-2 bg-emerald-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                        {cartItems}
+                      </span>
+                    )}
+                  </button>
+                  {/* NEW: Enhanced Mobile Theme Toggle */}
+                  <button 
+                    onClick={handleThemeToggle}
+                    disabled={isAnimating}
+                    className={`flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 ${
+                      isAnimating ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                    }`}
+                  >
+                    <AnimatePresence mode="wait">
+                      <MotionDiv
+                        key={theme}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.8, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {theme === 'light' ? (
+                          <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+                        ) : (
+                          <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+                        )}
+                      </MotionDiv>
+                    </AnimatePresence>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {theme === 'light' ? 'Темна' : 'Світла'}
+                    </span>
                   </button>
                 </div>
 
-                {/* Mobile Navigation */}
-                <div className="p-4">
-                  {/* User Info Section */}
-                  {user ? (
-                    <div className="mb-6 p-4 bg-gradient-to-r from-emerald-500/10 to-green-600/10 rounded-2xl border border-emerald-200/50 dark:border-emerald-800/50">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-white" />
+                {/* Navigation Links */}
+                <nav className="space-y-1">
+                  {links.map((link) => (
+                    <div key={link.href}>
+                      {link.submenu ? (
+                        <div>
+                          <button
+                            onClick={() => toggleMobileSubmenu(link.label)}
+                            className="w-full flex items-center justify-between p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium"
+                          >
+                            <span>{link.label}</span>
+                            <ChevronRight 
+                              className={`w-4 h-4 transition-transform duration-300 ${
+                                activeMobileSubmenu === link.label ? 'rotate-90' : ''
+                              }`} 
+                            />
+                          </button>
+                          
+                          <AnimatePresence>
+                            {activeMobileSubmenu === link.label && (
+                              <MotionDiv
+                                variants={mobileSubmenuVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                transition={{ duration: 0.3 }}
+                                className="overflow-hidden"
+                                style={{ willChange: 'height, opacity' }}
+                              >
+                                <div className="ml-4 pl-4 border-l-2 border-emerald-200/50 dark:border-emerald-800/50 space-y-1 py-2">
+                                  {link.submenu.map((subItem) => (
+                                    <Link
+                                      key={subItem.href}
+                                      href={subItem.href}
+                                      onClick={() => {
+                                        setOpen(false);
+                                        setActiveMobileSubmenu(null);
+                                      }}
+                                      className="block p-3 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-300"
+                                    >
+                                      {subItem.label}
+                                    </Link>
+                                  ))}
+                                </div>
+                              </MotionDiv>
+                            )}
+                          </AnimatePresence>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-6">
-                      <button
-                        onClick={() => {
-                          setShowAuth(true);
-                          setOpen(false);
-                        }}
-                        className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-4 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
-                      >
-                        <User className="w-5 h-5" />
-                        <span>Увійти в акаунт</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Quick Actions */}
-                  <div className="grid grid-cols-4 gap-2 mb-6">
-                    <button 
-                      onClick={() => {
-                        setSearchOpen(true);
-                        setOpen(false);
-                      }}
-                      className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative"
-                    >
-                      <Search className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-600 dark:text-gray-400">Пошук</span>
-                    </button>
-                    <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
-                      <Heart className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-600 dark:text-gray-400">Обране</span>
-                      {wishlistItems > 0 && (
-                        <span className="absolute top-1 right-2 bg-rose-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                          {wishlistItems}
-                        </span>
-                      )}
-                    </button>
-                    <button className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 relative">
-                      <ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-600 dark:text-gray-400">Кошик</span>
-                      {cartItems > 0 && (
-                        <span className="absolute top-1 right-2 bg-emerald-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                          {cartItems}
-                        </span>
-                      )}
-                    </button>
-                    <button 
-                      onClick={() => setDarkMode(!darkMode)}
-                      className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300"
-                    >
-                      {darkMode ? (
-                        <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
                       ) : (
-                        <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+                        <Link
+                          href={link.href}
+                          onClick={() => setOpen(false)}
+                          className="block p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium"
+                        >
+                          {link.label}
+                        </Link>
                       )}
-                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                        {darkMode ? 'Світла' : 'Темна'}
-                      </span>
+                    </div>
+                  ))}
+                </nav>
+
+                {/* User Menu for Mobile */}
+                {user && (
+                  <div className="mt-6 pt-6 border-t border-gray-200/50 dark:border-gray-700/50 space-y-1">
+                    <button className="w-full text-left p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
+                      Мій профіль
+                    </button>
+                    <button className="w-full text-left p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
+                      Мої замовлення
+                    </button>
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full text-left p-4 text-rose-600 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-900/20 rounded-xl transition-all duration-300 font-medium"
+                    >
+                      Вийти з акаунта
                     </button>
                   </div>
-
-                  {/* Navigation Links */}
-                  <nav className="space-y-1">
-                    {links.map((link) => (
-                      <div key={link.href}>
-                        {link.submenu ? (
-                          <div>
-                            <button
-                              onClick={() => toggleMobileSubmenu(link.label)}
-                              className="w-full flex items-center justify-between p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium"
-                            >
-                              <span>{link.label}</span>
-                              <ChevronRight 
-                                className={`w-4 h-4 transition-transform duration-300 ${
-                                  activeMobileSubmenu === link.label ? 'rotate-90' : ''
-                                }`} 
-                              />
-                            </button>
-                            
-                            <AnimatePresence>
-                              {activeMobileSubmenu === link.label && (
-                                <MotionDiv
-                                  variants={mobileSubmenuVariants}
-                                  initial="hidden"
-                                  animate="visible"
-                                  exit="exit"
-                                  transition={{ duration: 0.3 }}
-                                  className="overflow-hidden"
-                                  style={{ willChange: 'height, opacity' }}
-                                >
-                                  <div className="ml-4 pl-4 border-l-2 border-emerald-200/50 dark:border-emerald-800/50 space-y-1 py-2">
-                                    {link.submenu.map((subItem) => (
-                                      <Link
-                                        key={subItem.href}
-                                        href={subItem.href}
-                                        onClick={() => {
-                                          setOpen(false);
-                                          setActiveMobileSubmenu(null);
-                                        }}
-                                        className="block p-3 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-300"
-                                      >
-                                        {subItem.label}
-                                      </Link>
-                                    ))}
-                                  </div>
-                                </MotionDiv>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        ) : (
-                          <Link
-                            href={link.href}
-                            onClick={() => setOpen(false)}
-                            className="block p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium"
-                          >
-                            {link.label}
-                          </Link>
-                        )}
-                      </div>
-                    ))}
-                  </nav>
-
-                  {/* User Menu for Mobile */}
-                  {user && (
-                    <div className="mt-6 pt-6 border-t border-gray-200/50 dark:border-gray-700/50 space-y-1">
-                      <button className="w-full text-left p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
-                        Мій профіль
-                      </button>
-                      <button className="w-full text-left p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
-                        Мої замовлення
-                      </button>
-                      <button 
-                        onClick={handleLogout}
-                        className="w-full text-left p-4 text-rose-600 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-900/20 rounded-xl transition-all duration-300 font-medium"
-                      >
-                        Вийти з акаунта
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </MotionDiv>
+                )}
+              </div>
             </MotionDiv>
-          )}
-        </AnimatePresence>
-      </MotionNav>
+          </MotionDiv>
+        )}
+      </AnimatePresence>
 
       {/* 🔍 Enhanced Search Modal */}
       <AnimatePresence mode="wait">
