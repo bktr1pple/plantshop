@@ -28,7 +28,26 @@ import {
 export default function PotsPage() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("popular");
-  const [selectedPot, setSelectedPot] = useState(null);
+
+  interface Pot {
+    id: number;
+    name: string;
+    category: string;
+    price: number;
+    originalPrice: number;
+    size: string;
+    color: string;
+    material: string;
+    drainage: boolean;
+    rating: number;
+    reviews: number;
+    image: string;
+    featured: boolean;
+    description: string;
+    features: string[];
+  }
+
+  const [selectedPot, setSelectedPot] = useState<Pot | null>(null);
   const [quantity, setQuantity] = useState(1);
 
   const heroRef = useRef(null);
@@ -416,7 +435,7 @@ export default function PotsPage() {
                   </div>
 
                   <button 
-                    onClick={() => setSelectedPot(pot)}
+                    onClick={() => setSelectedPot(pot as Pot)}
                     className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-3 rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105"
                   >
                     Додати в кошик
@@ -611,7 +630,7 @@ export default function PotsPage() {
 
                       <div className="flex gap-2">
                         <button 
-                          onClick={() => setSelectedPot(pot)}
+                          onClick={() => setSelectedPot(pot as Pot)}
                           className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-2 rounded-xl hover:shadow-lg transition-all duration-300 text-sm"
                         >
                           В кошик

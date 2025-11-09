@@ -103,7 +103,7 @@ function AnimatedSection({
 
 export default function PlantCarePage() {
   const [activeTab, setActiveTab] = useState("watering");
-  const [activeSeason, setActiveSeason] = useState("spring");
+  const [activeSeason, setActiveSeason] = useState<Season>('spring');
   const pathname = usePathname();
 
   const heroRef = useRef(null);
@@ -198,8 +198,10 @@ export default function PlantCarePage() {
       ]
     }
   ];
+    type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 
-  const seasonalCare = {
+    // Типізація об’єкта seasonalCare
+    const seasonalCare: Record<Season, { title: string; tasks: string[] }> = {
     spring: {
       title: "Весна 🌸",
       tasks: [
@@ -449,7 +451,7 @@ export default function PlantCarePage() {
               {Object.entries(seasonalCare).map(([key, season]) => (
                 <button
                   key={key}
-                  onClick={() => setActiveSeason(key)}
+                  onClick={() => setActiveSeason(key as Season)}
                   className={`p-6 rounded-2xl text-center transition-all duration-300 ${
                     activeSeason === key
                       ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
