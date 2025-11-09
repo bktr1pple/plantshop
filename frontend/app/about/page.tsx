@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
@@ -98,15 +98,90 @@ function AnimatedSection({
   );
 }
 
-export default function AboutPage() {
+// Client-only component for scroll effects
+function HeroBackground() {
   const heroRef = useRef(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Only use scroll effects on client side
+  const scrollEffects = isClient ? (() => {
+    // Dynamically import these hooks only on client
+    const { useScroll, useTransform } = require("framer-motion");
+    const { scrollYProgress } = useScroll({
+      target: heroRef,
+      offset: ["start start", "end start"]
+    });
+    const y = useTransform(scrollYProgress, [0, 1], [0, 100]);
+    const opacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+    return { y, opacity };
+  })() : { y: 0, opacity: 1 };
+
+  return (
+    <section 
+      ref={heroRef}
+      className="relative min-h-[50vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20"
+    >
+      {/* Background Elements */}
+      {isClient && (
+        <motion.div 
+          style={{ y: scrollEffects.y, opacity: scrollEffects.opacity }}
+          className="absolute inset-0 overflow-hidden"
+        >
+          <div className="absolute top-10 left-10 w-72 h-72 bg-emerald-200/30 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 right-20 w-96 h-96 bg-green-300/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-1/3 w-80 h-80 bg-emerald-100/40 rounded-full blur-3xl"></div>
+        </motion.div>
+      )}
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
+        <AnimatedSection>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent dark:from-emerald-400 dark:to-green-300">
+              PlantShop
+            </span>
+            <br />
+            <span className="text-gray-900 dark:text-white">Ваш провідник у світ</span>
+            <br />
+            <span className="text-gray-900 dark:text-white">природи</span>
+          </h1>
+        </AnimatedSection>
+
+        <AnimatedSection delay={0.2}>
+          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-8 leading-relaxed">
+            Ми створюємо гармонійний зв'язок між людиною та природою, 
+            перетворюючи простір на оазу спокою та краси
+          </p>
+        </AnimatedSection>
+
+        <AnimatedSection delay={0.4}>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link
+              href="/plants"
+              className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-4 px-8 rounded-2xl hover:shadow-2xl transition-all duration-300"
+            >
+              <Leaf className="w-5 h-5" />
+              Переглянути колекцію
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-4 px-8 rounded-2xl hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300"
+            >
+              Зв'язатися з нами
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+        </AnimatedSection>
+      </div>
+    </section>
+  );
+}
+
+export default function AboutPage() {
   const pathname = usePathname();
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"]
-  });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 100]);
-  const opacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
 
   // Force re-check of animations when route changes
   useEffect(() => {
@@ -121,60 +196,7 @@ export default function AboutPage() {
   return (
     <div className="content-with-navbar flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* 🌿 Hero Section */}
-      <section 
-        ref={heroRef}
-        className="relative min-h-[50vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20"
-      >
-        {/* Background Elements */}
-        <motion.div 
-          style={{ y, opacity }}
-          className="absolute inset-0 overflow-hidden"
-        >
-          <div className="absolute top-10 left-10 w-72 h-72 bg-emerald-200/30 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/2 right-20 w-96 h-96 bg-green-300/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-1/3 w-80 h-80 bg-emerald-100/40 rounded-full blur-3xl"></div>
-        </motion.div>
-
-        <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
-          <AnimatedSection>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight">
-              <span className="bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent dark:from-emerald-400 dark:to-green-300">
-                PlantShop
-              </span>
-              <br />
-              <span className="text-gray-900 dark:text-white">Ваш провідник у світ</span>
-              <br />
-              <span className="text-gray-900 dark:text-white">природи</span>
-            </h1>
-          </AnimatedSection>
-
-          <AnimatedSection delay={0.2}>
-            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-8 leading-relaxed">
-              Ми створюємо гармонійний зв'язок між людиною та природою, 
-              перетворюючи простір на оазу спокою та краси
-            </p>
-          </AnimatedSection>
-
-          <AnimatedSection delay={0.4}>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                href="/plants"
-                className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-4 px-8 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
-              >
-                <Leaf className="w-5 h-5" />
-                Переглянути колекцію
-              </Link>
-              <Link
-                href="/contact"
-                className="inline-flex items-center gap-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-4 px-8 rounded-2xl hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300"
-              >
-                Зв'язатися з нами
-                <ArrowRight className="w-5 h-5" />
-              </Link>
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
+      <HeroBackground />
 
       {/* 📊 Stats Section */}
       <section className="py-20 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
@@ -415,7 +437,7 @@ export default function AboutPage() {
               <AnimatedSection 
                 key={index}
                 delay={index * 0.1}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 group hover:scale-105"
+                className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 group"
               >
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300">
                   <div className="text-white">
@@ -452,7 +474,7 @@ export default function AboutPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link
                 href="/plants"
-                className="inline-flex items-center gap-3 bg-white text-emerald-600 font-bold py-4 px-8 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
+                className="inline-flex items-center gap-3 bg-white text-emerald-600 font-bold py-4 px-8 rounded-2xl hover:shadow-2xl transition-all duration-300"
               >
                 <Leaf className="w-5 h-5" />
                 Обрати рослини
