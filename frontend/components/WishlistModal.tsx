@@ -1,7 +1,7 @@
 // components/WishlistModal.tsx
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Heart, ShoppingCart, Trash2 } from 'lucide-react';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useCart } from '@/contexts/CartContext';
@@ -45,13 +45,13 @@ export function WishlistModal({ isOpen, onClose }: WishlistModalProps) {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <m.div
         className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        <motion.div
+        <m.div
           ref={modalRef}
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden"
           initial={{ scale: 0.9, opacity: 0 }}
@@ -123,8 +123,8 @@ export function WishlistModal({ isOpen, onClose }: WishlistModalProps) {
               </div>
             )}
           </div>
-        </motion.div>
-      </motion.div>
+        </m.div>
+      </m.div>
     </AnimatePresence>
   );
 }

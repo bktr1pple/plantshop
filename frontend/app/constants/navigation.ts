@@ -1,0 +1,23 @@
+// constants/navigation.ts
+import { NavLink } from '@/app/types/navigation';
+
+export const NAV_LINKS: NavLink[] = [
+  { href: "/", label: "Головна" },
+  { 
+    href: "/plants", 
+    label: "Рослини",
+    submenu: [
+      { href: "/plants/indoor", label: "Кімнатні рослини" },
+      { href: "/plants/outdoor", label: "Садові рослини" },
+      { href: "/plants/succulents", label: "Кактуси та сукуленти" },
+      { href: "/plants/rare", label: "Рідкісні види" },
+    ]
+  },
+  { href: "/pots", label: "Горщики" },
+  { href: "/care", label: "Догляд" },
+  { href: "/about", label: "Про нас" },
+  { href: "/contact", label: "Контакти" },
+];
+
+export const POPULAR_SEARCHES = ['монстера', 'кактуси', 'орхідеї', 'фікус', 'сукуленти', 'пальми'];
+export const RECENT_SEARCHES = ['філодендрон', 'калатея', 'заміокукулькас'];

@@ -13,7 +13,7 @@ import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
         {
           name: 'global',
           ttl: 60_000, // 1 хвилина
-          limit: 10,   // максимум 10 запитів за ttl
+          limit: 1000,   // максимум 1000 запитів за ttl
         },
       ],
     }),

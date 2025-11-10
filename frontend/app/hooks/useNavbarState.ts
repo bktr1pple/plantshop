@@ -1,0 +1,51 @@
+// hooks/useNavbarState.ts
+'use client';
+
+import { useState, useCallback } from 'react';
+
+export function useNavbarState() {
+  const [open, setOpen] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [scrolled, setScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeMobileSubmenu, setActiveMobileSubmenu] = useState<string | null>(null);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [wishlistModalOpen, setWishlistModalOpen] = useState(false);
+
+  const openCartModal = useCallback(() => {
+    setOpen(false);
+    setCartModalOpen(true);
+  }, []);
+
+  const openWishlistModal = useCallback(() => {
+    setOpen(false);
+    setWishlistModalOpen(true);
+  }, []);
+
+  const toggleMobileSubmenu = useCallback((label: string) => {
+    setActiveMobileSubmenu(current => current === label ? null : label);
+  }, []);
+
+  return {
+    open,
+    setOpen,
+    showAuth,
+    setShowAuth,
+    activeTab,
+    setActiveTab,
+    scrolled,
+    setScrolled,
+    searchOpen,
+    setSearchOpen,
+    activeMobileSubmenu,
+    setActiveMobileSubmenu,
+    cartModalOpen,
+    setCartModalOpen,
+    wishlistModalOpen,
+    setWishlistModalOpen,
+    openCartModal,
+    openWishlistModal,
+    toggleMobileSubmenu,
+  };
+}

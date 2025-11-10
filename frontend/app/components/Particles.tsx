@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { useEffect, useState } from "react";
 
 export default function Particles() {
@@ -10,7 +10,6 @@ export default function Particles() {
     setIsClient(true);
   }, []);
 
-  // Pre-defined positions to avoid hydration mismatch
   const particlePositions = [
     { left: 10, top: 15 },
     { left: 25, top: 40 },
@@ -34,15 +33,13 @@ export default function Particles() {
     { left: 12, top: 35 }
   ];
 
-  // Don't render on server to avoid hydration issues
-  if (!isClient) {
-    return null;
-  }
+  // Prevent rendering on server to avoid hydration mismatch
+  if (!isClient) return null;
 
   return (
-    <>
+    <LazyMotion features={domAnimation}>
       {particlePositions.map((position, i) => (
-        <motion.div
+        <m.div
           key={i}
           animate={{
             y: [0, -80, 0],
@@ -58,10 +55,11 @@ export default function Particles() {
           className="absolute w-1 h-1 bg-emerald-400 rounded-full"
           style={{
             left: `${position.left}%`,
-            top: `${position.top}%`
+            top: `${position.top}%`,
+            willChange: "transform, opacity" // GPU optimization
           }}
         />
       ))}
-    </>
+    </LazyMotion>
   );
 }

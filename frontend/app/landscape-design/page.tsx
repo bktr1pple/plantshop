@@ -1,671 +1,906 @@
-"use client";
+// app/landscape-design/page.tsx
+'use client';
 
-import { LazyMotion, m, domAnimation, spring } from "framer-motion";
-import { useState, useMemo } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import React, { useState, useRef, useMemo } from 'react';
+import { LazyMotion, m, domAnimation, useInView, useScroll, useTransform } from 'framer-motion';
+import Image from 'next/image';
 import { 
-  ArrowRight,
-  Eye,
-  Palette,
-  ClipboardCheck,
-  Trees,
-  Home,
-  Sparkles,
-  CheckCircle,
-  Star,
-  Clock,
-  Users,
-  Award,
-  Camera,
-  Leaf,
-  Zap,
+  Leaf, 
+  Eye, 
+  Box, 
+  Wrench, 
   Shield,
-  Heart
-} from "lucide-react";
+  Phone,
+  Mail,
+  MessageCircle,
+  Instagram,
+  ChevronRight,
+  Star,
+  Calendar,
+  CheckCircle,
+  ArrowRight,
+  Play
+} from 'lucide-react';
 
-// Stagger animations for performance
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
-  }
+// Types
+interface Service {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+interface Project {
+  id: number;
+  category: 'homesteads' | 'commercial' | 'parks';
+  before: string;
+  after: string;
+  title: string;
+}
+
+interface ProcessStep {
+  step: number;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+interface Benefit {
+  title: string;
+  description: string;
+}
+
+interface Review {
+  id: number;
+  name: string;
+  rating: number;
+  text: string;
+  project: string;
+}
+
+interface FAQ {
+  question: string;
+  answer: string;
+}
+
+// Data - Memoized to prevent unnecessary recalculations
+const usePageData = () => {
+  return useMemo(() => ({
+    services: [
+      {
+        icon: <Leaf className="w-6 h-6" />,
+        title: "Design",
+        description: "Site analysis, zoning, and detailed sketches for optimal space utilization"
+      },
+      {
+        icon: <Eye className="w-6 h-6" />,
+        title: "3D Visualization",
+        description: "Photorealistic representation of your future garden before construction"
+      },
+      {
+        icon: <Box className="w-6 h-6" />,
+        title: "Selection of Materials",
+        description: "Curated stone, plants, lighting, and decor elements for cohesive design"
+      },
+      {
+        icon: <Wrench className="w-6 h-6" />,
+        title: "Implementation",
+        description: "Professional construction and landscaping work with quality control"
+      },
+      {
+        icon: <Shield className="w-6 h-6" />,
+        title: "Author's Supervision",
+        description: "Comprehensive support from initial concept to project completion"
+      }
+    ] as Service[],
+
+    projects: [
+      {
+        id: 1,
+        category: 'homesteads' as const,
+        before: '/images/projects/homestead-1-before.jpg',
+        after: '/images/projects/homestead-1-after.jpg',
+        title: 'Modern Family Garden'
+      },
+      {
+        id: 2,
+        category: 'commercial' as const,
+        before: '/images/projects/commercial-1-before.jpg',
+        after: '/images/projects/commercial-1-after.jpg',
+        title: 'Corporate Park Redesign'
+      },
+      {
+        id: 3,
+        category: 'parks' as const,
+        before: '/images/projects/park-1-before.jpg',
+        after: '/images/projects/park-1-after.jpg',
+        title: 'Community Park Renovation'
+      },
+      {
+        id: 4,
+        category: 'homesteads' as const,
+        before: '/images/projects/homestead-2-before.jpg',
+        after: '/images/projects/homestead-2-after.jpg',
+        title: 'Luxury Villa Landscape'
+      }
+    ] as Project[],
+
+    processSteps: [
+      {
+        step: 1,
+        title: "Consultation and Site Visit",
+        description: "Initial meeting to understand your vision and assess the property",
+        icon: <Calendar className="w-6 h-6" />
+      },
+      {
+        step: 2,
+        title: "Territory Analysis",
+        description: "Comprehensive analysis of relief, lighting, soil composition",
+        icon: <Leaf className="w-6 h-6" />
+      },
+      {
+        step: 3,
+        title: "Sketch and Concept",
+        description: "Creative design development and layout planning",
+        icon: <Eye className="w-6 h-6" />
+      },
+      {
+        step: 4,
+        title: "3D Visualization",
+        description: "Realistic rendering of the final design concept",
+        icon: <Box className="w-6 h-6" />
+      },
+      {
+        step: 5,
+        title: "Project Implementation",
+        description: "Professional execution with quality materials and workmanship",
+        icon: <Wrench className="w-6 h-6" />
+      },
+      {
+        step: 6,
+        title: "Author Support",
+        description: "Ongoing maintenance and support after project completion",
+        icon: <Shield className="w-6 h-6" />
+      }
+    ] as ProcessStep[],
+
+    benefits: [
+      {
+        title: "Individual Approach",
+        description: "Every project is uniquely tailored to your specific needs and preferences"
+      },
+      {
+        title: "Expert Team",
+        description: "Experienced designers and agronomists with proven track record"
+      },
+      {
+        title: "Planting Guarantee",
+        description: "Full warranty on all planting work and materials"
+      },
+      {
+        title: "Eco Solutions",
+        description: "Sustainable and environmentally friendly design practices"
+      },
+      {
+        title: "Turnkey Service",
+        description: "Complete project management from concept to completion"
+      }
+    ] as Benefit[],
+
+    reviews: [
+      {
+        id: 1,
+        name: "Sarah Johnson",
+        rating: 5,
+        text: "My yard has become a real oasis! The team transformed our boring space into a beautiful retreat.",
+        project: "Family Garden Makeover"
+      },
+      {
+        id: 2,
+        name: "Michael Chen",
+        rating: 5,
+        text: "Professional service from start to finish. The 3D visualization helped us visualize the result perfectly.",
+        project: "Modern Courtyard"
+      },
+      {
+        id: 3,
+        name: "Emma Rodriguez",
+        rating: 5,
+        text: "The attention to detail and quality of work exceeded our expectations. Highly recommended!",
+        project: "Luxury Villa Landscape"
+      }
+    ] as Review[],
+
+    faqs: [
+      {
+        question: "How long does it take to create a project?",
+        answer: "Typically 2-4 weeks depending on complexity, including site analysis, design development, and 3D visualization."
+      },
+      {
+        question: "Do you only do design without implementation?",
+        answer: "We offer both design-only services and full turnkey implementation. You can choose what fits your needs."
+      },
+      {
+        question: "Can I order only 3D visualization?",
+        answer: "Yes, we provide standalone 3D visualization services based on your existing plans or our design concepts."
+      },
+      {
+        question: "What's included in the author's supervision?",
+        answer: "Regular site visits, quality control, material selection approval, and coordination with construction teams."
+      }
+    ] as FAQ[]
+  }), []);
 };
 
-const itemVariants = {
-  hidden: { 
-    opacity: 0, 
-    y: 30,
-    scale: 0.95
-  },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      type: spring,
-      stiffness: 100,
-      damping: 15
-    }
-  }
-};
+// Optimized Components
+const SectionWrapper = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-100px' });
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: spring,
-      stiffness: 100,
-      damping: 15
-    }
-  }
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      type: spring,
-      stiffness: 100,
-      damping: 12
-    }
-  }
-};
-
-export default function LandscapeDesignPage() {
-  const [activeCategory, setActiveCategory] = useState("all");
-
-  const services = useMemo(() => [
-    {
-      icon: <Eye className="w-8 h-8" />,
-      title: "3D Візуалізація",
-      description: "Створюємо фотореалістичні 3D моделі вашого майбутнього саду перед початком робіт",
-      features: ["Панорамні види", "Віртуальна прогулянка", "Зміна ракурсів", "Реальні текстури"],
-      image: "/images/3d-visualization.jpg",
-      category: "design"
-    },
-    {
-      icon: <Palette className="w-8 h-8" />,
-      title: "Підбір матеріалів",
-      description: "Підбираємо якісні та довговічні матеріали, що ідеально підходять для вашого клімату",
-      features: ["Натуральний камінь", "Якісна деревина", "Сучасні покриття", "Екологічні матеріали"],
-      image: "/images/materials-selection.jpg",
-      category: "materials"
-    },
-    {
-      icon: <ClipboardCheck className="w-8 h-8" />,
-      title: "Авторський нагляд",
-      description: "Контролюємо кожен етап робіт для гарантії якості та відповідності проекту",
-      features: ["Регулярні звіти", "Контроль якості", "Технічний супровід", "Координація робіт"],
-      image: "/images/supervision.jpg",
-      category: "supervision"
-    }
-  ], []);
-
-  const processSteps = useMemo(() => [
-    {
-      step: "01",
-      title: "Консультація та аналіз",
-      description: "Обговорюємо ваші побажання, аналізуємо ділянку та складаємо технічне завдання",
-      icon: <Users className="w-6 h-6" />
-    },
-    {
-      step: "02",
-      title: "Концепція та ескізи",
-      description: "Розробляємо концепцію, створюємо ескізи та затверджуємо з вами основний напрям",
-      icon: <Palette className="w-6 h-6" />
-    },
-    {
-      step: "03",
-      title: "3D Візуалізація",
-      description: "Створюємо детальну 3D модель з можливістю віртуальної прогулянки територією",
-      icon: <Eye className="w-6 h-6" />
-    },
-    {
-      step: "04",
-      title: "Підбір матеріалів",
-      description: "Підбираємо оптимальні матеріали, рослини та обладнання для реалізації проекту",
-      icon: <Trees className="w-6 h-6" />
-    },
-    {
-      step: "05",
-      title: "Реалізація проекту",
-      description: "Виконуємо всі роботи з озеленення та благоустрою під авторським наглядом",
-      icon: <ClipboardCheck className="w-6 h-6" />
-    },
-    {
-      step: "06",
-      title: "Здавання об'єкта",
-      description: "Здаємо готовий об'єкт, надаємо гарантії та консультації з догляду",
-      icon: <Award className="w-6 h-6" />
-    }
-  ], []);
-
-  const portfolioItems = useMemo(() => [
-    {
-      id: 1,
-      title: "Сучасний сад у мінімалізмі",
-      category: "modern",
-      area: "120 м²",
-      duration: "3 тижні",
-      location: "Київ",
-      image: "/images/portfolio-1.jpg",
-      features: ["Зона відпочинку", "Нічне освітлення", "Автополив", "Декоративні рослини"]
-    },
-    {
-      id: 2,
-      title: "Класичний англійський сад",
-      category: "classic",
-      area: "250 м²",
-      duration: "6 тижнів",
-      location: "Львів",
-      image: "/images/portfolio-2.jpg",
-      features: ["Фонтани", "Живі огорожі", "Квіткові композиції", "Альтанка"]
-    },
-    {
-      id: 3,
-      title: "Японський сад кам'яних ліхтарів",
-      category: "japanese",
-      area: "80 м²",
-      duration: "4 тижні",
-      location: "Одеса",
-      image: "/images/portfolio-3.jpg",
-      features: ["Японські клени", "Водойми", "Кам'яні стежки", "Церемонійний чайний дім"]
-    },
-    {
-      id: 4,
-      title: "Сімейний сад з дитячою зоною",
-      category: "family",
-      area: "180 м²",
-      duration: "5 тижнів",
-      location: "Харків",
-      image: "/images/portfolio-4.jpg",
-      features: ["Дитячий майданчик", "Зона барбекю", "Газон для ігор", "Безпечні рослини"]
-    },
-    {
-      id: 5,
-      title: "Міський сад на даху",
-      category: "urban",
-      area: "60 м²",
-      duration: "2 тижні",
-      location: "Дніпро",
-      image: "/images/portfolio-5.jpg",
-      features: ["Контейнерне садівництво", "Мобільні меблі", "Кашпо", "Нічне освітлення"]
-    },
-    {
-      id: 6,
-      title: "Середземноморський дворик",
-      category: "mediterranean",
-      area: "150 м²",
-      duration: "4 тижні",
-      location: "Запоріжжя",
-      image: "/images/portfolio-6.jpg",
-      features: ["Оливкові дерева", "Теракота", "Водоспад", "Арочні конструкції"]
-    }
-  ], []);
-
-  const benefits = useMemo(() => [
-    {
-      icon: <Zap className="w-8 h-8" />,
-      title: "Швидка реалізація",
-      description: "Від концепції до готового результату за 2-8 тижнів"
-    },
-    {
-      icon: <Shield className="w-8 h-8" />,
-      title: "Гарантія якості",
-      description: "Гарантія на всі роботи та рослини до 3 років"
-    },
-    {
-      icon: <Heart className="w-8 h-8" />,
-      title: "Індивідуальний підхід",
-      description: "Кожен проект унікальний та створюється з урахуванням ваших побажань"
-    },
-    {
-      icon: <Award className="w-8 h-8" />,
-      title: "Професійна команда",
-      description: "Досвідчені дизайнери, архітектори та дендрологи"
-    }
-  ], []);
-
-  const filteredPortfolio = useMemo(() => 
-    activeCategory === "all" 
-      ? portfolioItems 
-      : portfolioItems.filter(item => item.category === activeCategory),
-    [portfolioItems, activeCategory]
+  return (
+    <m.section
+      ref={ref}
+      initial={{ opacity: 0, y: 50 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+      transition={{ duration: 0.6 }}
+      className={`will-change-transform ${className}`}
+      style={{ willChange: 'transform, opacity' }}
+    >
+      {children}
+    </m.section>
   );
+};
 
-  const categories = useMemo(() => [
-    { id: "all", label: "Всі проекти" },
-    { id: "modern", label: "Сучасні" },
-    { id: "classic", label: "Класичні" },
-    { id: "japanese", label: "Японські" },
-    { id: "family", label: "Сімейні" },
-    { id: "urban", label: "Міські" },
-    { id: "mediterranean", label: "Середземноморські" }
-  ], []);
+const ServiceCard = ({ service, index }: { service: Service; index: number }) => {
+  return (
+    <m.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      whileHover={{ y: -5, scale: 1.02 }}
+      className="group bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-emerald-100 dark:border-emerald-900 shadow-lg hover:shadow-xl transition-all duration-300 will-change-transform"
+      style={{ willChange: 'transform, opacity' }}
+    >
+      <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform duration-300">
+        {service.icon}
+      </div>
+      <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+        {service.title}
+      </h3>
+      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+        {service.description}
+      </p>
+    </m.div>
+  );
+};
 
-  // Optimized placeholder image component
-  const PlaceholderImage = ({ className = "h-64", text = "Зображення проекту" }: { className?: string; text?: string }) => (
-    <div className={`${className} bg-gradient-to-br from-emerald-100 to-green-200 dark:from-emerald-900/30 dark:to-green-800/30 flex items-center justify-center`}>
-      <div className="text-center">
-        <div className="w-16 h-16 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
-          <span className="text-xl">🌿</span>
+const OptimizedImage = ({ src, alt, className = '' }: { src: string; alt: string; className?: string }) => {
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      <Image
+        src={src}
+        alt={alt}
+        width={600}
+        height={400}
+        className="object-cover w-full h-full transition-transform duration-300 hover:scale-105"
+        placeholder="blur"
+        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaUMk9KSahlJuoX0haN6YZQE13N"
+        loading="lazy"
+      />
+    </div>
+  );
+};
+
+const ProjectCard = ({ project }: { project: Project }) => {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  return (
+    <m.div
+      whileHover={{ scale: 1.05 }}
+      className="relative h-80 cursor-pointer will-change-transform"
+      style={{ willChange: 'transform' }}
+      onHoverStart={() => setIsFlipped(true)}
+      onHoverEnd={() => setIsFlipped(false)}
+    >
+      <m.div
+        className="absolute inset-0 rounded-2xl shadow-lg will-change-transform"
+        animate={{ rotateY: isFlipped ? 180 : 0 }}
+        transition={{ duration: 0.6 }}
+        style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
+      >
+        {/* Front - Before */}
+        <div
+          className="absolute inset-0 rounded-2xl overflow-hidden"
+          style={{ backfaceVisibility: 'hidden' }}
+        >
+          <OptimizedImage 
+            src={project.before} 
+            alt={`${project.title} before`}
+            className="h-full"
+          />
+          <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center">
+            <div className="text-center text-white">
+              <Play className="w-8 h-8 mx-auto mb-2" />
+              <span className="font-semibold">Before</span>
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{text}</p>
+        
+        {/* Back - After */}
+        <div
+          className="absolute inset-0 rounded-2xl overflow-hidden"
+          style={{ 
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)'
+          }}
+        >
+          <OptimizedImage 
+            src={project.after} 
+            alt={`${project.title} after`}
+            className="h-full"
+          />
+          <div className="absolute inset-0 bg-emerald-900/60 rounded-2xl flex items-end p-6">
+            <div className="text-white">
+              <span className="bg-emerald-600 px-3 py-1 rounded-full text-sm font-medium">
+                {project.category}
+              </span>
+              <h4 className="text-lg font-semibold mt-2">{project.title}</h4>
+            </div>
+          </div>
+        </div>
+      </m.div>
+    </m.div>
+  );
+};
+
+const ProcessTimeline = () => {
+  const processSteps = usePageData().processSteps;
+
+  return (
+    <div className="relative">
+      {/* Timeline line */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-emerald-400 to-green-600 hidden lg:block" />
+      
+      <div className="space-y-12 lg:space-y-0">
+        {processSteps.map((step, index) => (
+          <m.div
+            key={step.step}
+            initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: index * 0.1 }}
+            className={`flex flex-col lg:flex-row items-center ${
+              index % 2 === 0 ? 'lg:flex-row-reverse' : ''
+            } will-change-transform`}
+            style={{ willChange: 'transform, opacity' }}
+          >
+            {/* Content */}
+            <div className={`lg:w-1/2 ${index % 2 === 0 ? 'lg:pl-12' : 'lg:pr-12'} mb-8 lg:mb-0`}>
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-emerald-100 dark:border-emerald-900 shadow-lg">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                    {step.step}
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                    {step.title}
+                  </h3>
+                </div>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {step.description}
+                </p>
+              </div>
+            </div>
+
+            {/* Icon */}
+            <div className="lg:w-1/2 flex justify-center">
+              <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center border-4 border-emerald-200 dark:border-emerald-800 shadow-lg">
+                <div className="text-emerald-600 dark:text-emerald-400">
+                  {step.icon}
+                </div>
+              </div>
+            </div>
+          </m.div>
+        ))}
       </div>
     </div>
   );
+};
+
+const ReviewCard = ({ review, index }: { review: Review; index: number }) => {
+  return (
+    <m.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      whileHover={{ scale: 1.02 }}
+      className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-emerald-100 dark:border-emerald-900 shadow-lg will-change-transform"
+      style={{ willChange: 'transform, opacity' }}
+    >
+      <div className="flex items-center mb-4">
+        <div className="flex mr-4">
+          {[...Array(5)].map((_, i) => (
+            <Star
+              key={i}
+              className={`w-5 h-5 ${
+                i < review.rating
+                  ? 'text-yellow-400 fill-current'
+                  : 'text-gray-300'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+      <p className="text-gray-600 dark:text-gray-300 italic mb-4">
+        "{review.text}"
+      </p>
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <p className="font-semibold text-gray-800 dark:text-white">
+          {review.name}
+        </p>
+        <p className="text-sm text-emerald-600 dark:text-emerald-400">
+          {review.project}
+        </p>
+      </div>
+    </m.div>
+  );
+};
+
+const FAQItem = ({ faq, index }: { faq: FAQ; index: number }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <m.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="border-b border-gray-200 dark:border-gray-700 last:border-b-0 will-change-transform"
+      style={{ willChange: 'transform, opacity' }}
+    >
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex justify-between items-center w-full py-6 text-left"
+      >
+        <span className="text-lg font-medium text-gray-800 dark:text-white pr-4">
+          {faq.question}
+        </span>
+        <m.div
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex-shrink-0 will-change-transform"
+          style={{ willChange: 'transform' }}
+        >
+          <ChevronRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+        </m.div>
+      </button>
+      <m.div
+        initial={false}
+        animate={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}
+        transition={{ duration: 0.3 }}
+        className="overflow-hidden will-change-transform"
+        style={{ willChange: 'transform, opacity' }}
+      >
+        <p className="pb-6 text-gray-600 dark:text-gray-300 leading-relaxed">
+          {faq.answer}
+        </p>
+      </m.div>
+    </m.div>
+  );
+};
+
+// Staggered Animation Container
+const StaggerContainer = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-50px' });
+
+  return (
+    <m.div
+      ref={ref}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+      variants={{
+        hidden: { opacity: 0 },
+        visible: {
+          opacity: 1,
+          transition: {
+            staggerChildren: 0.1
+          }
+        }
+      }}
+      className={className}
+    >
+      {children}
+    </m.div>
+  );
+};
+
+const StaggerItem = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
+  return (
+    <m.div
+      variants={{
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0 }
+      }}
+      transition={{ duration: 0.5 }}
+      className={`will-change-transform ${className}`}
+      style={{ willChange: 'transform, opacity' }}
+    >
+      {children}
+    </m.div>
+  );
+};
+
+// Main Page Component
+export default function LandscapeDesignPage() {
+  const {
+    services,
+    projects,
+    reviews,
+    faqs,
+    benefits
+  } = usePageData();
+
+  const [activeFilter, setActiveFilter] = useState<'all' | 'homesteads' | 'commercial' | 'parks'>('all');
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    message: ''
+  });
+
+  const filteredProjects = useMemo(() => 
+    activeFilter === 'all' 
+      ? projects 
+      : projects.filter(project => project.category === activeFilter),
+    [activeFilter, projects]
+  );
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Handle form submission
+    console.log('Form submitted:', formData);
+  };
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className="content-with-navbar flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-        {/* 🌿 Hero Section */}
-        <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20">
-          {/* Background Elements */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute top-20 left-10 w-80 h-80 bg-emerald-200/30 rounded-full blur-3xl"></div>
-            <div className="absolute top-1/3 right-20 w-96 h-96 bg-green-300/20 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-emerald-100/40 rounded-full blur-3xl"></div>
-          </div>
-
-          <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
-            <m.div
-              initial={{ opacity: 0, y: 40 }}
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20">
+        {/* Hero Section */}
+        <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 via-transparent to-green-600/10" />
+          <div className="relative z-10 text-center px-4 max-w-6xl mx-auto">
+            <m.h1
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="space-y-8"
+              className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white mb-6 will-change-transform"
+              style={{ willChange: 'transform, opacity' }}
             >
-              <m.h1
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-tight"
-              >
-                <span className="text-gray-900 dark:text-white">Ландшафтний</span>
-                <br />
-                <span className="bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent dark:from-emerald-400 dark:to-green-300">
-                  дизайн
-                </span>
-              </m.h1>
-
-              <m.p
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
-                className="text-2xl md:text-3xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed"
-              >
-                Повний цикл створення гармонійних просторів — від концепції до реалізації
-              </m.p>
-
-              <m.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
-                className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8"
-              >
-                <Link
-                  href="/consultation"
-                  className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-5 px-10 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 text-lg"
-                >
-                  <Sparkles className="w-6 h-6" />
-                  Замовити проект
-                </Link>
-                <a
-                  href="#portfolio"
-                  className="inline-flex items-center gap-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-5 px-10 rounded-2xl hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300 text-lg"
-                >
-                  <Camera className="w-6 h-6" />
-                  Переглянути портфоліо
-                </a>
-              </m.div>
+              Transform Your
+              <span className="bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                {' '}Outdoor Space
+              </span>
+            </m.h1>
+            <m.p
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto will-change-transform"
+              style={{ willChange: 'transform, opacity' }}
+            >
+              We create more than just landscaping - we design an environment that reflects your lifestyle, 
+              harmonizes with nature, and maximizes functionality.
+            </m.p>
+            <m.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center will-change-transform"
+              style={{ willChange: 'transform, opacity' }}
+            >
+              <button className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
+                Start Your Project
+              </button>
+              <button className="border-2 border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-400 dark:hover:text-gray-900 px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105">
+                View Portfolio
+              </button>
             </m.div>
           </div>
+          
+          {/* Animated background elements */}
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white dark:from-gray-800 to-transparent" />
         </section>
 
-        {/* 🎯 Services Section */}
-        <section className="py-20 bg-white dark:bg-gray-900">
-          <div className="max-w-6xl mx-auto px-6">
-            <m.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true, margin: "-50px" }}
-              className="text-center mb-16"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                Наші <span className="text-emerald-600 dark:text-emerald-400">послуги</span>
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Комплексний підхід до створення ідеального простору
-              </p>
-            </m.div>
-
-            <m.div 
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              {services.map((service, index) => (
-                <m.div
-                  key={index}
-                  variants={itemVariants}
-                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group hover:scale-105"
-                  style={{ willChange: 'transform, opacity' }}
-                >
-                  <div className="relative overflow-hidden">
-                    <PlaceholderImage className="h-48" text={service.title} />
-                    <div className="absolute top-4 left-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-lg flex items-center justify-center text-white">
-                        {service.icon}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6">
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                      {service.title}
-                    </h3>
-                    
-                    <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-                      {service.description}
-                    </p>
-
-                    <div className="space-y-2">
-                      {service.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-center gap-3">
-                          <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                          <span className="text-gray-700 dark:text-gray-300 text-sm">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </m.div>
-              ))}
-            </m.div>
-          </div>
-        </section>
-
-        {/* 📈 Process Section */}
-        <section className="py-20 bg-gray-50 dark:bg-gray-800/50">
-          <div className="max-w-6xl mx-auto px-6">
-            <m.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true, margin: "-50px" }}
-              className="text-center mb-16"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                Процес <span className="text-emerald-600 dark:text-emerald-400">роботи</span>
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                6 кроків до ідеального ландшафтного дизайну
-              </p>
-            </m.div>
-
-            <m.div 
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              {processSteps.map((step, index) => (
-                <m.div
-                  key={index}
-                  variants={itemVariants}
-                  className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 group"
-                  style={{ willChange: 'transform, opacity' }}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                        {step.step}
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="text-emerald-600 dark:text-emerald-400">
-                          {step.icon}
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                          {step.title}
-                        </h3>
-                      </div>
-                      
-                      <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                        {step.description}
-                      </p>
-                    </div>
-                  </div>
-                </m.div>
-              ))}
-            </m.div>
-          </div>
-        </section>
-
-        {/* 🏆 Benefits Section */}
-        <section className="py-20 bg-white dark:bg-gray-900">
-          <div className="max-w-6xl mx-auto px-6">
-            <m.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true, margin: "-50px" }}
-              className="text-center mb-16"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                Чому обирають <span className="text-emerald-600 dark:text-emerald-400">нас</span>
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Ми створюємо не просто красиві сади, а простори для життя
-              </p>
-            </m.div>
-
-            <m.div 
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              {benefits.map((benefit, index) => (
-                <m.div
-                  key={index}
-                  variants={itemVariants}
-                  className="text-center group"
-                  style={{ willChange: 'transform, opacity' }}
-                >
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300">
-                    <div className="text-white">
-                      {benefit.icon}
-                    </div>
-                  </div>
-                  
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                    {benefit.title}
-                  </h3>
-                  
-                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                    {benefit.description}
-                  </p>
-                </m.div>
-              ))}
-            </m.div>
-          </div>
-        </section>
-
-        {/* 🖼️ Portfolio Section */}
-        <section id="portfolio" className="py-20 bg-gray-50 dark:bg-gray-800/50">
-          <div className="max-w-6xl mx-auto px-6">
-            <m.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true, margin: "-50px" }}
-              className="text-center mb-12"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                Наше <span className="text-emerald-600 dark:text-emerald-400">портфоліо</span>
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Реалізовані проекти, якими ми пишаємося
-              </p>
-            </m.div>
-
-            {/* Portfolio Filters */}
+        {/* Services Section */}
+        <SectionWrapper className="py-20 px-4">
+          <div className="max-w-7xl mx-auto">
             <m.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              viewport={{ once: true, margin: "-50px" }}
-              className="flex flex-wrap justify-center gap-3 mb-12"
+              className="text-center mb-16 will-change-transform"
               style={{ willChange: 'transform, opacity' }}
             >
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`px-6 py-3 rounded-2xl font-semibold transition-all duration-300 ${
-                    activeCategory === category.id
-                      ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg"
-                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-md"
-                  }`}
-                >
-                  {category.label}
-                </button>
-              ))}
-            </m.div>
-
-            {/* Portfolio Grid */}
-            <m.div 
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              {filteredPortfolio.map((project, index) => (
-                <m.div
-                  key={project.id}
-                  variants={itemVariants}
-                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group hover:scale-105"
-                  style={{ willChange: 'transform, opacity' }}
-                >
-                  <div className="relative overflow-hidden">
-                    <PlaceholderImage className="h-48" text={project.title} />
-                    
-                    <div className="absolute top-4 right-4 flex gap-2">
-                      <span className="px-3 py-1 bg-emerald-500 text-white rounded-full text-sm font-medium">
-                        {project.area}
-                      </span>
-                      <span className="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-medium">
-                        {project.duration}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Home className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-500 dark:text-gray-400 text-sm">{project.location}</span>
-                    </div>
-
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                      {project.title}
-                    </h3>
-
-                    <div className="space-y-2 mb-6">
-                      {project.features.slice(0, 3).map((feature, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                          <span className="text-gray-600 dark:text-gray-400 text-sm">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-3 rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105">
-                      Детальніше про проект
-                    </button>
-                  </div>
-                </m.div>
-              ))}
-            </m.div>
-          </div>
-        </section>
-
-        {/* 🎯 Final CTA */}
-        <section className="py-20 bg-gradient-to-r from-emerald-600 to-green-700 text-white">
-          <div className="max-w-4xl mx-auto px-6 text-center">
-            <m.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true, margin: "-50px" }}
-              className="space-y-8"
-              style={{ willChange: 'transform, opacity' }}
-            >
-              <h2 className="text-4xl md:text-5xl font-bold">
-                Готові створити сад вашої мрії?
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                Our Approach to Creating Landscape Design
               </h2>
-              
-              <p className="text-xl opacity-90 max-w-2xl mx-auto">
-                Зв'яжіться з нами для безкоштовної консультації та розробки індивідуального проекту
+              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                Comprehensive services that transform your vision into a living, breathing reality
               </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Link
-                  href="/consultation"
-                  className="inline-flex items-center gap-3 bg-white text-emerald-600 font-bold py-5 px-12 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 text-lg"
-                >
-                  <Sparkles className="w-6 h-6" />
-                  Замовити консультацію
-                </Link>
-                <Link
-                  href="/contacts"
-                  className="inline-flex items-center gap-3 border-2 border-white text-white font-semibold py-5 px-12 rounded-2xl hover:bg-white hover:text-emerald-600 transition-all duration-300 text-lg"
-                >
-                  Наші контакти
-                  <ArrowRight className="w-6 h-6" />
-                </Link>
-              </div>
-
-              <div className="flex flex-wrap justify-center items-center gap-8 text-sm opacity-80 pt-8">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Термін реалізації: 2-8 тижнів</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4" />
-                  <span>Гарантія на роботи: 3 роки</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4" />
-                  <span>Понад 150 успішних проектів</span>
-                </div>
-              </div>
             </m.div>
+
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {services.map((service, index) => (
+                <StaggerItem key={index}>
+                  <ServiceCard service={service} index={index} />
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
           </div>
-        </section>
+        </SectionWrapper>
+
+        {/* Portfolio Section */}
+        <SectionWrapper className="py-20 px-4 bg-white/50 dark:bg-gray-800/50">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                Our Portfolio
+              </h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+                See the transformation from concept to completion
+              </p>
+              
+              {/* Filter Buttons */}
+              <div className="flex flex-wrap justify-center gap-4 mb-12">
+                {['all', 'homesteads', 'commercial', 'parks'].map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setActiveFilter(filter as any)}
+                    className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                      activeFilter === filter
+                        ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg'
+                        : 'bg-white/70 dark:bg-gray-800/70 text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                    }`}
+                  >
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {filteredProjects.map((project, index) => (
+                <StaggerItem key={project.id}>
+                  <ProjectCard project={project} />
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+
+            <div className="text-center mt-12">
+              <button className="group bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center mx-auto">
+                View All Projects
+                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </SectionWrapper>
+
+        {/* Process Section */}
+        <SectionWrapper className="py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                Our Work Process
+              </h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300">
+                A structured approach ensuring excellence at every stage
+              </p>
+            </div>
+
+            <ProcessTimeline />
+          </div>
+        </SectionWrapper>
+
+        {/* Benefits Section */}
+        <SectionWrapper className="py-20 px-4 bg-white/50 dark:bg-gray-800/50">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                Benefits of Cooperation
+              </h2>
+            </div>
+
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {benefits.map((benefit, index) => (
+                <StaggerItem key={index}>
+                  <m.div
+                    className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-8 border border-emerald-100 dark:border-emerald-900 shadow-lg will-change-transform"
+                    style={{ willChange: 'transform, opacity' }}
+                  >
+                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-green-600 rounded-lg flex items-center justify-center text-white mb-6">
+                      <CheckCircle className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
+                      {benefit.title}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      {benefit.description}
+                    </p>
+                  </m.div>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          </div>
+        </SectionWrapper>
+
+        {/* Reviews Section */}
+        <SectionWrapper className="py-20 px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                Customer Reviews
+              </h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300">
+                Hear what our clients say about their transformed spaces
+              </p>
+            </div>
+
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {reviews.map((review, index) => (
+                <StaggerItem key={review.id}>
+                  <ReviewCard review={review} index={index} />
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          </div>
+        </SectionWrapper>
+
+        {/* CTA Section */}
+        <SectionWrapper className="py-20 px-4 bg-gradient-to-br from-emerald-600 to-green-700">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              {/* Contact Form */}
+              <m.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 border border-white/20 will-change-transform"
+                style={{ willChange: 'transform, opacity' }}
+              >
+                <h3 className="text-3xl font-bold text-white mb-2">
+                  Want to update your yard or garden?
+                </h3>
+                <p className="text-emerald-100 mb-8">
+                  Order a consultation with our designer — we will help create the space of your dreams.
+                </p>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="Your Name"
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-100 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="Phone Number"
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-100 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <textarea
+                      name="message"
+                      value={formData.message}
+                      onChange={handleInputChange}
+                      placeholder="Tell us about your project..."
+                      rows={4}
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-100 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent resize-none"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-white text-emerald-600 hover:bg-emerald-50 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105"
+                  >
+                    Send Request
+                  </button>
+                </form>
+              </m.div>
+
+              {/* Contact Info */}
+              <m.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="text-white will-change-transform"
+                style={{ willChange: 'transform, opacity' }}
+              >
+                <h3 className="text-3xl font-bold mb-8">Get in Touch</h3>
+                
+                <div className="space-y-6">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                      <Phone className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-emerald-100">Phone</p>
+                      <p className="text-xl font-semibold">+1 (555) 123-4567</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                      <Mail className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-emerald-100">Email</p>
+                      <p className="text-xl font-semibold">hello@landscapedesign.com</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                      <MessageCircle className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-emerald-100">Telegram</p>
+                      <p className="text-xl font-semibold">@landscape_design</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                      <Instagram className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-emerald-100">Instagram</p>
+                      <p className="text-xl font-semibold">@landscape_design_studio</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-12 p-6 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/20">
+                  <h4 className="font-semibold text-lg mb-4">Visit Our Studio</h4>
+                  <p className="text-emerald-100">
+                    123 Garden Street<br />
+                    Green Valley, CA 94201<br />
+                    Mon-Fri: 9AM-6PM
+                  </p>
+                </div>
+              </m.div>
+            </div>
+          </div>
+        </SectionWrapper>
+
+        {/* FAQ Section */}
+        <SectionWrapper className="py-20 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                Frequently Asked Questions
+              </h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300">
+                Everything you need to know about our landscape design services
+              </p>
+            </div>
+
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-3xl p-8 border border-emerald-100 dark:border-emerald-900 shadow-lg">
+              {faqs.map((faq, index) => (
+                <FAQItem key={index} faq={faq} index={index} />
+              ))}
+            </div>
+          </div>
+        </SectionWrapper>
       </div>
     </LazyMotion>
   );

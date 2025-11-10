@@ -192,3 +192,41 @@ html, body {
 .content-with-navbar {
   padding-top: var(--navbar-height);
 }
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+  }
+}
+
+.animate-shine {
+  animation: shine 1.5s ease-in-out;
+}
+
+/* Ensure proper spacing for the entire hero section */
+.hero-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+/* app/globals.css or styles/globals.css */
+.recaptcha-container > div {
+  margin: 0 auto;
+}
+
+/* Ensure proper sizing */
+.grecaptcha-badge {
+  visibility: visible !important;
+}
+
+/* Fix for dark mode */
+@media (prefers-color-scheme: dark) {
+  .grecaptcha-badge {
+    filter: invert(1) hue-rotate(180deg);
+  }
+}
