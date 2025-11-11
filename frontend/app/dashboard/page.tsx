@@ -743,7 +743,7 @@ export default function GardenerDashboard() {
   }, [router]);
 
   const handleLogout = useCallback(() => {
-    console.log('Logout clicked');
+    router.push("/logout");
   }, []);
 
   return (
