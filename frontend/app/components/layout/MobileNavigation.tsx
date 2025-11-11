@@ -269,10 +269,12 @@ export function MobileNavigation({
               {/* User Menu for Mobile - UPDATED */}
               {!isLoading && user && (
                 <div className="mt-6 pt-6 border-t border-gray-200/50 dark:border-gray-700/50 space-y-1">
-                  <button className="w-full flex items-center p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
-                    <Settings className="w-4 h-4 mr-3" />
-                    Мій профіль
-                  </button>
+                  <Link onClick={onClose} href="/dashboard">
+                    <button className="w-full flex items-center p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
+                      <Settings className="w-4 h-4 mr-3" />
+                      Мій профіль
+                    </button>
+                  </Link>
                   <button className="w-full flex items-center p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
                     <Package className="w-4 h-4 mr-3" />
                     Мої замовлення

@@ -1,7 +1,6 @@
-// contexts/AuthContext.tsx - UPDATED
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 
 export interface User {
   id: number;
@@ -20,106 +19,131 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+let globalMountCount = 0;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const mountId = useRef(++globalMountCount);
+  const mountTime = useRef(Date.now());
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const hasCheckedAuth = useRef(false);
+  const isCheckingAuth = useRef(false);
 
-//   // Check authentication status on mount
-//   useEffect(() => {
-//     checkAuth();
-//   }, []);
+useEffect(() => {
+    const currentMountId = mountId.current;
+    const currentMountTime = mountTime.current;
+    
+    console.log(`🏗️ AuthProvider MOUNTED [ID: ${currentMountId}]`, {
+      timeSincePageLoad: Date.now() - currentMountTime + 'ms',
+      hasCheckedAuth: hasCheckedAuth.current,
+      previousUser: user
+    });
 
-    // contexts/AuthContext.tsx - Add this to the useEffect
-    useEffect(() => {
-    const initializeAuth = async () => {
-        try {
-        // First, try to refresh the token
-        console.log('Refreshing token...');
-        const refreshRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
-            method: 'POST',
-            credentials: 'include',
-        });
-        
-        if (refreshRes.ok) {
-            console.log('Token refresh successful');
-            // If refresh was successful, then check auth status
-            await checkAuth();
-        } else {
-            console.log('Token refresh failed, checking auth directly');
-            // If refresh failed, check auth directly
-            await checkAuth();
-        }
-        } catch (error) {
-        console.error('Auth initialization error:', error);
-        await checkAuth();
-        }
+    // Проверяем что это не hot reload
+    if ((window as any).__AUTH_PROVIDER_ACTIVE__) {
+      console.warn('⚠️ Another AuthProvider already active!');
+    }
+    (window as any).__AUTH_PROVIDER_ACTIVE__ = true;
+
+    if (!hasCheckedAuth.current) {
+      hasCheckedAuth.current = true;
+      console.log(`🔐 First check for mount ${currentMountId}`);
+      checkAuth();
+    }
+
+    return () => {
+      console.log(`🏗️ AuthProvider UNMOUNTED [ID: ${currentMountId}]`, {
+        lifetime: Date.now() - currentMountTime + 'ms',
+        wasLoading: isLoading,
+        hadUser: !!user
+      });
+      console.trace(`🏗️ AuthProvider ${currentMountId} unmount stack`);
+      (window as any).__AUTH_PROVIDER_ACTIVE__ = false;
     };
+  }, []);
 
-    initializeAuth();
-    }, []);
-  
+  // useEffect(() => {
+  //   //console.log('🔐 AuthProvider mounted, hasCheckedAuth:', hasCheckedAuth.current);
+    
+  //   if (!hasCheckedAuth.current) {
+  //     hasCheckedAuth.current = true;
+  //     //console.log('🔐 First mount - calling checkAuth');
+  //     checkAuth();
+  //   }
+  // }, []);
+
   const checkAuth = async () => {
+    //console.log('🔐 checkAuth called');
+    
+    // 🔥 ИЗМЕНЕНИЕ: УБИРАЕМ ПРОВЕРКУ КУК - всегда делаем запрос
+    // Сервер сам проверит валидность httpOnly кук
+    
+    if (isCheckingAuth.current) {
+      //console.log('🔐 Auth check already in progress, skipping...');
+      return;
+    }
+
+    isCheckingAuth.current = true;
+    setIsLoading(true);
+
     try {
-      console.log('Checking auth status...');
+      //console.log('🔐 Making auth request to /auth/me');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-        method: 'GET',
-        credentials: 'include', // This is crucial for sending cookies
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include', // Это отправит httpOnly куки
       });
       
-      console.log('Auth check response status:', res.status);
+      //console.log('🔐 Auth response status:', res.status);
       
       if (res.ok) {
         const data = await res.json();
-        console.log('Auth check successful, user data:', data);
         if (data.user) {
           setUser(data.user);
+          //console.log('🔐 User authenticated:', data.user.name);
         } else {
           setUser(null);
+          //console.log('🔐 No user data in response');
         }
       } else {
-        console.log('Auth check failed, status:', res.status);
         setUser(null);
+        //console.log('🔐 Auth failed with status:', res.status);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error('🔐 Auth error:', error);
       setUser(null);
     } finally {
       setIsLoading(false);
+      isCheckingAuth.current = false;
     }
   };
 
   const login = async (email: string, password: string, captchaToken: string): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsLoading(true);
-      console.log('Attempting login for:', email);
-      
+      //console.log('🔐 Attempting login...');
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // This is crucial for cookies
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password, captchaToken }),
       });
 
       const data = await res.json();
-      console.log('Login response:', data);
+      //console.log('🔐 Login response:', data);
       
       if (data.status === 'ok') {
-        console.log('Login successful, checking auth status...');
-        // Wait a bit for cookies to be set, then check auth
-        setTimeout(async () => {
-          await checkAuth();
-        }, 100);
+        //console.log('✅ Login successful, checking auth status...');
+        
+        // Даем время на установку cookies
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await checkAuth();
+        
         return { success: true };
       } else {
         return { success: false, message: data.message || 'Login failed' };
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('🔐 Login error:', error);
       return { success: false, message: 'Network error' };
     } finally {
       setIsLoading(false);
@@ -129,29 +153,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, name: string, captchaToken: string): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsLoading(true);
-      console.log('Attempting registration for:', email);
-      
+      //console.log('🔐 Attempting registration...');
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ email, password, name, captchaToken }),
       });
 
       const data = await res.json();
-      console.log('Registration response:', data);
+      //console.log('🔐 Registration response:', data);
       
-      if (data.status === 'ok' && data.user) {
-        // For registration, the backend returns user data directly
-        setUser(data.user);
-        return { success: true };
+      if (data.status === 'ok') {
+        if (data.user) {
+          setUser(data.user);
+          return { success: true };
+        } else {
+          //console.log('✅ Registration successful, attempting auto-login...');
+          const loginResult = await login(email, password, captchaToken);
+          return loginResult;
+        }
       } else {
         return { success: false, message: data.message || 'Registration failed' };
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('🔐 Registration error:', error);
       return { success: false, message: 'Network error' };
     } finally {
       setIsLoading(false);
@@ -160,14 +187,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      console.log('Logging out...');
+      //console.log('🔐 Logging out...');
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });
-      console.log('Logout successful');
+      //console.log('✅ Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('🔐 Logout error:', error);
     } finally {
       setUser(null);
     }

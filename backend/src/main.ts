@@ -9,7 +9,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Enable CORS with credentials
-  const allowedOrigins = process.env.FRONTEND_URL?.split(',') || ['http://localhost:3000'];
+  const allowedOrigins = process.env.FRONTEND_URL?.split(',');
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,

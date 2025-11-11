@@ -9,24 +9,24 @@ interface ThemeContextType {
   theme: Theme;
   toggleTheme: (event: React.MouseEvent) => void;
   isAnimating: boolean;
+  isLoaded: boolean; // Добавляем флаг загрузки
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Начальное состояние - undefined, чтобы избежать мигания
-  const [theme, setTheme] = useState<Theme>();
+  const [theme, setTheme] = useState<Theme>('light'); // Дефолтное значение
   const [isAnimating, setIsAnimating] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false); // Флаг инициализации
 
   useEffect(() => {
-    setMounted(true);
     // Получаем тему только после монтирования на клиенте
     const savedTheme = localStorage.getItem('theme') as Theme;
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     
     const initialTheme = savedTheme || systemTheme;
     setTheme(initialTheme);
+    setIsLoaded(true);
     
     // Немедленно применяем тему к документу
     if (initialTheme === 'dark') {
@@ -37,7 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleTheme = (event: React.MouseEvent) => {
-    if (isAnimating || !mounted) return;
+    if (isAnimating || !isLoaded) return;
     
     setIsAnimating(true);
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -54,17 +54,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setIsAnimating(false), 1000);
   };
 
-  // Не рендерим детей пока тема не загружена
-  if (!mounted || theme === undefined) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
-        {/* Пустой контейнер с правильным фоном */}
-      </div>
-    );
-  }
-
+  // ВСЕГДА возвращаем провайдер, но передаем флаг загрузки
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isAnimating }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, isAnimating, isLoaded }}>
       {children}
     </ThemeContext.Provider>
   );

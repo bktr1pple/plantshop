@@ -123,6 +123,12 @@ export class AuthService {
     return false;
   }
 
+  async verifyAccessToken(token: string) {
+    return this.jwtService.verify(token, {
+      secret: process.env.JWT_ACCESS_SECRET ?? '',
+    });
+  }
+
   async logoutAll(userId: number) {
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
   }

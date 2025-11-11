@@ -486,25 +486,6 @@ const HeroSection = ({
       {/* Main Content Container */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-center min-h-screen py-8 lg:py-12">
-          
-          {/* Badge */}
-          <MotionDiv
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="flex justify-center mb-6 lg:mb-8"
-            style={{ willChange: 'transform, opacity' }}
-          >
-            <div className="inline-flex items-center gap-2 bg-white/10 dark:bg-gray-800/40 backdrop-blur-xl border border-white/20 dark:border-gray-600/40 text-green-100 dark:text-green-200 px-4 py-2 lg:px-5 lg:py-2.5 rounded-full text-sm font-medium shadow-lg">
-              <m.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
-              >
-                <Sparkles className="w-3 h-3 lg:w-4 lg:h-4" />
-              </m.div>
-              Преміум рослини з 2017 року
-            </div>
-          </MotionDiv>
 
           {/* Main Heading */}
           <div className="text-center space-y-4 lg:space-y-6 mb-6 lg:mb-8">

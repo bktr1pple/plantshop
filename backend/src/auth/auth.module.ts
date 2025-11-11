@@ -6,14 +6,15 @@ import { AuthController } from './auth.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtStrategy } from './jwt.strategy';
 
+// backend/src/auth/auth.module.ts
 @Module({
   imports: [
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_ACCESS_SECRET,
       signOptions: {
-            expiresIn: Number(process.env.JWT_ACCESS_EXPIRES_IN),
-        },
+        expiresIn: Number(process.env.JWT_ACCESS_EXPIRES_IN),
+      },
     }),
   ],
   controllers: [AuthController],

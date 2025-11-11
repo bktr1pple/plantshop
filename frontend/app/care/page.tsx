@@ -632,20 +632,27 @@ export default function PlantCarePage() {
               </p>
             </OptimizedSection>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-              {/* Common Problems */}
-              <StaggerContainer className="space-y-4 sm:space-y-6" staggerDelay={0.1}>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
-                  Поширені симптоми
-                </h3>
-                
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Common Problems */}
+            <StaggerContainer
+              staggerDelay={0.1}
+              className="flex flex-col space-y-6"
+            >
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                Поширені симптоми
+              </h3>
+
+              <div className="flex flex-col gap-6">
                 {commonProblems.map((problem, index) => (
-                  <div key={index} className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg">
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">
+                  <div
+                    key={index}
+                    className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg transition-shadow hover:shadow-xl"
+                  >
+                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3">
                       {problem.symptom}
                     </h4>
-                    
-                    <div className="space-y-1 sm:space-y-2 mb-2 sm:mb-3">
+
+                    <div className="space-y-3 mb-3">
                       <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                         Можливі причини:
                       </p>
@@ -655,81 +662,78 @@ export default function PlantCarePage() {
                         ))}
                       </ul>
                     </div>
-                    
-                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 sm:p-3">
+
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
                       <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
                         💡 Рішення: {problem.solution}
                       </p>
                     </div>
                   </div>
                 ))}
-              </StaggerContainer>
+              </div>
+            </StaggerContainer>
 
-              {/* Expert Help */}
-              <OptimizedSection delay={0.2} className="space-y-4 sm:space-y-6">
-                <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-white">
-                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
-                    Потрібна допомога експерта?
-                  </h3>
-                  <p className="mb-4 sm:mb-6 opacity-90 text-sm sm:text-base">
-                    Наші фахівці готові допомогти діагностувати проблему 
-                    та запропонувати ефективне рішення
-                  </p>
-                  
-                  <div className="space-y-2 sm:space-y-3">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <Video className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="text-sm sm:text-base">Онлайн-консультації</span>
-                    </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="text-sm sm:text-base">Запис на прийом</span>
-                    </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="text-sm sm:text-base">Гарантія результату</span>
-                    </div>
+            {/* Expert Help + Schedule */}
+            <OptimizedSection delay={0.2} className="flex flex-col gap-6">
+              <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-8 text-white shadow-lg">
+                <h3 className="text-xl sm:text-2xl font-bold mb-4">
+                  Потрібна допомога експерта?
+                </h3>
+                <p className="mb-6 opacity-90 text-sm sm:text-base">
+                  Наші фахівці готові допомогти діагностувати проблему 
+                  та запропонувати ефективне рішення
+                </p>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Video className="w-5 h-5" />
+                    <span className="text-sm sm:text-base">Онлайн-консультації</span>
                   </div>
-
-                  <button className="w-full bg-white text-emerald-600 font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl mt-4 sm:mt-6 hover:bg-gray-100 transition-colors duration-300 text-sm sm:text-base">
-                    Замовити консультацію
-                  </button>
-                </div>
-
-                {/* Care Schedule */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg">
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-                    📅 Графік догляду
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                      <span>Щодня</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                        Перевірка стану
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                      <span>Щотижня</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                        Полив, обприскування
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                      <span>Щомісяця</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                        Підживлення, обрізка
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                      <span>Щороку</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                        Пересадка, омолодження
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-5 h-5" />
+                    <span className="text-sm sm:text-base">Запис на прийом</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5" />
+                    <span className="text-sm sm:text-base">Гарантія результату</span>
                   </div>
                 </div>
-              </OptimizedSection>
-            </div>
+
+                <button className="w-full bg-white text-emerald-600 font-bold py-3 px-6 rounded-xl mt-6 hover:bg-gray-100 transition-colors duration-300 text-sm sm:text-base">
+                  Замовити консультацію
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  📅 Графік догляду
+                </h3>
+                <div className="space-y-2 text-sm">
+                  {[
+                    ["Щодня", "Перевірка стану"],
+                    ["Щотижня", "Полив, обприскування"],
+                    ["Щомісяця", "Підживлення, обрізка"],
+                    ["Щороку", "Пересадка, омолодження"],
+                  ].map(([period, task], i, arr) => (
+                    <div
+                      key={i}
+                      className={`flex justify-between items-center py-2 ${
+                        i !== arr.length - 1
+                          ? "border-b border-gray-100 dark:border-gray-700"
+                          : ""
+                      }`}
+                    >
+                      <span>{period}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                        {task}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </OptimizedSection>
+          </div>
+
           </div>
         </section>
 

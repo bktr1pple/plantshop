@@ -148,69 +148,57 @@ export function AuthModal({
     }
   }, [form, activeTab, captchaToken]);
 
-  // components/layout/AuthModal.tsx - UPDATED handleFormSubmit function
-    const handleFormSubmit = async (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form before submission
     if (!validateForm()) {
-        return;
+      return;
     }
 
     setLoading(true);
     setLocalError('');
 
     try {
-        let result;
-        if (activeTab === 'login') {
+      let result;
+      if (activeTab === 'login') {
         result = await login(form.email, form.password, captchaToken!);
-        } else {
+      } else {
         result = await register(form.email, form.password, form.name, captchaToken!);
-        }
+      }
 
-        console.log('Auth result:', result);
-
-        if (result.success) {
-        console.log('Authentication successful, closing modal...');
+      if (result.success) {
         // Success - close modal
         onClose();
         // Reset form
         setForm({
-            name: "",
-            email: "",
-            password: "",
-            rememberMe: false,
+          name: "",
+          email: "",
+          password: "",
+          rememberMe: false,
         });
         setCaptchaToken(null);
         if (captchaRef.current) {
-            captchaRef.current.reset();
+          captchaRef.current.reset();
         }
-        
-        // Force a page refresh to ensure all components get the updated auth state
-        // This is a temporary fix - in production you might want a better solution
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
-        
-        } else {
+      } else {
         // Error - show message and reset CAPTCHA
         setLocalError(result.message || 'Сталася помилка');
         setCaptchaToken(null);
         if (captchaRef.current) {
-            captchaRef.current.reset();
+          captchaRef.current.reset();
         }
-        }
+      }
     } catch (error) {
-        console.error('Unexpected error:', error);
-        setLocalError('Сталася неочікувана помилка');
-        setCaptchaToken(null);
-        if (captchaRef.current) {
+      setLocalError('Сталася неочікувана помилка');
+      setCaptchaToken(null);
+      if (captchaRef.current) {
         captchaRef.current.reset();
-        }
+      }
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-    };
+  };
 
   const handleTabChange = (tab: 'login' | 'register') => {
     // Clear all errors and reset CAPTCHA when switching tabs
