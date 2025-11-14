@@ -1,4 +1,4 @@
-// components/layout/DesktopNavigation.tsx - UPDATED
+// components/layout/DesktopNavigation.tsx - FIXED
 'use client';
 
 import Link from "next/link";
@@ -56,7 +56,7 @@ export function DesktopNavigation({
         </span>
       </Link>
 
-      {/* Desktop Navigation Links */}
+      {/* Desktop Navigation Links - ТОЛЬКО для десктопа */}
       <div className="hidden lg:flex items-center space-x-1">
         {links.map((link) => (
           <div key={link.href} className="relative group">
@@ -92,83 +92,86 @@ export function DesktopNavigation({
 
       {/* Right Side Actions */}
       <div className="flex items-center space-x-2 lg:space-x-3">
-        {/* Search Button */}
-        <button
-          onClick={onSearchOpen}
-          className="p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
-          aria-label="Search"
-        >
-          <Search className="w-5 h-5" />
-        </button>
+        {/* Desktop Actions - СКРЫТЫ на мобильных */}
+        <div className="hidden lg:flex items-center space-x-2 lg:space-x-3">
+          {/* Search Button */}
+          <button
+            onClick={onSearchOpen}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
+            aria-label="Search"
+          >
+            <Search className="w-5 h-5" />
+          </button>
 
-        {/* Theme Toggle */}
-        <button
-          onClick={onThemeToggle}
-          disabled={isAnimating}
-          className={`relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 ${
-            isAnimating ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
-          }`}
-          aria-label="Toggle theme"
-        >
-          <AnimatePresence mode="wait">
-            <MotionP
-              key={theme}
-              initial={{ scale: 0.8, rotate: -90, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              exit={{ scale: 0.8, rotate: 90, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-            >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </MotionP>
-          </AnimatePresence>
-        </button>
-
-        {/* Wishlist Button */}
-        <button 
-          onClick={onWishlistOpen}
-          className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
-          aria-label="Wishlist"
-        >
-          <Heart className="w-5 h-5" />
-          {wishlistItems > 0 && (
-            <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {wishlistItems}
-            </span>
-          )}
-        </button>
-
-        {/* Cart Button */}
-        <button 
-          onClick={onCartOpen}
-          className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
-          aria-label="Shopping cart"
-        >
-          <ShoppingBag className="w-5 h-5" />
-          {totalItems > 0 && (
-            <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {totalItems}
-            </span>
-          )}
-        </button>
-
-        {/* User Auth - UPDATED */}
-        {!isLoading && (
-          <>
-            {user ? (
-              <UserDropdown user={user} />
-            ) : (
-              <button
-                onClick={onAuthOpen}
-                className="hidden sm:flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium"
+          {/* Theme Toggle */}
+          <button
+            onClick={onThemeToggle}
+            disabled={isAnimating}
+            className={`relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 ${
+              isAnimating ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+            }`}
+            aria-label="Toggle theme"
+          >
+            <AnimatePresence mode="wait">
+              <MotionP
+                key={theme}
+                initial={{ scale: 0.8, rotate: -90, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                exit={{ scale: 0.8, rotate: 90, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
               >
-                <User className="w-4 h-4" />
-                <span>Увійти</span>
-              </button>
-            )}
-          </>
-        )}
+                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              </MotionP>
+            </AnimatePresence>
+          </button>
 
-        {/* Mobile menu button */}
+          {/* Wishlist Button */}
+          <button 
+            onClick={onWishlistOpen}
+            className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
+            aria-label="Wishlist"
+          >
+            <Heart className="w-5 h-5" />
+            {wishlistItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {wishlistItems}
+              </span>
+            )}
+          </button>
+
+          {/* Cart Button */}
+          <button 
+            onClick={onCartOpen}
+            className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300"
+            aria-label="Shopping cart"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {totalItems}
+              </span>
+            )}
+          </button>
+
+          {/* User Auth - ТОЛЬКО для десктопа */}
+          {!isLoading && (
+            <>
+              {user ? (
+                <UserDropdown user={user} />
+              ) : (
+                <button
+                  onClick={onAuthOpen}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Увійти</span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Mobile menu button - ТОЛЬКО для мобильных */}
         <button
           onClick={onMenuOpen}
           className="lg:hidden p-2 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300"

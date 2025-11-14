@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useRef } from "react";
-import { LazyMotion, m, AnimatePresence, domAnimation } from "framer-motion";
+import { LazyMotion, m, domAnimation } from "framer-motion";
 
 // Hooks
 import { useNavbarState } from '@/app/hooks/useNavbarState';

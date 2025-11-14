@@ -96,33 +96,6 @@ export function MobileNavigation({
           </span>
         )}
       </button>
-
-      <button 
-        onClick={onThemeToggle}
-        disabled={isAnimating}
-        className={`flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 ${
-          isAnimating ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
-        }`}
-      >
-        <AnimatePresence mode="wait">
-          <MotionDiv
-            key={theme}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {theme === 'light' ? (
-              <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
-            ) : (
-              <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
-            )}
-          </MotionDiv>
-        </AnimatePresence>
-        <span className="text-xs text-gray-600 dark:text-gray-400">
-          {theme === 'light' ? 'Темна' : 'Світла'}
-        </span>
-      </button>
     </>
   );
 

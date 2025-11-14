@@ -7,10 +7,11 @@ export const NAV_LINKS: NavLink[] = [
     href: "/plants", 
     label: "Рослини",
     submenu: [
-      { href: "/plants/indoor", label: "Кімнатні рослини" },
-      { href: "/plants/outdoor", label: "Садові рослини" },
-      { href: "/plants/succulents", label: "Кактуси та сукуленти" },
-      { href: "/plants/rare", label: "Рідкісні види" },
+      { href: "/plants", label: "Кімнатні рослини" },
+      { href: "/plants", label: "Садові рослини" },
+      { href: "/plants", label: "Кактуси та сукуленти" },
+      { href: "/plants", label: "Рідкісні види" },
+      { href: "/plants", label: "Test" },
     ]
   },
   { href: "/pots", label: "Горщики" },
