@@ -126,26 +126,6 @@ async login(
     return { status: 'ok' };
   }
 
-
-  @Post('verify-token')
-  async verifyToken(@Req() req: Request) {
-    const token = req.cookies['access_token'];
-    console.log('🔐 Token to verify:', token);
-    
-    if (!token) {
-      return { valid: false, reason: 'No token provided' };
-    }
-
-    try {
-      const decoded = this.authService.verifyAccessToken(token);
-      console.log('🔐 Token decoded successfully:', decoded);
-      return { valid: true, payload: decoded };
-    } catch (error) {
-      console.error('🔐 Token verification failed:', error);
-      return { valid: false, reason: error.message };
-    }
-  }
-
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const rt = req.cookies['refresh_token'];

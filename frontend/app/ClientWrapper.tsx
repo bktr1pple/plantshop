@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react"; // 🔥 добавить
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { usePathname } from 'next/navigation';
 import Navbar from './components/Navbar';
@@ -32,7 +32,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
               <div className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col`}>
                 {!isAdminPage && (
                   <Suspense fallback={null}>
-                    <Navbar />   {/* 🔥 теперь под Suspense */}
+                    <Navbar />
                   </Suspense>
                 )}
                 <main className="flex-1">{children}</main>
