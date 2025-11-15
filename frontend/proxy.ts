@@ -1,33 +1,33 @@
-// proxy.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const AUTH_CHECK_PATH = "/auth/me";
 
+// Базовый URL именно для middleware / серверных запросов
+const INTERNAL_API_URL =
+  process.env.INTERNAL_API_URL ?? "http://127.0.0.1:4000";
+
 const PROTECTED_PATHS = {
-  '/dashboard': {
+  "/dashboard": {
     requireAuth: true,
-    requireAdmin: false
+    requireAdmin: false,
   },
-  '/admin': {
+  "/admin": {
     requireAuth: true,
-    requireAdmin: true
-  }
+    requireAdmin: true,
+  },
 } as const;
 
-function buildApiUrl(request: NextRequest) {
-  if (!API_URL) {
-    return new URL(AUTH_CHECK_PATH, request.url).toString();
-  }
-  return (API_URL + AUTH_CHECK_PATH).replace(/([^:]\/)\/+/g, "$1");
+function buildApiUrl() {
+  const base = INTERNAL_API_URL.replace(/\/+$/, "");
+  return base + AUTH_CHECK_PATH;
 }
 
 async function checkAuth(request: NextRequest) {
   try {
     const incomingCookies = request.headers.get("cookie") || "";
-    const apiUrl = buildApiUrl(request);
-    
+    const apiUrl = buildApiUrl();
+
     const headers: Record<string, string> = {
       cookie: incomingCookies,
       origin: request.nextUrl.origin,
@@ -48,7 +48,8 @@ async function checkAuth(request: NextRequest) {
 
     try {
       const data = await res.json();
-      return data;
+      console.log("Auth data in middleware:", data);
+      return data; // { user: {...} }
     } catch (err) {
       console.warn("Failed to parse auth response:", err);
       return null;
@@ -62,7 +63,7 @@ async function checkAuth(request: NextRequest) {
 export default async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  const matchedPath = Object.keys(PROTECTED_PATHS).find(protectedPath => 
+  const matchedPath = Object.keys(PROTECTED_PATHS).find((protectedPath) =>
     path.startsWith(protectedPath)
   );
 
@@ -70,26 +71,39 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Проверяем, есть ли вообще refresh_token в куках
+  const cookieHeader = request.headers.get("cookie") || "";
+  const hasRefreshToken = cookieHeader.includes("refresh_token=");
+
   const authData = await checkAuth(request);
 
+  // ❌ Нет пользователя по /auth/me
   if (!authData?.user) {
+    // ⚠️ Но есть refresh_token → даём пройти, пусть фронт попробует сделать refresh
+    if (hasRefreshToken) {
+      console.log("Middleware: no user from /auth/me, but refresh_token exists → letting request pass to client");
+      return NextResponse.next();
+    }
+
+    // ❌ Нет ни user, ни refresh_token → реально неавторизованный → редиректим на /login
     const loginUrl = new URL("/", request.url);
+    loginUrl.searchParams.set("auth", "login");  
     return NextResponse.redirect(loginUrl);
   }
 
+  // ✅ Пользователь есть
+  const user = authData.user;
   const routeConfig = PROTECTED_PATHS[matchedPath as keyof typeof PROTECTED_PATHS];
 
-  if (routeConfig.requireAdmin && !authData.user.isAdmin) {
-    const forbiddenUrl = new URL("/", request.url);
-    return NextResponse.redirect(forbiddenUrl);
+  if (routeConfig.requireAdmin && !user.isAdmin) {
+    const loginUrl = new URL("/", request.url);
+    loginUrl.searchParams.set("auth", "login");  
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/admin/:path*"
-  ],
+  matcher: ["/dashboard/:path*", "/admin/:path*"],
 };

@@ -77,6 +77,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  // auth.service.ts
   async refresh(refreshToken: string) {
     try {
       const payload: any = this.jwtService.verify(refreshToken, {
@@ -93,16 +94,12 @@ export class AuthService {
             throw new UnauthorizedException('Refresh token expired');
           }
 
-          const accessToken = this.jwtService.sign<{ sub: number }>(
-            { sub: userId },
-            {
-              secret: process.env.JWT_ACCESS_SECRET ?? '',
-              expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ??
-                '15m') as StringValue | number,
-            },
+          const { accessToken, refreshToken: newRefreshToken } = await this.login(
+            userId,
+            payload.email ?? '',
           );
 
-          return { accessToken };
+          return { accessToken, refreshToken: newRefreshToken };
         }
       }
 
@@ -111,6 +108,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
+
 
   async revokeRefreshToken(token: string) {
     const all = await this.prisma.refreshToken.findMany();

@@ -1,18 +1,28 @@
+// app/plants/page.tsx или plants/page.tsx
 import PlantsList from './PlantsList';
-import { Plant } from '../types/plant';
+import type { Plant } from '../types/plant';
 
 export const revalidate = 60; // ISR
 
+const API_BASE_URL =
+  process.env.INTERNAL_API_URL;
+
 export default async function PlantsPage() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/plants` || 'http://192.168.1.2:3001/plants', {
-    next: { revalidate: 60 },
-  });
+  let plants: Plant[] = [];
 
-  if (!res.ok) {
-    throw new Error('Failed to fetch plants');
+  try {
+    const res = await fetch(`${API_BASE_URL}/plants`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!res.ok) {
+      console.error('Failed to fetch plants, status:', res.status);
+    } else {
+      plants = await res.json();
+    }
+  } catch (error) {
+    console.error('Error fetching plants:', error);
   }
-
-  const plants: Plant[] = await res.json();
 
   return <PlantsList plants={plants} />;
 }

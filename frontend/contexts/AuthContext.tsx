@@ -2,6 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 
+import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
+import { useRouter } from 'next/navigation';
+
 export interface User {
   id: number;
   email: string;
@@ -15,6 +18,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string, captchaToken: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  ensureAuthAndGo: (path: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +32,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const hasCheckedAuth = useRef(false);
   const isCheckingAuth = useRef(false);
+  const router = useRouter();
+
+  const ensureAuthAndGo = async (path: string) => {
+    // 1. Если уже на этой странице и юзер есть — ничего не делаем
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      if (currentPath === path && user) {
+        return;
+      }
+    }
+
+    try {
+      // 2. Пытаемся тихо проверить/обновить авторизацию
+      const { res, unauthorized } = await fetchWithRefresh('/auth/me');
+
+      if (unauthorized) {
+        // refresh тоже не помог — считаем, что пользователь разлогинен
+        setUser(null);
+
+        if (typeof window !== 'undefined') {
+          const search = new URLSearchParams(window.location.search);
+          search.set('auth', 'login');
+          router.push('/?' + search.toString());
+        }
+
+        return;
+      }
+
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      }
+
+      // 3. Навигация только после успешной проверки
+      router.push(path);
+    } catch (error) {
+      console.error('ensureAuthAndGo error:', error);
+      // в случае ошибки тоже можно открыть логин
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        search.set('auth', 'login');
+        router.push('/?' + search.toString());
+      }
+    }
+  };
 
 useEffect(() => {
     const currentMountId = mountId.current;
@@ -73,39 +126,36 @@ useEffect(() => {
   // }, []);
 
   const checkAuth = async () => {
-    //console.log('🔐 checkAuth called');
-    
-    // 🔥 ИЗМЕНЕНИЕ: УБИРАЕМ ПРОВЕРКУ КУК - всегда делаем запрос
-    // Сервер сам проверит валидность httpOnly кук
-    
-    if (isCheckingAuth.current) {
-      //console.log('🔐 Auth check already in progress, skipping...');
-      return;
-    }
+    if (isCheckingAuth.current) return;
 
     isCheckingAuth.current = true;
     setIsLoading(true);
 
     try {
-      //console.log('🔐 Making auth request to /auth/me');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-        credentials: 'include', // Это отправит httpOnly куки
-      });
-      
-      //console.log('🔐 Auth response status:', res.status);
-      
+      const { res, unauthorized } = await fetchWithRefresh('/auth/me');
+
+      if (unauthorized) {
+        // Полностью неавторизован: нет access, refresh тоже не сработал
+        setUser(null);
+        return; // ❗ НИКАКИХ router.push здесь
+      }
+
+      if (!res) {
+        // Что-то пошло совсем не так
+        setUser(null);
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
-          //console.log('🔐 User authenticated:', data.user.name);
         } else {
           setUser(null);
-          //console.log('🔐 No user data in response');
         }
       } else {
+        // 400/500 — считаем, что не авторизован
         setUser(null);
-        //console.log('🔐 Auth failed with status:', res.status);
       }
     } catch (error) {
       console.error('🔐 Auth error:', error);
@@ -201,7 +251,7 @@ useEffect(() => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, checkAuth }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, checkAuth, ensureAuthAndGo }}>
       {children}
     </AuthContext.Provider>
   );

@@ -21,6 +21,8 @@ import { WishlistModal } from '@/components/WishlistModal';
 // Animations
 import { navVariants } from '@/app/animations/navbar';
 
+import { useSearchParams, useRouter } from 'next/navigation';
+
 // Constants
 import { NAV_LINKS, POPULAR_SEARCHES, RECENT_SEARCHES } from '@/app/constants/navigation';
 
@@ -57,6 +59,36 @@ export default function Navbar() {
   const authModalRef = useRef<HTMLDivElement>(null!);
   const searchModalRef = useRef<HTMLDivElement>(null!);
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const handleCloseAuth = () => {
+    setShowAuth(false);
+
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+
+      if (params.has('auth')) {
+        params.delete('auth');
+        const qs = params.toString();
+        // заменяем URL без перезагрузки страницы
+        router.replace(qs ? `${currentPath}?${qs}` : currentPath);
+      }
+    }
+  };
+
+
+  useEffect(() => {
+    const authParam = searchParams.get('auth');
+
+    if (authParam === 'login') {
+      setActiveTab('login');   // открыть вкладку логина
+      setShowAuth(true);       // показать модалку
+    }
+  }, [searchParams, setActiveTab, setShowAuth]);
+
+
   // Scroll effect
   useScrollEffect(setScrolled);
 
@@ -70,7 +102,7 @@ export default function Navbar() {
       }
 
       if (showAuth && authModalRef.current && !authModalRef.current.contains(target)) {
-        setShowAuth(false);
+        handleCloseAuth();
       }
 
       if (searchOpen && searchModalRef.current && !searchModalRef.current.contains(target)) {
@@ -177,7 +209,7 @@ export default function Navbar() {
         showAuth={showAuth}
         activeTab={activeTab}
         authModalRef={authModalRef}
-        onClose={() => setShowAuth(false)}
+        onClose={handleCloseAuth}
         onTabChange={setActiveTab}
       />
     </LazyMotion>

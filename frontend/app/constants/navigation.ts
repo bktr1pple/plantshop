@@ -5,7 +5,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/", label: "Головна" },
   { 
     href: "/plants", 
-    label: "Рослини",
+    label: "Рослини", 
     submenu: [
       { href: "/plants", label: "Кімнатні рослини" },
       { href: "/plants", label: "Садові рослини" },

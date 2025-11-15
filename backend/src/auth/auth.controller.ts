@@ -68,12 +68,14 @@ async login(
   });
 
   const secure = process.env.NODE_ENV === 'production';
+  const domain_cookie = process.env.DOMAIN_COOKIE;
   
   // Set access token cookie
   res.cookie('access_token', tokens.accessToken, {
     httpOnly: true,
     secure,
     sameSite: 'lax',
+    domain: '.' + domain_cookie,
     maxAge: 15 * 60 * 1000, // 15 minutes in milliseconds
     path: '/',
   });
@@ -83,6 +85,7 @@ async login(
     httpOnly: true,
     secure,
     sameSite: 'lax',
+    domain: '.' + domain_cookie,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     path: '/',
   });
@@ -95,17 +98,34 @@ async login(
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const rt = req.cookies['refresh_token'];
     if (!rt) return { status: 'error' };
+
+    console.log('🔄 /auth/refresh called, cookies:', req.cookies);
+
     const newTokens = await this.authService.refresh(rt);
     const secure = process.env.NODE_ENV === 'production';
-    res.cookie('access_token', newTokens.accessToken, {
+    const domain_cookie = process.env.DOMAIN_COOKIE;
+
+    const commonCookieOptions = {
       httpOnly: true,
       secure,
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 15,
+      sameSite: 'lax' as const,
+      domain: '.' + domain_cookie,
       path: '/',
+    };
+
+    res.cookie('access_token', newTokens.accessToken, {
+      ...commonCookieOptions,
+      maxAge: 15 * 60 * 1000,
     });
+
+    res.cookie('refresh_token', newTokens.refreshToken, {
+      ...commonCookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return { status: 'ok' };
   }
+
 
   @Post('verify-token')
   async verifyToken(@Req() req: Request) {
@@ -130,10 +150,17 @@ async login(
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const rt = req.cookies['refresh_token'];
     if (rt) await this.authService.revokeRefreshToken(rt);
-    res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('refresh_token', { path: '/' });
+
+    const domain_cookie = process.env.DOMAIN_COOKIE;
+
+    const opts = { path: '/', domain: '.' + domain_cookie };
+
+    res.clearCookie('access_token', opts);
+    res.clearCookie('refresh_token', opts);
+
     return { status: 'ok' };
   }
+
 
   @UseGuards(JwtAuthGuard)
   @Get('me')

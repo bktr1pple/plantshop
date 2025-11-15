@@ -5,7 +5,6 @@ import { useState, useRef, useEffect } from 'react';
 import { User, LogOut, Settings, Package } from 'lucide-react';
 import { m, AnimatePresence, easeOut } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import Link from "next/link";
 
 const MotionDiv = m.div;
 
@@ -46,7 +45,8 @@ interface UserDropdownProps {
 export function UserDropdown({ user, onClose }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { logout } = useAuth();
+
+  const { logout, ensureAuthAndGo } = useAuth(); // 🟢 забираем ensureAuthAndGo
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -60,15 +60,25 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  const handleLogout = async () => {
-    await logout();
+  const closeDropdown = () => {
     setIsOpen(false);
     onClose?.();
   };
 
-  const handleMenuClick = () => {
-    setIsOpen(false);
-    onClose?.();
+  const handleLogout = async () => {
+    await logout();
+    closeDropdown();
+  };
+
+  // ⬇️ ГЛАВНАЯ МАГИЯ: перед навигацией обновляем токен
+  const handleProfileClick = async () => {
+    closeDropdown();
+    await ensureAuthAndGo('/dashboard');
+  };
+
+  const handleOrdersClick = async () => {
+    closeDropdown();
+    await ensureAuthAndGo('/orders'); // или другой маршрут, когда сделаешь
   };
 
   return (
@@ -101,15 +111,16 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
               
               {/* Menu Items */}
               <div className="space-y-1 py-2">
-                <Link href="/dashboard" onClick={handleMenuClick}>
-                  <button className="w-full flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 font-medium">
-                    <Settings className="w-4 h-4 mr-3" />
-                    Мій профіль
-                  </button>
-                </Link>
+                <button
+                  onClick={handleProfileClick}
+                  className="w-full flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 font-medium"
+                >
+                  <Settings className="w-4 h-4 mr-3" />
+                  Мій профіль
+                </button>
 
                 <button 
-                  onClick={handleMenuClick}
+                  onClick={handleOrdersClick}
                   className="w-full flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 font-medium"
                 >
                   <Package className="w-4 h-4 mr-3" />

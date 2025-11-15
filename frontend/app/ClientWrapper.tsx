@@ -1,6 +1,6 @@
-// app/ClientWrapper.tsx — Client Component
 "use client";
 
+import { Suspense } from "react"; // 🔥 добавить
 import { Geist, Geist_Mono } from "next/font/google";
 import { usePathname } from 'next/navigation';
 import Navbar from './components/Navbar';
@@ -30,7 +30,11 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
               <EnhancedThemeRipple />
               <PWAInstaller />
               <div className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col`}>
-                {!isAdminPage && <Navbar />}
+                {!isAdminPage && (
+                  <Suspense fallback={null}>
+                    <Navbar />   {/* 🔥 теперь под Suspense */}
+                  </Suspense>
+                )}
                 <main className="flex-1">{children}</main>
                 {!isAdminPage && <Footer />}
               </div>
