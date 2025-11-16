@@ -1,13 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Edit, 
-  Trash2, 
+import React, { useState, useEffect } from "react";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import {
+  Plus,
+  Search,
+  Filter,
+  Edit,
+  Trash2,
   MoreHorizontal,
   Users,
   Package,
@@ -16,37 +22,17 @@ import {
   TrendingUp,
   Eye,
   Download,
-  Upload,
   Settings,
   User,
-  Mail,
-  Phone,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  ArrowUpDown,
-  ChevronDown,
-  BarChart3,
-  CreditCard,
   Bell,
   Menu,
   Sun,
   Moon,
   LogOut,
-  Home,
-  Tag,
-  Star,
-  Shield,
-  MessageSquare,
-  Image,
-  FolderOpen,
-  ClipboardList,
   Truck,
-  RefreshCw,
-  AlertCircle,
-  X
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+  Star,
+} from "lucide-react";
+
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -58,7 +44,10 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-} from '@tanstack/react-table';
+} from "@tanstack/react-table";
+
+import { LazyMotion, domAnimation, m } from "framer-motion";
+
 import {
   Table,
   TableBody,
@@ -66,9 +55,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,7 +65,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Card,
   CardContent,
@@ -84,7 +73,7 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -92,234 +81,365 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { cn } from '@/lib/utils';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Створюємо клієнт QueryClient
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { cn } from "@/lib/utils";
+
+// ───────────────────────────────────────────────────────────
+// QueryClient
+// ───────────────────────────────────────────────────────────
+
 const queryClient = new QueryClient();
 
-// Типи даних
-type User = {
+// ───────────────────────────────────────────────────────────
+// Типи
+// ───────────────────────────────────────────────────────────
+
+type UserType = {
   id: string;
   name: string;
   email: string;
   phone: string;
-  status: 'active' | 'inactive';
-  role: 'admin' | 'user' | 'moderator';
+  status: "active" | "inactive";
+  role: "admin" | "user" | "moderator";
   joinDate: string;
   lastLogin: string;
   orders: number;
   totalSpent: number;
-  avatar?: string;
 };
 
-type Product = {
+type ProductType = {
   id: string;
   name: string;
   category: string;
   price: number;
   stock: number;
-  status: 'in_stock' | 'low_stock' | 'out_of_stock';
+  status: "in_stock" | "low_stock" | "out_of_stock";
   sales: number;
   createdAt: string;
-  images: string[];
   description: string;
   rating: number;
-  tags: string[];
 };
 
-type Order = {
+type OrderType = {
   id: string;
   customer: string;
   email: string;
   amount: number;
-  status: 'pending' | 'processing' | 'delivered' | 'cancelled';
+  status: "pending" | "processing" | "delivered" | "cancelled";
   date: string;
   items: number;
-  address: string;
-  payment: 'card' | 'cash' | 'paypal';
-  trackingNumber?: string;
+  payment: "card" | "cash" | "paypal";
 };
 
 type Notification = {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'success' | 'error';
+  type: "info" | "warning" | "success" | "error";
   date: string;
   read: boolean;
 };
 
-// Схеми валідації
+// ───────────────────────────────────────────────────────────
+// Валідація форм
+// ───────────────────────────────────────────────────────────
+
 const userFormSchema = z.object({
-  name: z.string().min(2, 'Ім\'я повинно містити мінімум 2 символи'),
-  email: z.string().email('Введіть коректний email'),
-  phone: z.string().min(10, 'Введіть коректний номер телефону'),
-  role: z.enum(['admin', 'user', 'moderator']),
-  status: z.enum(['active', 'inactive']),
+  name: z.string().min(2, "Ім'я повинно містити мінімум 2 символи"),
+  email: z.string().email("Введіть коректний email"),
+  phone: z.string().min(8, "Введіть коректний номер телефону"),
+  role: z.enum(["admin", "user", "moderator"]),
+  status: z.enum(["active", "inactive"]),
 });
 
 const productFormSchema = z.object({
-  name: z.string().min(2, 'Назва повинна містити мінімум 2 символи'),
-  category: z.string().min(1, 'Виберіть категорію'),
-  price: z.number().min(1, 'Ціна повинна бути більше 0'),
-  stock: z.number().min(0, 'Кількість не може бути від\'ємною'),
-  description: z.string().min(10, 'Опис повинен містити мінімум 10 символів'),
+  name: z.string().min(2, "Назва повинна містити мінімум 2 символи"),
+  category: z.string().min(1, "Виберіть категорію"),
+  price: z.number().min(1, { message: "Ціна повинна бути більше 0" }),
+  stock: z.number().min(0, { message: "Кількість не може бути від'ємною" }),
+  description: z.string().min(10, "Опис повинен містити мінімум 10 символів"),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 type ProductFormValues = z.infer<typeof productFormSchema>;
 
-// Генерація мокових даних
-const generateMockData = () => {
-  const mockUsers: User[] = Array.from({ length: 25 }, (_, i) => ({
+// ───────────────────────────────────────────────────────────
+// Мокові дані (для макету адмінки)
+// ───────────────────────────────────────────────────────────
+
+function generateMockData() {
+  const mockUsers: UserType[] = Array.from({ length: 12 }, (_, i) => ({
     id: `user_${i + 1}`,
-    name: ['Олександр Іванов', 'Марія Петрова', 'Дмитро Сидоров', 'Олена Коваль', 'Сергій Шевченко'][i % 5],
+    name: [
+      "Олександр Іванов",
+      "Марія Петрова",
+      "Дмитро Сидоров",
+      "Олена Коваль",
+      "Сергій Шевченко",
+    ][i % 5],
     email: `user${i + 1}@example.com`,
-    phone: `+38 (0${Math.floor(Math.random() * 100)}${Math.floor(Math.random() * 100)} ${Math.floor(Math.random() * 100)}${Math.floor(Math.random() * 100)} ${Math.floor(Math.random() * 100)}${Math.floor(Math.random() * 100)}`,
-    status: Math.random() > 0.2 ? 'active' : 'inactive',
-    role: ['admin', 'user', 'moderator'][Math.floor(Math.random() * 3)] as any,
-    joinDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    lastLogin: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    orders: Math.floor(Math.random() * 50),
-    totalSpent: Math.floor(Math.random() * 50000),
+    phone: "+38 (050) 000-00-00",
+    status: Math.random() > 0.2 ? "active" : "inactive",
+    role: (["admin", "user", "moderator"][Math.floor(Math.random() * 3)] ??
+      "user") as UserType["role"],
+    joinDate: "2024-01-10",
+    lastLogin: "2025-01-01",
+    orders: Math.floor(Math.random() * 40),
+    totalSpent: Math.floor(Math.random() * 70000),
   }));
 
-  const mockProducts: Product[] = Array.from({ length: 20 }, (_, i) => ({
-    id: `prod_${i + 1}`,
-    name: ['Монстера Деліціоза', 'Фікус Бенджаміна', 'Суккулент Мікс', 'Орхідея Фаленопсис', 'Кактус Декабрист', 'Бамбук Щастя', 'Лаврове Дерево', 'Фіалка Узамбарська'][i % 8],
-    category: ['Декоративні', 'Суккуленти', 'Квітучі', 'Дерева', 'Кактуси'][Math.floor(Math.random() * 5)],
-    price: [1200, 800, 350, 1500, 600, 450, 900, 1200][i % 8],
-    stock: Math.floor(Math.random() * 50),
-    status: Math.random() > 0.7 ? 'out_of_stock' : Math.random() > 0.5 ? 'low_stock' : 'in_stock',
-    sales: Math.floor(Math.random() * 100),
-    createdAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    images: [],
-    description: 'Красива рослина для вашого дому або офісу',
-    rating: Math.floor(Math.random() * 5) + 1,
-    tags: ['популярне', 'новинка', 'зі знижкою'].slice(0, Math.floor(Math.random() * 3)),
-  }));
+  const mockProducts: ProductType[] = [
+    {
+      id: "p1",
+      name: "Монстера деліціоза",
+      category: "Декоративні",
+      price: 1500,
+      stock: 12,
+      status: "in_stock",
+      sales: 37,
+      createdAt: "2024-03-05",
+      description: "Велика зелена рослина для дому з виразними листками.",
+      rating: 5,
+    },
+    {
+      id: "p2",
+      name: "Фікус Бенджаміна",
+      category: "Для офісу",
+      price: 1100,
+      stock: 4,
+      status: "low_stock",
+      sales: 22,
+      createdAt: "2024-04-10",
+      description: "Класична офісна рослина для затишного простору.",
+      rating: 4,
+    },
+    {
+      id: "p3",
+      name: "Сукулент мікс",
+      category: "Невибагливі",
+      price: 350,
+      stock: 0,
+      status: "out_of_stock",
+      sales: 48,
+      createdAt: "2024-02-18",
+      description:
+        "Невибагливі сукуленти для поличок, робочого столу та подарунків.",
+      rating: 5,
+    },
+  ];
 
-  const mockOrders: Order[] = Array.from({ length: 30 }, (_, i) => ({
+  const mockOrders: OrderType[] = Array.from({ length: 6 }, (_, i) => ({
     id: `ORD-${1000 + i}`,
     customer: mockUsers[i % mockUsers.length].name,
     email: mockUsers[i % mockUsers.length].email,
-    amount: Math.floor(Math.random() * 5000) + 500,
-    status: ['pending', 'processing', 'delivered', 'cancelled'][Math.floor(Math.random() * 4)] as any,
-    date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    items: Math.floor(Math.random() * 5) + 1,
-    address: `вул. Прикладна, буд. ${Math.floor(Math.random() * 100)}, кв. ${Math.floor(Math.random() * 100)}`,
-    payment: ['card', 'cash', 'paypal'][Math.floor(Math.random() * 3)] as any,
-    trackingNumber: Math.random() > 0.3 ? `TRK${Math.floor(Math.random() * 1000000)}` : undefined,
+    amount: 500 + Math.floor(Math.random() * 5000),
+    status: (["pending", "processing", "delivered", "cancelled"][
+      Math.floor(Math.random() * 4)
+    ] ?? "pending") as OrderType["status"],
+    date: "2025-01-12",
+    items: 1 + Math.floor(Math.random() * 5),
+    payment: (["card", "cash", "paypal"][
+      Math.floor(Math.random() * 3)
+    ] ?? "card") as OrderType["payment"],
   }));
 
   const mockNotifications: Notification[] = [
-    { id: '1', title: 'Нове замовлення', message: 'Надйшло нове замовлення ORD-1045', type: 'info', date: new Date().toISOString(), read: false },
-    { id: '2', title: 'Низький запас', message: 'Фікус Бенджаміна закінчується', type: 'warning', date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), read: false },
-    { id: '3', title: 'Замовлення доставлено', message: 'Замовлення ORD-1032 успішно доставлено', type: 'success', date: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), read: true },
+    {
+      id: "1",
+      title: "Нове замовлення",
+      message: "Надійшло замовлення ORD-1042",
+      type: "info",
+      date: new Date().toISOString(),
+      read: false,
+    },
+    {
+      id: "2",
+      title: "Низький запас товару",
+      message: "Фікус Бенджаміна — залишилось 3 шт.",
+      type: "warning",
+      date: new Date().toISOString(),
+      read: false,
+    },
   ];
 
   return { mockUsers, mockProducts, mockOrders, mockNotifications };
-};
+}
 
-const { mockUsers, mockProducts, mockOrders, mockNotifications } = generateMockData();
+const { mockUsers, mockProducts, mockOrders, mockNotifications } =
+  generateMockData();
 
-// API функції (мокові)
-const fetchUsers = async (): Promise<User[]> => {
-  await new Promise(resolve => setTimeout(resolve, 800));
+// ───────────────────────────────────────────────────────────
+// Мокові API
+// ───────────────────────────────────────────────────────────
+
+const fetchUsers = async (): Promise<UserType[]> => {
+  await new Promise((r) => setTimeout(r, 400));
   return mockUsers;
 };
 
-const fetchProducts = async (): Promise<Product[]> => {
-  await new Promise(resolve => setTimeout(resolve, 600));
+const fetchProducts = async (): Promise<ProductType[]> => {
+  await new Promise((r) => setTimeout(r, 400));
   return mockProducts;
 };
 
-const fetchOrders = async (): Promise<Order[]> => {
-  await new Promise(resolve => setTimeout(resolve, 700));
+const fetchOrders = async (): Promise<OrderType[]> => {
+  await new Promise((r) => setTimeout(r, 400));
   return mockOrders;
 };
 
 const fetchNotifications = async (): Promise<Notification[]> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise((r) => setTimeout(r, 200));
   return mockNotifications;
 };
 
-const createUser = async (user: UserFormValues): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  const newUser: User = {
-    id: Math.random().toString(36).substr(2, 9),
-    ...user,
-    phone: '+38 (000) 000-00-00',
-    joinDate: new Date().toISOString().split('T')[0],
-    lastLogin: new Date().toISOString().split('T')[0],
+const createUser = async (data: UserFormValues): Promise<UserType> => {
+  await new Promise((r) => setTimeout(r, 400));
+  return {
+    id: Math.random().toString(36).slice(2),
+    ...data,
+    joinDate: new Date().toISOString().split("T")[0],
+    lastLogin: new Date().toISOString().split("T")[0],
     orders: 0,
     totalSpent: 0,
   };
-  return newUser;
 };
 
-const updateUser = async (id: string, user: UserFormValues): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  const updatedUser: User = {
-    id,
-    ...user,
-    phone: '+38 (000) 000-00-00',
-    joinDate: '2023-01-01',
-    lastLogin: new Date().toISOString().split('T')[0],
-    orders: 0,
-    totalSpent: 0,
-  };
-  return updatedUser;
-};
+const createProduct = async (
+  data: ProductFormValues
+): Promise<ProductType> => {
+  await new Promise((r) => setTimeout(r, 400));
 
-const deleteUser = async (id: string): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-};
+  const status: ProductType["status"] =
+    data.stock === 0
+      ? "out_of_stock"
+      : data.stock < 5
+      ? "low_stock"
+      : "in_stock";
 
-const createProduct = async (product: ProductFormValues): Promise<Product> => {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  const newProduct: Product = {
-    id: Math.random().toString(36).substr(2, 9),
-    ...product,
-    status: product.stock > 10 ? 'in_stock' : product.stock > 0 ? 'low_stock' : 'out_of_stock',
+  return {
+    id: Math.random().toString(36).slice(2),
+    ...data,
+    status,
     sales: 0,
-    createdAt: new Date().toISOString().split('T')[0],
-    images: [],
+    createdAt: new Date().toISOString().split("T")[0],
     rating: 0,
-    tags: [],
   };
-  return newProduct;
 };
 
-// Компоненти таблиць
-const userColumns: ColumnDef<User>[] = [
+const deleteUser = async (_id: string): Promise<void> => {
+  await new Promise((r) => setTimeout(r, 300));
+};
+
+// ───────────────────────────────────────────────────────────
+// Таблиця користувачів (desktop)
+// ───────────────────────────────────────────────────────────
+
+function UserActionsCell({ user }: { user: UserType }) {
+  const [openDelete, setOpenDelete] = useState(false);
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setOpenDelete(false);
+    },
+  });
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-52 border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <DropdownMenuLabel className="text-xs text-slate-500">
+            Дії
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="cursor-pointer text-sm text-slate-700 dark:text-slate-200"
+            onClick={() => navigator.clipboard.writeText(user.id)}
+          >
+            Скопіювати ID
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="cursor-pointer text-sm text-amber-700 dark:text-amber-200"
+            onClick={() => setOpenDelete(true)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Видалити
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+        <DialogContent className="max-w-sm border border-slate-200 bg-white text-base dark:border-slate-700 dark:bg-slate-900">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">
+              Видалити користувача
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+              Ви впевнені, що хочете видалити користувача «{user.name}»? Цю дію
+              не можна скасувати.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 flex-1 text-sm"
+              onClick={() => setOpenDelete(false)}
+            >
+              Скасувати
+            </Button>
+            <Button
+              variant="destructive"
+              className="h-10 flex-1 text-sm"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(user.id)}
+            >
+              {deleteMutation.isPending ? "Видалення..." : "Видалити"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+const userColumns: ColumnDef<UserType>[] = [
   {
-    id: 'select',
+    id: "select",
+    enableSorting: false,
+    enableHiding: false,
+    size: 40,
     header: ({ table }) => (
       <input
         type="checkbox"
         checked={table.getIsAllPageRowsSelected()}
         onChange={table.getToggleAllPageRowsSelectedHandler()}
-        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+        className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
       />
     ),
     cell: ({ row }) => (
@@ -327,470 +447,334 @@ const userColumns: ColumnDef<User>[] = [
         type="checkbox"
         checked={row.getIsSelected()}
         onChange={row.getToggleSelectedHandler()}
-        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+        className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
       />
     ),
   },
   {
-    accessorKey: 'name',
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="hover:bg-transparent dark:hover:bg-transparent p-0 font-semibold text-xs sm:text-sm"
-        >
-          Ім'я
-          <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4" />
-        </Button>
-      );
-    },
+    accessorKey: "name",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="flex items-center gap-1 p-0 text-sm font-semibold hover:bg-transparent dark:hover:bg-transparent"
+      >
+        Ім&apos;я
+        <TrendingUp className="h-4 w-4 text-gray-400" />
+      </Button>
+    ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-2 sm:gap-3">
-        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-linear-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center shadow-lg shrink-0">
-          <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+      <div className="flex items-center gap-3">
+        <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200 md:flex">
+          {String(row.getValue("name"))
+            .split(" ")
+            .map((p) => p[0])
+            .join("")
+            .slice(0, 2)}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm truncate">{row.getValue('name')}</div>
-          <div className="text-gray-500 dark:text-gray-400 text-xs truncate">{row.original.email}</div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-50">
+            {row.getValue("name") as string}
+          </p>
+          <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+            {row.original.email}
+          </p>
         </div>
       </div>
     ),
   },
   {
-    accessorKey: 'role',
-    header: 'Роль',
+    accessorKey: "role",
+    header: () => <span className="text-sm font-semibold">Роль</span>,
     cell: ({ row }) => {
-      const role = row.getValue('role') as string;
-      const roleConfig = {
-        admin: { label: 'Адмін', class: 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border-red-200 dark:border-red-800 text-xs' },
-        user: { label: 'Користувач', class: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border-blue-200 dark:border-blue-800 text-xs' },
-        moderator: { label: 'Модератор', class: 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border-purple-200 dark:border-purple-800 text-xs' },
-      };
-      
+      const role = row.getValue("role") as UserType["role"];
+      const map = {
+        admin: {
+          label: "Адмін",
+          className:
+            "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800",
+        },
+        user: {
+          label: "Користувач",
+          className:
+            "bg-slate-50 text-slate-700 border-slate-100 dark:bg-slate-900/40 dark:text-slate-200 dark:border-slate-800",
+        },
+        moderator: {
+          label: "Модератор",
+          className:
+            "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800",
+        },
+      } as const;
+
+      const cfg = map[role];
+
       return (
-        <Badge variant="outline" className={cn("font-medium", roleConfig[role as keyof typeof roleConfig]?.class)}>
-          {roleConfig[role as keyof typeof roleConfig]?.label}
+        <Badge
+          variant="outline"
+          className={cn("px-3 py-1 text-sm font-medium", cfg.className)}
+        >
+          {cfg.label}
         </Badge>
       );
     },
   },
   {
-    accessorKey: 'status',
-    header: 'Статус',
+    accessorKey: "status",
+    header: () => <span className="text-sm font-semibold">Статус</span>,
     cell: ({ row }) => {
-      const status = row.getValue('status') as string;
+      const status = row.getValue("status") as UserType["status"];
+      const isActive = status === "active";
+
       return (
-        <div className="flex items-center">
-          {status === 'active' ? (
-            <>
-              <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1 sm:mr-2 animate-pulse shrink-0" />
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium text-xs sm:text-sm">Активний</span>
-            </>
-          ) : (
-            <>
-              <div className="w-2 h-2 bg-gray-400 rounded-full mr-1 sm:mr-2 shrink-0" />
-              <span className="text-gray-600 dark:text-gray-400 font-medium text-xs sm:text-sm">Неактивний</span>
-            </>
-          )}
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              isActive ? "bg-emerald-500" : "bg-slate-400 dark:bg-slate-500"
+            )}
+          />
+          <span
+            className={cn(
+              "text-sm font-medium",
+              isActive
+                ? "text-emerald-700 dark:text-emerald-300"
+                : "text-slate-600 dark:text-slate-300"
+            )}
+          >
+            {isActive ? "Активний" : "Неактивний"}
+          </span>
         </div>
       );
     },
   },
   {
-    accessorKey: 'orders',
-    header: 'Замовлення',
+    accessorKey: "orders",
+    header: () => <span className="text-sm font-semibold">Замовлення</span>,
     cell: ({ row }) => (
-      <div className="font-semibold text-gray-900 dark:text-white text-center text-xs sm:text-sm">
-        {row.getValue('orders')}
-      </div>
+      <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
+        {row.getValue("orders") as number}
+      </span>
     ),
   },
   {
-    accessorKey: 'totalSpent',
-    header: 'Всього витрачено',
+    accessorKey: "totalSpent",
+    header: () => (
+      <span className="text-sm font-semibold">Всього витрачено</span>
+    ),
     cell: ({ row }) => {
-      const amount = parseFloat(row.getValue('totalSpent'));
-      const formatted = new Intl.NumberFormat('uk-UA', {
-        style: 'currency',
-        currency: 'UAH',
-      }).format(amount);
-      return <div className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm">{formatted}</div>;
-    },
-  },
-  {
-    accessorKey: 'lastLogin',
-    header: 'Останній вхід',
-    cell: ({ row }) => {
-      const date = new Date(row.getValue('lastLogin'));
+      const amount = row.getValue("totalSpent") as number;
+      const formatted = new Intl.NumberFormat("uk-UA", {
+        style: "currency",
+        currency: "UAH",
+      }).format(amount || 0);
+
       return (
-        <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
-          {date.toLocaleDateString('uk-UA')}
-        </div>
+        <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+          {formatted}
+        </span>
       );
     },
   },
   {
-    id: 'actions',
-    cell: ({ row }) => {
-      const user = row.original;
-      const [isEditOpen, setIsEditOpen] = useState(false);
-      const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-
-      const deleteMutation = useMutation({
-        mutationFn: deleteUser,
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ['users'] });
-          setIsDeleteOpen(false);
-        },
-      });
-
-      return (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-6 w-6 sm:h-8 sm:w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800">
-                <span className="sr-only">Відкрити меню</span>
-                <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 w-48">
-              <DropdownMenuLabel className="text-gray-900 dark:text-white text-xs">Дії</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => navigator.clipboard.writeText(user.id)}
-                className="text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-700 cursor-pointer text-xs"
-              >
-                Копіювати ID
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-              <DropdownMenuItem 
-                className="text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-700 cursor-pointer text-xs"
-                onClick={() => setIsEditOpen(true)}
-              >
-                <Edit className="h-3 w-3 mr-2" />
-                Редагувати
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-500/10 cursor-pointer text-xs"
-                onClick={() => setIsDeleteOpen(true)}
-              >
-                <Trash2 className="h-3 w-3 mr-2" />
-                Видалити
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Діалог редагування */}
-          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-w-[95vw] rounded-lg">
-              <DialogHeader>
-                <DialogTitle className="text-gray-900 dark:text-white text-lg sm:text-xl font-bold">
-                  Редагувати користувача
-                </DialogTitle>
-                <DialogDescription className="text-gray-600 dark:text-gray-400 text-sm">
-                  Внесіть зміни в інформацію про користувача.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-sm">Ім'я</Label>
-                  <Input defaultValue={user.name} className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-700 dark:text-gray-300 font-medium text-sm">Email</Label>
-                  <Input defaultValue={user.email} className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-gray-700 dark:text-gray-300 font-medium text-sm">Роль</Label>
-                    <Select defaultValue={user.role}>
-                      <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                        <SelectItem value="user" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Користувач</SelectItem>
-                        <SelectItem value="moderator" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Модератор</SelectItem>
-                        <SelectItem value="admin" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Адміністратор</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-gray-700 dark:text-gray-300 font-medium text-sm">Статус</Label>
-                    <Select defaultValue={user.status}>
-                      <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                        <SelectItem value="active" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Активний</SelectItem>
-                        <SelectItem value="inactive" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Неактивний</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditOpen(false)}
-                  className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 w-full sm:w-auto order-2 sm:order-1 text-sm"
-                >
-                  Скасувати
-                </Button>
-                <Button 
-                  type="submit"
-                  className="bg-linear-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 shadow-lg w-full sm:w-auto order-1 sm:order-2 text-sm"
-                >
-                  Зберегти зміни
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Діалог видалення */}
-          <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-w-[95vw] rounded-lg">
-              <DialogHeader>
-                <DialogTitle className="text-gray-900 dark:text-white text-lg sm:text-xl font-bold">
-                  Видалити користувача
-                </DialogTitle>
-                <DialogDescription className="text-gray-600 dark:text-gray-400 text-sm">
-                  Ви впевнені, що хочете видалити користувача {user.name}? Цю дію не можна скасувати.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDeleteOpen(false)}
-                  className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 w-full sm:w-auto order-2 sm:order-1 text-sm"
-                >
-                  Скасувати
-                </Button>
-                <Button 
-                  variant="destructive"
-                  onClick={() => deleteMutation.mutate(user.id)}
-                  disabled={deleteMutation.isPending}
-                  className="w-full sm:w-auto order-1 sm:order-2 text-sm"
-                >
-                  {deleteMutation.isPending ? 'Видалення...' : 'Видалити'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </>
-      );
-    },
+    accessorKey: "lastLogin",
+    header: () => (
+      <span className="whitespace-nowrap text-sm font-semibold">
+        Останній вхід
+      </span>
+    ),
+    cell: ({ row }) => (
+      <span className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+        {row.getValue("lastLogin") as string}
+      </span>
+    ),
+  },
+  {
+    id: "actions",
+    enableSorting: false,
+    enableHiding: false,
+    cell: ({ row }) => <UserActionsCell user={row.original} />,
   },
 ];
 
-// Основний компонент адмін-панелі
+// ───────────────────────────────────────────────────────────
+// Основний контент адмінки
+// ───────────────────────────────────────────────────────────
+
 function AdminContent() {
-  const [activeTab, setActiveTab] = useState<'users' | 'products' | 'orders' | 'analytics' | 'settings'>('users');
+  const [activeTab, setActiveTab] = useState<
+    "users" | "products" | "orders" | "analytics" | "settings"
+  >("users");
+
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
+
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    lastLogin: false,
+  });
   const [rowSelection, setRowSelection] = useState({});
+
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [userRole, setUserRole] = useState<"user" | "admin" | "moderator">(
+    "user"
+  );
+  const [userStatus, setUserStatus] = useState<"active" | "inactive">("active");
 
   const queryClient = useQueryClient();
 
-  // Визначення мобільного пристрою
+  // Тема з localStorage
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Завантаження теми з localStorage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
+    const saved =
+      typeof window !== "undefined" ? localStorage.getItem("theme") : null;
+    if (saved === "dark") {
+      document.documentElement.classList.add("dark");
       setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
     } else {
+      document.documentElement.classList.remove("dark");
       setIsDarkMode(false);
-      document.documentElement.classList.remove('dark');
     }
   }, []);
 
-  // Збереження теми в localStorage
   const toggleTheme = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+    const next = !isDarkMode;
+    setIsDarkMode(next);
+    if (next) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
     } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
     }
   };
 
-  // React Query запити
-  const { data: users, isLoading: usersLoading } = useQuery({
-    queryKey: ['users'],
+  // Дані
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["users"],
     queryFn: fetchUsers,
   });
 
-  const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ['products'],
+  const { data: products = [] } = useQuery({
+    queryKey: ["products"],
     queryFn: fetchProducts,
   });
 
-  const { data: orders, isLoading: ordersLoading } = useQuery({
-    queryKey: ['orders'],
+  const { data: orders = [] } = useQuery({
+    queryKey: ["orders"],
     queryFn: fetchOrders,
   });
 
-  const { data: notificationsData } = useQuery({
-    queryKey: ['notifications'],
+  const { data: notificationsData = [] } = useQuery({
+    queryKey: ["notifications"],
     queryFn: fetchNotifications,
   });
 
   useEffect(() => {
-    if (notificationsData) {
-      setNotifications(notificationsData);
-    }
+    setNotifications(notificationsData);
   }, [notificationsData]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markAllRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
 
   // Mutations
   const createUserMutation = useMutation({
     mutationFn: createUser,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
       setIsCreateUserOpen(false);
+      setUserRole("user");
+      setUserStatus("active");
     },
   });
 
   const createProductMutation = useMutation({
     mutationFn: createProduct,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setIsCreateProductOpen(false);
     },
   });
 
-  // Forms
+  // Форми
   const userForm = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
-      name: '',
-      email: '',
-      phone: '',
-      role: 'user',
-      status: 'active',
+      name: "",
+      email: "",
+      phone: "",
+      role: "user",
+      status: "active",
     },
   });
 
   const productForm = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
-      name: '',
-      category: '',
+      name: "",
+      category: "",
       price: 0,
       stock: 0,
-      description: '',
+      description: "",
     },
   });
 
-  // Таблиця користувачів з адаптацією для мобільних
-  const mobileUserColumns = React.useMemo(() => {
-    if (isMobile) {
-      return userColumns.filter(col => {
-        // Безпечна перевірка наявності accessorKey
-        const hasAccessorKey = 'accessorKey' in col;
-        const accessorKeyValue = hasAccessorKey ? (col as any).accessorKey : null;
-        
-        return (
-          col.id === 'select' || 
-          accessorKeyValue === 'name' || 
-          accessorKeyValue === 'status' || 
-          col.id === 'actions'
-        );
-      });
-    }
-    return userColumns;
-  }, [isMobile, userColumns]);
-
+  // Таблиця користувачів
   const userTable = useReactTable({
-    data: users || [],
-    columns: mobileUserColumns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
+    data: users,
+    columns: userColumns,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
     },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   // Статистика
+  const totalRevenue = orders.reduce((acc, o) => acc + o.amount, 0);
+  const activeProducts = products.filter((p) => p.status === "in_stock").length;
+
   const stats = [
     {
-      title: 'Всього користувачів',
-      value: '1,234',
-      change: '+12%',
+      title: "Користувачі",
+      value: users.length,
       icon: Users,
-      color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-500/10 dark:bg-blue-500/20',
-      gradient: 'from-blue-500 to-cyan-500',
+      description: "Активні акаунти клієнтів",
     },
     {
-      title: 'Всього замовлень',
-      value: '856',
-      change: '+8%',
-      icon: ShoppingCart,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bgColor: 'bg-emerald-500/10 dark:bg-emerald-500/20',
-      gradient: 'from-emerald-500 to-green-500',
-    },
-    {
-      title: 'Товари в наявності',
-      value: '156',
-      change: '+5%',
+      title: "Товари в наявності",
+      value: activeProducts,
       icon: Package,
-      color: 'text-purple-600 dark:text-purple-400',
-      bgColor: 'bg-purple-500/10 dark:bg-purple-500/20',
-      gradient: 'from-purple-500 to-violet-500',
+      description: "Можна додати до каталогу",
     },
     {
-      title: 'Загальний дохід',
-      value: '₴245,678',
-      change: '+15%',
+      title: "Замовлення",
+      value: orders.length,
+      icon: ShoppingCart,
+      description: "Останні замовлення клієнтів",
+    },
+    {
+      title: "Оборот",
+      value: `₴${totalRevenue.toLocaleString("uk-UA")}`,
       icon: DollarSign,
-      color: 'text-orange-600 dark:text-orange-400',
-      bgColor: 'bg-orange-500/10 dark:bg-orange-500/20',
-      gradient: 'from-orange-500 to-red-500',
+      description: "Сумарний дохід",
     },
   ];
-
-  const navigationItems = [
-    { id: 'users', label: 'Користувачі', icon: Users, description: 'Управління користувачами' },
-    { id: 'products', label: 'Товари', icon: Package, description: 'Каталог товарів' },
-    { id: 'orders', label: 'Замовлення', icon: ShoppingCart, description: 'Історія замовлень' },
-    { id: 'analytics', label: 'Аналітика', icon: BarChart3, description: 'Статистика та звіти' },
-    { id: 'settings', label: 'Налаштування', icon: Settings, description: 'Налаштування системи' },
-  ];
-
-  const unreadNotifications = notifications.filter(n => !n.read).length;
 
   const onSubmitUser = (data: UserFormValues) => {
     createUserMutation.mutate(data);
@@ -800,374 +784,498 @@ function AdminContent() {
     createProductMutation.mutate(data);
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
-  };
+  // ────────────────────────────────────────────────────────
+  // JSX
+  // ────────────────────────────────────────────────────────
 
   return (
-    <div className={cn(
-      "min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300 overflow-x-hidden"
-    )}>
-      {/* Верхня панель */}
-      <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
-        <div className="px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-4">
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen bg-slate-50 text-[15px] text-slate-900 dark:bg-slate-950 dark:text-slate-50 sm:text-[16px]">
+        {/* Верхній бар */}
+        <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/80">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-3 py-3 sm:px-4 sm:py-3.5 md:px-6">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="md:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 h-9 w-9"
+                className="mr-1 h-10 w-10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50 md:hidden"
+                onClick={() => setSidebarOpen(true)}
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-6 w-6" />
               </Button>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-linear-to-br from-emerald-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg shrink-0">
-                  <Package className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                  <Package className="h-6 w-6" />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-bold bg-linear-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent truncate">
-                    PlantAdmin
-                  </h1>
-                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">Панель управління магазином</p>
+                  <p className="truncate text-base font-semibold tracking-tight sm:text-lg">
+                    Plant Admin
+                  </p>
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
+                    Панель управління магазином рослин
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-10 w-10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50"
                 onClick={toggleTheme}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 h-9 w-9"
               >
-                {isDarkMode ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
+                {isDarkMode ? (
+                  <Sun className="h-6 w-6" />
+                ) : (
+                  <Moon className="h-6 w-6" />
+                )}
               </Button>
-              
+
+              {/* Notifications */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 h-9 w-9">
-                    <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-                    {unreadNotifications > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                        {unreadNotifications}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50"
+                  >
+                    <Bell className="h-6 w-6" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-semibold text-white">
+                        {unreadCount}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-w-[90vw]">
-                  <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
-                    <DropdownMenuLabel className="text-gray-900 dark:text-white p-0 text-sm">Сповіщення</DropdownMenuLabel>
-                    {unreadNotifications > 0 && (
-                      <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 h-auto p-0">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-80 border-slate-200 bg-white text-sm dark:border-slate-800 dark:bg-slate-950"
+                >
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <DropdownMenuLabel className="p-0 text-base">
+                      Сповіщення
+                    </DropdownMenuLabel>
+                    {unreadCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                        onClick={markAllRead}
+                      >
                         Прочитати всі
                       </Button>
                     )}
                   </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    {notifications.length > 0 ? (
-                      notifications.map((notification) => (
-                        <DropdownMenuItem 
-                          key={notification.id}
-                          className={cn(
-                            "p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer focus:bg-gray-50 dark:focus:bg-gray-700",
-                            !notification.read && "bg-blue-50 dark:bg-blue-500/10"
-                          )}
-                          onClick={() => setNotifications(notifications.map(n => 
-                            n.id === notification.id ? { ...n, read: true } : n
-                          ))}
-                        >
-                          <div className="flex items-start gap-2 sm:gap-3">
-                            <div className={cn(
-                              "w-2 h-2 rounded-full mt-2 shrink-0",
-                              notification.type === 'info' && "bg-blue-500",
-                              notification.type === 'warning' && "bg-yellow-500",
-                              notification.type === 'success' && "bg-green-500",
-                              notification.type === 'error' && "bg-red-500"
-                            )} />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                                {notification.title}
-                              </p>
-                              <p className="text-gray-600 dark:text-gray-400 text-xs mt-1 truncate">
-                                {notification.message}
-                              </p>
-                              <p className="text-gray-400 dark:text-gray-500 text-xs mt-2">
-                                {new Date(notification.date).toLocaleDateString('uk-UA')}
-                              </p>
-                            </div>
-                            {!notification.read && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-2" />
-                            )}
-                          </div>
-                        </DropdownMenuItem>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  <DropdownMenuSeparator />
+                  <div className="max-h-72 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="px-3 py-5 text-center text-sm text-slate-500">
                         Немає сповіщень
                       </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <DropdownMenuItem
+                          key={n.id}
+                          className={cn(
+                            "flex flex-col items-start gap-1 px-3 py-2.5 text-sm",
+                            !n.read &&
+                              "bg-emerald-50/60 dark:bg-emerald-900/20"
+                          )}
+                          onClick={() =>
+                            setNotifications((prev) =>
+                              prev.map((x) =>
+                                x.id === n.id ? { ...x, read: true } : x
+                              )
+                            )
+                          }
+                        >
+                          <span className="font-semibold">{n.title}</span>
+                          <span className="text-slate-500 dark:text-slate-400">
+                            {n.message}
+                          </span>
+                        </DropdownMenuItem>
+                      ))
                     )}
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Профіль */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 sm:gap-3 p-1 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 h-auto">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-linear-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg shrink-0">
-                      <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                  <Button
+                    variant="ghost"
+                    className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-base sm:flex"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-slate-50 dark:bg-slate-100 dark:text-slate-900">
+                      <User className="h-5 w-5" />
                     </div>
-                    <div className="hidden sm:block text-left min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Адміністратор</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">admin@plantshop.com</p>
+                    <div className="hidden flex-col text-left sm:flex">
+                      <span className="text-sm font-medium">
+                        Адміністратор
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        admin@plantshop.com
+                      </span>
                     </div>
-                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 w-48">
-                  <DropdownMenuLabel className="text-gray-900 dark:text-white text-sm">Мій акаунт</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-700 cursor-pointer text-sm">
-                    <User className="h-3 w-3 mr-2" />
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56 border-slate-200 bg-white text-sm dark:border-slate-800 dark:bg-slate-950"
+                >
+                  <DropdownMenuItem className="text-sm">
+                    <User className="mr-2 h-4 w-4" />
                     Профіль
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-700 cursor-pointer text-sm">
-                    <Settings className="h-3 w-3 mr-2" />
+                  <DropdownMenuItem className="text-sm">
+                    <Settings className="mr-2 h-4 w-4" />
                     Налаштування
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-                  <DropdownMenuItem className="text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-500/10 cursor-pointer text-sm">
-                    <LogOut className="h-3 w-3 mr-2" />
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-sm text-red-600 dark:text-red-400">
+                    <LogOut className="mr-2 h-4 w-4" />
                     Вийти
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="flex">
-        {/* Бічна панель */}
-        <div className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 lg:bg-white/80 lg:dark:bg-gray-800/80",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}>
-          <div className="flex flex-col h-full">
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between lg:justify-start">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Навігація</h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(false)}
-                className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <nav className="flex-1 p-2 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
-              {navigationItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as any);
-                    setSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 text-left transition-all duration-200 group rounded-lg",
-                    activeTab === item.id
-                      ? "bg-linear-to-r from-emerald-500/10 to-cyan-500/10 border-r-2 border-emerald-500 text-emerald-600 dark:text-emerald-400"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
-                  )}
+        <div className="mx-auto flex w-full max-w-6xl">
+          {/* Sidebar */}
+          <aside
+            className={cn(
+              "fixed inset-y-0 left-0 z-30 w-64 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 md:static md:block",
+              sidebarOpen ? "block" : "hidden md:block"
+            )}
+          >
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 text-base dark:border-slate-800 md:hidden">
+                <p className="font-medium">Меню</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setSidebarOpen(false)}
                 >
-                  <div className={cn(
-                    "p-1.5 sm:p-2 rounded-lg transition-all duration-200 group-hover:scale-110 shrink-0",
-                    activeTab === item.id 
-                      ? "bg-linear-to-br from-emerald-500 to-cyan-500 text-white shadow-lg"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                  )}>
-                    <item.icon className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm sm:text-base">{item.label}</div>
-                    <div className="text-xs opacity-60 truncate">{item.description}</div>
-                  </div>
-                </button>
-              ))}
-            </nav>
-            <div className="p-2 sm:p-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="bg-linear-to-r from-emerald-500/10 to-cyan-500/10 rounded-lg p-3 sm:p-4">
-                <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">Потрібна допомога?</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Зверніться до служби підтримки</p>
-                <Button size="sm" className="w-full bg-linear-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-xs h-8">
-                  <MessageSquare className="h-3 w-3 mr-1 sm:mr-2" />
-                  Підтримка
+                  ✕
                 </Button>
+              </div>
+
+              <nav className="flex-1 space-y-1 px-3 py-4 text-base">
+                {[
+                  { id: "users", label: "Користувачі", icon: Users },
+                  { id: "products", label: "Товари", icon: Package },
+                  { id: "orders", label: "Замовлення", icon: ShoppingCart },
+                  { id: "analytics", label: "Аналітика", icon: DollarSign },
+                  { id: "settings", label: "Налаштування", icon: Settings },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id as any);
+                      setSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition",
+                      activeTab === item.id
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
+                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              <div className="border-t border-slate-200 px-3 py-3 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                <p>
+                  Порада: регулярно оновлюйте каталог рослин і стежте за
+                  запасами.
+                </p>
               </div>
             </div>
-          </div>
-        </div>
+          </aside>
 
-        {/* Основний вміст */}
-        <div className="flex-1 p-3 sm:p-4 md:p-6 min-w-0">
-          {/* Статистика */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 sm:mb-2 truncate">{stat.title}</p>
-                        <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 truncate">{stat.value}</p>
-                        <div className="flex items-center">
-                          <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500 mr-1" />
-                          <span className="text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400">{stat.change}</span>
-                          <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 ml-1 hidden sm:inline">за місяць</span>
+          {/* Overlay під мобільний сайдбар */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-20 bg-black/40 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
+          {/* Основний контент */}
+          <main className="flex-1 px-3 py-4 sm:px-4 sm:py-5 md:px-6 md:py-6">
+            {/* Статистика */}
+            <section className="mb-6 space-y-4">
+              <div>
+                <h1 className="text-2xl font-semibold sm:text-3xl">
+                  {activeTab === "users" && "Користувачі"}
+                  {activeTab === "products" && "Каталог товарів"}
+                  {activeTab === "orders" && "Замовлення"}
+                  {activeTab === "analytics" && "Аналітика"}
+                  {activeTab === "settings" && "Налаштування магазину"}
+                </h1>
+                <p className="mt-2 text-sm text-slate-600 sm:text-base">
+                  Керування інтернет-магазином декоративних рослин та
+                  ландшафтних послуг.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {stats.map((stat, idx) => (
+                  <m.div
+                    key={stat.title}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                  >
+                    <Card className="border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/90">
+                      <CardContent className="flex items-center justify-between gap-4 px-4 py-4">
+                        <div className="min-w-0">
+                          <p className="text-sm text-slate-500">
+                            {stat.title}
+                          </p>
+                          <p className="mt-1 text-lg font-semibold sm:text-xl">
+                            {stat.value}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                            {stat.description}
+                          </p>
                         </div>
-                      </div>
-                      <div className={`p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl ${stat.bgColor} shrink-0 ml-2`}>
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-linear-to-br ${stat.gradient} rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg`}>
-                          <stat.icon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                          <stat.icon className="h-5 w-5" />
                         </div>
-                      </div>
+                      </CardContent>
+                    </Card>
+                  </m.div>
+                ))}
+              </div>
+            </section>
+
+            {/* Вкладки / контент */}
+            <section className="space-y-5">
+              {activeTab === "users" && (
+                <Card className="border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/90">
+                  <CardHeader className="flex flex-col gap-3 border-b border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 dark:border-slate-800">
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg sm:text-xl">
+                        Управління користувачами
+                      </CardTitle>
+                      <CardDescription className="text-sm">
+                        Перегляд, фільтрація та редагування клієнтів.
+                      </CardDescription>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="h-10 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700"
+                        onClick={() => {
+                          userForm.reset({
+                            name: "",
+                            email: "",
+                            phone: "",
+                            role: "user",
+                            status: "active",
+                          });
+                          setUserRole("user");
+                          setUserStatus("active");
+                          setIsCreateUserOpen(true);
+                        }}
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Додати користувача
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-10 rounded-full border-slate-200 px-4 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                      >
+                        <Download className="mr-1.5 h-4 w-4" />
+                        Експорт
+                      </Button>
+                    </div>
+                  </CardHeader>
 
-          {/* Вміст вкладок */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
-            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 sm:pb-4 p-4 sm:p-6">
-              <div className="mb-3 sm:mb-0 min-w-0 flex-1">
-                <CardTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                  {activeTab === 'users' && 'Управління користувачами'}
-                  {activeTab === 'products' && 'Каталог товарів'}
-                  {activeTab === 'orders' && 'Історія замовлень'}
-                  {activeTab === 'analytics' && 'Аналітика продажів'}
-                  {activeTab === 'settings' && 'Налаштування системи'}
-                </CardTitle>
-                <CardDescription className="text-gray-600 dark:text-gray-400 text-sm">
-                  {activeTab === 'users' && 'Перегляд та управління користувачами системи'}
-                  {activeTab === 'products' && 'Управління каталогом товарів та залишками'}
-                  {activeTab === 'orders' && 'Перегляд та обробка замовлень клієнтів'}
-                  {activeTab === 'analytics' && 'Статистика продажів та аналітика бізнесу'}
-                  {activeTab === 'settings' && 'Налаштування системи та параметрів магазину'}
-                </CardDescription>
-              </div>
-              <div className="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
-                {activeTab === 'users' && (
-                  <Button 
-                    size="sm" 
-                    className="flex items-center gap-1 sm:gap-2 bg-linear-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 shadow-lg text-xs h-8 flex-1 sm:flex-none"
-                    onClick={() => setIsCreateUserOpen(true)}
-                  >
-                    <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                    <span className="hidden xs:inline">Додати користувача</span>
-                    <span className="xs:hidden">Додати</span>
-                  </Button>
-                )}
-                {activeTab === 'products' && (
-                  <Button 
-                    size="sm" 
-                    className="flex items-center gap-1 sm:gap-2 bg-linear-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 shadow-lg text-xs h-8 flex-1 sm:flex-none"
-                    onClick={() => setIsCreateProductOpen(true)}
-                  >
-                    <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                    <span className="hidden xs:inline">Додати товар</span>
-                    <span className="xs:hidden">Додати</span>
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs h-8 flex-1 sm:flex-none">
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Експорт</span>
-                </Button>
-                <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs h-8 flex-1 sm:flex-none">
-                  <Filter className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Фільтри</span>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0">
-              {activeTab === 'users' && (
-                <div className="space-y-4">
-                  {/* Пошук і фільтри */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                    <div className="flex-1 w-full">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3 sm:h-4 sm:w-4" />
+                  <CardContent className="space-y-4 px-3 py-4 sm:px-4">
+                    {/* Фільтри / пошук */}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="relative w-full sm:max-w-sm">
+                        <Search className="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                         <Input
-                          placeholder="Пошук користувачів..."
-                          className="pl-8 sm:pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm h-9 sm:h-10"
-                          value={(userTable.getColumn('name')?.getFilterValue() as string) ?? ''}
-                          onChange={(event) =>
-                            userTable.getColumn('name')?.setFilterValue(event.target.value)
+                          placeholder="Пошук за ім'ям або email..."
+                          className="h-11 pl-10 text-base"
+                          value={
+                            (userTable
+                              .getColumn("name")
+                              ?.getFilterValue() as string) ?? ""
+                          }
+                          onChange={(e) =>
+                            userTable
+                              .getColumn("name")
+                              ?.setFilterValue(e.target.value)
                           }
                         />
                       </div>
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <Select
-                        value={(userTable.getColumn('status')?.getFilterValue() as string) ?? 'all'}
-                        onValueChange={(value) => {
-                          if (value === 'all') {
-                            userTable.getColumn('status')?.setFilterValue(undefined);
-                          } else {
-                            userTable.getColumn('status')?.setFilterValue(value);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full sm:w-[140px] lg:w-[180px] bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm h-9 sm:h-10">
-                          <SelectValue placeholder="Статус" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                          <SelectItem value="all" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Всі статуси</SelectItem>
-                          <SelectItem value="active" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Активний</SelectItem>
-                          <SelectItem value="inactive" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Неактивний</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                      <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setStatusFilter(value);
+                            userTable
+                              .getColumn("status")
+                              ?.setFilterValue(
+                                value === "all" ? undefined : value
+                              );
+                          }}
+                          className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:w-44"
+                        >
+                          <option value="all">Всі статуси</option>
+                          <option value="active">Активні</option>
+                          <option value="inactive">Неактивні</option>
+                        </select>
 
-                  {/* Таблиця */}
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader className="bg-gray-50 dark:bg-gray-700/50">
-                          {userTable.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id} className="border-gray-200 dark:border-gray-700 hover:bg-transparent">
-                              {headerGroup.headers.map((header) => {
-                                return (
-                                  <TableHead key={header.id} className="text-gray-700 dark:text-gray-300 font-semibold py-3 sm:py-4 text-xs sm:text-sm">
-                                    {header.isPlaceholder
-                                      ? null
-                                      : flexRender(
-                                          header.column.columnDef.header,
-                                          header.getContext()
-                                        )}
-                                  </TableHead>
-                                );
-                              })}
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-11 w-11 border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-200"
+                        >
+                          <Filter className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* MOBILE LIST VIEW */}
+                    <div className="space-y-3 md:hidden">
+                      {usersLoading ? (
+                        <p className="py-4 text-center text-sm text-slate-500">
+                          Завантаження користувачів...
+                        </p>
+                      ) : userTable.getRowModel().rows.length ? (
+                        userTable.getRowModel().rows.map((row) => {
+                          const user = row.original as UserType;
+
+                          return (
+                            <Card
+                              key={user.id}
+                              className="border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950"
+                            >
+                              <CardContent className="flex items-start gap-3 px-3 py-3.5">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                  {user.name
+                                    .split(" ")
+                                    .map((p) => p[0])
+                                    .join("")
+                                    .slice(0, 2)}
+                                </div>
+                                <div className="min-w-0 flex-1 space-y-1.5">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <p className="truncate text-base font-semibold">
+                                        {user.name}
+                                      </p>
+                                      <p className="truncate text-sm text-slate-500">
+                                        {user.email}
+                                      </p>
+                                    </div>
+                                    <Badge
+                                      className={cn(
+                                        "shrink-0 border-none px-2.5 py-1 text-xs font-medium",
+                                        user.status === "active" &&
+                                          "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200",
+                                        user.status === "inactive" &&
+                                          "bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                                      )}
+                                    >
+                                      {user.status === "active"
+                                        ? "Активний"
+                                        : "Неактивний"}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 sm:text-sm">
+                                    <span>Роль: {user.role}</span>
+                                    <span>Замовлень: {user.orders}</span>
+                                    <span>
+                                      Витрачено:{" "}
+                                      {new Intl.NumberFormat("uk-UA", {
+                                        style: "currency",
+                                        currency: "UAH",
+                                      }).format(user.totalSpent || 0)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-1.5">
+                                    <span className="text-xs text-slate-400">
+                                      Останній вхід: {user.lastLogin}
+                                    </span>
+                                    <UserActionsCell user={user} />
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })
+                      ) : (
+                        <p className="py-4 text-center text-sm text-slate-500">
+                          Дані відсутні.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* DESKTOP TABLE VIEW */}
+                    <div className="hidden overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800 md:block">
+                      <Table className="w-full">
+                        <TableHeader className="bg-slate-50/60 text-sm dark:bg-slate-900/60">
+                          {userTable.getHeaderGroups().map((hg) => (
+                            <TableRow
+                              key={hg.id}
+                              className="border-b last:border-b-0"
+                            >
+                              {hg.headers.map((header) => (
+                                <TableHead
+                                  key={header.id}
+                                  className="whitespace-nowrap py-3 px-2 align-middle text-sm font-medium text-slate-600 dark:text-slate-300"
+                                >
+                                  {header.isPlaceholder
+                                    ? null
+                                    : flexRender(
+                                        header.column.columnDef.header,
+                                        header.getContext()
+                                      )}
+                                </TableHead>
+                              ))}
                             </TableRow>
                           ))}
                         </TableHeader>
-                        <TableBody>
-                          {userTable.getRowModel().rows?.length ? (
+                        <TableBody className="text-sm sm:text-base">
+                          {usersLoading ? (
+                            <TableRow>
+                              <TableCell
+                                colSpan={userTable.getAllColumns().length}
+                                className="py-8 text-center text-slate-500"
+                              >
+                                Завантаження користувачів...
+                              </TableCell>
+                            </TableRow>
+                          ) : userTable.getRowModel().rows.length ? (
                             userTable.getRowModel().rows.map((row) => (
                               <TableRow
                                 key={row.id}
-                                data-state={row.getIsSelected() && 'selected'}
-                                className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
+                                className="border-b last:border-b-0 hover:bg-slate-50/60 dark:hover:bg-slate-900/40"
+                                data-state={
+                                  row.getIsSelected() ? "selected" : undefined
+                                }
                               >
                                 {row.getVisibleCells().map((cell) => (
-                                  <TableCell key={cell.id} className="py-2 sm:py-3 text-xs sm:text-sm">
+                                  <TableCell
+                                    key={cell.id}
+                                    className="py-3 px-2 align-middle"
+                                  >
                                     {flexRender(
                                       cell.column.columnDef.cell,
                                       cell.getContext()
@@ -1179,629 +1287,679 @@ function AdminContent() {
                           ) : (
                             <TableRow>
                               <TableCell
-                                colSpan={mobileUserColumns.length}
-                                className="h-24 text-center text-gray-500 dark:text-gray-400 text-sm"
+                                colSpan={userTable.getAllColumns().length}
+                                className="py-8 text-center text-slate-500"
                               >
-                                {usersLoading ? (
-                                  <div className="flex items-center justify-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                                    Завантаження даних...
-                                  </div>
-                                ) : (
-                                  'Немає даних для відображення.'
-                                )}
+                                Дані відсутні.
                               </TableCell>
                             </TableRow>
                           )}
                         </TableBody>
                       </Table>
                     </div>
-                  </div>
 
-                  {/* Пагінація */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 py-4 sm:py-6">
-                    <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center sm:text-left">
-                      {userTable.getFilteredSelectedRowModel().rows.length} з{' '}
-                      {userTable.getFilteredRowModel().rows.length} рядків(и) вибрано.
+                    {/* Пагінація */}
+                    <div className="flex flex-col items-center justify-between gap-3 pt-2 text-sm text-slate-500 sm:flex-row">
+                      <span className="text-center sm:text-left">
+                        Вибрано{" "}
+                        {userTable.getFilteredSelectedRowModel().rows.length} з{" "}
+                        {userTable.getFilteredRowModel().rows.length}
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-10 px-4 text-sm"
+                          disabled={!userTable.getCanPreviousPage()}
+                          onClick={() => userTable.previousPage()}
+                        >
+                          Назад
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-10 px-4 text-sm"
+                          disabled={!userTable.getCanNextPage()}
+                          onClick={() => userTable.nextPage()}
+                        >
+                          Вперед
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => userTable.previousPage()}
-                        disabled={!userTable.getCanPreviousPage()}
-                        className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs h-8"
-                      >
-                        Назад
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => userTable.nextPage()}
-                        disabled={!userTable.getCanNextPage()}
-                        className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs h-8"
-                      >
-                        Вперед
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               )}
 
-              {activeTab === 'products' && (
-                <div className="space-y-4 sm:space-y-6">
-                  <Alert className="text-sm">
-                    <Package className="h-4 w-4" />
-                    <AlertDescription>
-                      В каталозі {mockProducts.length} товарів. {mockProducts.filter(p => p.status === 'out_of_stock').length} товарів відсутні на складі.
-                    </AlertDescription>
-                  </Alert>
+              {activeTab === "products" && (
+                <Card className="border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/90">
+                  <CardHeader className="flex flex-col gap-3 border-b border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 dark:border-slate-800">
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg sm:text-xl">
+                        Каталог товарів
+                      </CardTitle>
+                      <CardDescription className="text-sm">
+                        Основні рослини, які ви продаєте.
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="h-10 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700"
+                        onClick={() => {
+                          productForm.reset();
+                          setIsCreateProductOpen(true);
+                        }}
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Додати товар
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 px-3 py-4 sm:px-4">
+                    <Alert className="border-emerald-100 bg-emerald-50/60 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+                      <AlertDescription>
+                        В каталозі {products.length} товарів. Стежте за
+                        кількістю на складі, щоб уникати відсутності улюблених
+                        рослин клієнтів.
+                      </AlertDescription>
+                    </Alert>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                    {mockProducts.map((product) => (
-                      <Card key={product.id} className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-300">
-                        <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4">
-                          <div className="flex justify-between items-start">
-                            <div className="min-w-0 flex-1">
-                              <CardTitle className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
-                                {product.name}
-                              </CardTitle>
-                              <CardDescription className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
-                                {product.category}
-                              </CardDescription>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {products.map((product) => (
+                        <Card
+                          key={product.id}
+                          className="border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950"
+                        >
+                          <CardHeader className="px-4 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <CardTitle className="truncate text-base font-semibold">
+                                  {product.name}
+                                </CardTitle>
+                                <CardDescription className="text-sm">
+                                  {product.category}
+                                </CardDescription>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "border-none px-2.5 py-1 text-xs font-medium",
+                                  product.status === "in_stock" &&
+                                    "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200",
+                                  product.status === "low_stock" &&
+                                    "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200",
+                                  product.status === "out_of_stock" &&
+                                    "bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                                )}
+                              >
+                                {product.status === "in_stock" && "В наявності"}
+                                {product.status === "low_stock" && "Мало"}
+                                {product.status === "out_of_stock" &&
+                                  "Немає в наявності"}
+                              </Badge>
                             </div>
-                            <Badge variant={
-                              product.status === 'in_stock' ? 'default' : 
-                              product.status === 'low_stock' ? 'secondary' : 'destructive'
-                            } className="text-xs shrink-0 ml-2">
-                              {product.status === 'in_stock' ? 'В наявності' : 
-                               product.status === 'low_stock' ? 'Мало' : 'Немає в наявності'}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4 pt-0">
-                          <div className="flex justify-between items-center">
-                            <span className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
-                              ₴{product.price}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 fill-current" />
-                              <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{product.rating}.0</span>
+                          </CardHeader>
+                          <CardContent className="space-y-3 px-4 py-2.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-base font-semibold">
+                                ₴{product.price.toLocaleString("uk-UA")}
+                              </p>
+                              <div className="flex items-center gap-1 text-sm text-slate-500">
+                                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                <span>{product.rating.toFixed(1)}</span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex justify-between text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                            <span>Залишок: {product.stock} шт.</span>
-                            <span>Продано: {product.sales} шт.</span>
-                          </div>
-                          <Progress value={(product.sales / (product.sales + product.stock)) * 100} className="h-1.5 sm:h-2" />
-                          <div className="flex gap-1 sm:gap-2 pt-2">
-                            <Button size="sm" variant="outline" className="flex-1 text-xs h-8">
-                              <Edit className="h-3 w-3 mr-1" />
-                              Редаг.
+                            <p className="line-clamp-3 text-sm text-slate-500 dark:text-slate-400">
+                              {product.description}
+                            </p>
+                            <div className="flex items-center justify-between text-sm text-slate-500">
+                              <span>Залишок: {product.stock} шт.</span>
+                              <span>Продано: {product.sales} шт.</span>
+                            </div>
+                            <Progress
+                              className="h-2"
+                              value={
+                                product.sales + product.stock === 0
+                                  ? 0
+                                  : (product.sales /
+                                      (product.sales + product.stock)) *
+                                    100
+                              }
+                            />
+                          </CardContent>
+                          <CardFooter className="flex gap-2 px-4 py-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-10 flex-1 text-sm"
+                            >
+                              <Edit className="mr-1.5 h-4 w-4" />
+                              Редагувати
                             </Button>
-                            <Button size="sm" variant="outline" className="flex-1 text-xs h-8">
-                              <Eye className="h-3 w-3 mr-1" />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-10 flex-1 text-sm"
+                            >
+                              <Eye className="mr-1.5 h-4 w-4" />
                               Перегляд
                             </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
+                          </CardFooter>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
-              {activeTab === 'orders' && (
-                <div className="space-y-4 sm:space-y-6">
-                  <Tabs defaultValue="all" className="w-full">
-                    <TabsList className="bg-gray-100 dark:bg-gray-700 p-1 w-full flex flex-wrap h-auto">
-                      <TabsTrigger value="all" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 text-xs flex-1">
-                        Всі
-                      </TabsTrigger>
-                      <TabsTrigger value="pending" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 text-xs flex-1">
-                        Очікування
-                      </TabsTrigger>
-                      <TabsTrigger value="processing" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 text-xs flex-1">
-                        Обробка
-                      </TabsTrigger>
-                      <TabsTrigger value="delivered" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 text-xs flex-1">
-                        Доставка
-                      </TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="all" className="space-y-3 sm:space-y-4">
-                      <div className="grid gap-3 sm:gap-4">
-                        {mockOrders.slice(0, 5).map((order) => (
-                          <Card key={order.id} className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <CardContent className="p-3 sm:p-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-linear-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center shrink-0">
-                                    <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+              {activeTab === "orders" && (
+                <Card className="border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/90">
+                  <CardHeader className="border-b border-slate-100 px-3 py-3 sm:px-4 dark:border-slate-800">
+                    <CardTitle className="text-lg sm:text-xl">
+                      Замовлення
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      Останні замовлення клієнтів на рослини та послуги.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 px-3 py-4 sm:px-4">
+                    <Tabs defaultValue="all" className="w-full">
+                      <TabsList className="flex h-10 w-full justify-start gap-2 overflow-x-auto rounded-lg bg-slate-100/80 p-1 text-sm dark:bg-slate-900/60">
+                        <TabsTrigger
+                          value="all"
+                          className="flex-1 whitespace-nowrap sm:flex-none"
+                        >
+                          Всі
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="pending"
+                          className="flex-1 whitespace-nowrap sm:flex-none"
+                        >
+                          Очікування
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="processing"
+                          className="flex-1 whitespace-nowrap sm:flex-none"
+                        >
+                          Обробка
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="delivered"
+                          className="flex-1 whitespace-nowrap sm:flex-none"
+                        >
+                          Доставлено
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="all" className="mt-4 space-y-3">
+                        {orders.map((order) => (
+                          <Card
+                            key={order.id}
+                            className="border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950"
+                          >
+                            <CardContent className="px-4 py-3.5">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                    <ShoppingCart className="h-5 w-5" />
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{order.id}</p>
-                                    <p className="text-gray-600 dark:text-gray-400 text-xs truncate">{order.customer}</p>
-                                    <p className="text-gray-500 dark:text-gray-500 text-xs">{order.date}</p>
+                                  <div>
+                                    <p className="text-base font-semibold">
+                                      {order.id}
+                                    </p>
+                                    <p className="text-sm text-slate-500">
+                                      {order.customer}
+                                    </p>
+                                    <p className="text-xs text-slate-400">
+                                      {order.date}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className="text-right shrink-0 ml-2">
-                                  <p className="font-bold text-base sm:text-lg text-gray-900 dark:text-white">₴{order.amount}</p>
-                                  <Badge variant={
-                                    order.status === 'delivered' ? 'default' :
-                                    order.status === 'processing' ? 'secondary' :
-                                    order.status === 'pending' ? 'outline' : 'destructive'
-                                  } className="text-xs">
-                                    {order.status === 'delivered' ? 'Доставлено' :
-                                     order.status === 'processing' ? 'В обробці' :
-                                     order.status === 'pending' ? 'Очікування' : 'Скасовано'}
+                                <div className="flex flex-col items-end gap-2 text-sm">
+                                  <p className="text-base font-semibold">
+                                    ₴{order.amount.toLocaleString("uk-UA")}
+                                  </p>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "border-none px-2.5 py-1 text-xs",
+                                      order.status === "delivered" &&
+                                        "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200",
+                                      order.status === "processing" &&
+                                        "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200",
+                                      order.status === "pending" &&
+                                        "bg-slate-50 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
+                                      order.status === "cancelled" &&
+                                        "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-200"
+                                    )}
+                                  >
+                                    {order.status === "delivered" &&
+                                      "Доставлено"}
+                                    {order.status === "processing" &&
+                                      "В обробці"}
+                                    {order.status === "pending" &&
+                                      "Очікування"}
+                                    {order.status === "cancelled" &&
+                                      "Скасовано"}
                                   </Badge>
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 dark:border-gray-700">
-                                <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  {order.items} товарів · {order.payment === 'card' ? 'Карта' : order.payment === 'cash' ? 'Готівка' : 'PayPal'}
-                                </div>
-                                <div className="flex gap-1 sm:gap-2">
-                                  <Button size="sm" variant="outline" className="text-xs h-7">
-                                    <Eye className="h-3 w-3" />
-                                    <span className="hidden sm:inline ml-1">Деталі</span>
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="text-xs h-7">
-                                    <Truck className="h-3 w-3" />
-                                    <span className="hidden sm:inline ml-1">Відстежити</span>
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-9 px-3 text-xs sm:text-sm"
+                                    >
+                                      <Eye className="mr-1.5 h-4 w-4" />
+                                      Деталі
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-9 px-3 text-xs sm:text-sm"
+                                    >
+                                      <Truck className="mr-1.5 h-4 w-4" />
+                                      Відстежити
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </CardContent>
                           </Card>
                         ))}
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </div>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
               )}
 
-              {activeTab === 'analytics' && (
-                <div className="space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                    <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-gray-900 dark:text-white text-lg">Статистика продажів</CardTitle>
-                        <CardDescription className="text-sm">Продажі за останні 30 днів</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3 sm:space-y-4">
-                          {['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер'].map((month, i) => (
-                            <div key={month} className="flex items-center justify-between">
-                              <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 w-8">{month}</span>
-                              <div className="w-20 sm:w-24 md:w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mx-2 sm:mx-4">
-                                <div 
-                                  className="bg-linear-to-r from-emerald-500 to-cyan-500 h-2 rounded-full" 
-                                  style={{ width: `${Math.random() * 100}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white w-16 sm:w-20 text-right">
-                                ₴{Math.floor(Math.random() * 50000).toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-gray-900 dark:text-white text-lg">Популярні товари</CardTitle>
-                        <CardDescription className="text-sm">Найбільш продавані товари</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3 sm:space-y-4">
-                          {mockProducts.slice(0, 5).map((product, i) => (
-                            <div key={product.id} className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-linear-to-br from-emerald-500 to-cyan-500 rounded flex items-center justify-center shrink-0">
-                                  <Package className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                                </div>
-                                <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
-                                  {product.name}
+              {activeTab === "analytics" && (
+                <Card className="border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/90">
+                  <CardHeader className="border-b border-slate-100 px-3 py-3 sm:px-4 dark:border-slate-800">
+                    <CardTitle className="text-lg sm:text-xl">
+                      Аналітика продажів
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      Огляд ключових показників за останній період.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 px-3 py-4 sm:px-4 md:grid-cols-2">
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium">
+                        Місячний оборот (умовно)
+                      </p>
+                      <div className="space-y-2 text-xs sm:text-sm">
+                        {["Січ", "Лют", "Бер", "Кві", "Тра", "Чер"].map(
+                          (mth, i) => {
+                            const val = 30 + i * 8;
+                            return (
+                              <div
+                                key={mth}
+                                className="flex items-center gap-3"
+                              >
+                                <span className="w-10 text-slate-500">
+                                  {mth}
                                 </span>
-                              </div>
-                              <div className="text-right shrink-0 ml-2">
-                                <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
-                                  {product.sales} продажів
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  ₴{(product.price * product.sales).toLocaleString()}
+                                <div className="flex-1 rounded-full bg-slate-100 dark:bg-slate-900">
+                                  <div
+                                    className="h-2 rounded-full bg-emerald-500/80"
+                                    style={{ width: `${val}%` }}
+                                  />
                                 </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
+                            );
+                          }
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium">
+                        Найпопулярніші рослини
+                      </p>
+                      <div className="space-y-2 text-xs sm:text-sm">
+                        {products.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between rounded-md border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60"
+                          >
+                            <span className="truncate">{p.name}</span>
+                            <span className="font-medium text-slate-800 dark:text-slate-100">
+                              {p.sales} шт.
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
-              {activeTab === 'settings' && (
-                <div className="space-y-4 sm:space-y-6">
-                  <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-gray-900 dark:text-white text-lg sm:text-xl">Налаштування магазину</CardTitle>
-                      <CardDescription className="text-sm">Основні параметри вашого магазину рослин</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 p-4 sm:p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="store-name" className="text-gray-700 dark:text-gray-300 text-sm">
-                            Назва магазину
-                          </Label>
-                          <Input 
-                            id="store-name" 
-                            defaultValue="PlantShop" 
-                            className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="store-email" className="text-gray-700 dark:text-gray-300 text-sm">
-                            Email магазину
-                          </Label>
-                          <Input 
-                            id="store-email" 
-                            type="email" 
-                            defaultValue="info@plantshop.com"
-                            className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm"
-                          />
-                        </div>
-                      </div>
-                      
+              {activeTab === "settings" && (
+                <Card className="border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/90">
+                  <CardHeader className="border-b border-slate-100 px-3 py-3 sm:px-4 dark:border-slate-800">
+                    <CardTitle className="text-lg sm:text-xl">
+                      Налаштування магазину
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      Базові параметри, контакти та режим роботи.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 px-3 py-4 sm:px-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="store-description" className="text-gray-700 dark:text-gray-300 text-sm">
-                          Опис магазину
-                        </Label>
-                        <Textarea 
-                          id="store-description" 
-                          defaultValue="Найкращий магазин рослин у вашому місті. Широкий асортимент, якісні рослини та швидка доставка."
-                          className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm min-h-20 sm:min-h-[100px]"
+                        <Label htmlFor="store-name">Назва магазину</Label>
+                        <Input
+                          id="store-name"
+                          className="h-11 text-base"
+                          defaultValue="Green Home Studio"
                         />
                       </div>
-
-                      <div className="space-y-3 sm:space-y-4 pt-2 sm:pt-4">
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <Label htmlFor="maintenance-mode" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                              Режим обслуговування
-                            </Label>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Увімкніть для тимчасового закриття магазину
-                            </p>
-                          </div>
-                          <Switch id="maintenance-mode" />
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <Label htmlFor="email-notifications" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                              Email сповіщення
-                            </Label>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Отримувати сповіщення про нові замовлення
-                            </p>
-                          </div>
-                          <Switch id="email-notifications" defaultChecked />
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <Label htmlFor="low-stock-alerts" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                              Сповіщення про низький запас
-                            </Label>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Отримувати сповіщення коли товари закінчуються
-                            </p>
-                          </div>
-                          <Switch id="low-stock-alerts" defaultChecked />
-                        </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="store-email">
+                          Email для клієнтів
+                        </Label>
+                        <Input
+                          id="store-email"
+                          type="email"
+                          className="h-11 text-base"
+                          defaultValue="hello@greenhome.com"
+                        />
                       </div>
-                    </CardContent>
-                    <CardFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0 justify-between border-t border-gray-200 dark:border-gray-700 pt-4 sm:pt-6 p-4 sm:p-6">
-                      <Button variant="outline" className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm w-full sm:w-auto order-2 sm:order-1">
-                        <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                        Скинути
+                      <div className="space-y-2">
+                        <Label htmlFor="store-phone">Телефон</Label>
+                        <Input
+                          id="store-phone"
+                          className="h-11 text-base"
+                          defaultValue="+38 (050) 000-00-00"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="store-address">Адреса шоуруму</Label>
+                        <Input
+                          id="store-address"
+                          className="h-11 text-base"
+                          defaultValue="м. Луцьк, вул. Зелена, 12"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-3 text-sm dark:border-slate-800 dark:bg-slate-900/60">
+                        <div className="pr-2">
+                          <p className="font-medium">
+                            Приймати онлайн-замовлення
+                          </p>
+                          <p className="text-xs text-slate-500 sm:text-sm">
+                            Якщо вимкнути — клієнти бачитимуть лише каталог.
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-3 text-sm dark:border-slate-800 dark:bg-slate-900/60">
+                        <div className="pr-2">
+                          <p className="font-medium">Email-сповіщення</p>
+                          <p className="text-xs text-slate-500 sm:text-sm">
+                            Отримувати листи про нові замовлення.
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button className="h-11 rounded-full bg-emerald-600 px-6 text-base font-medium text-white hover:bg-emerald-700">
+                        Зберегти зміни
                       </Button>
-                      <Button className="bg-linear-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 shadow-lg text-sm w-full sm:w-auto order-1 sm:order-2 mb-2 sm:mb-0">
-                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                        Зберегти налаштування
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </div>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
+            </section>
+          </main>
         </div>
-      </div>
 
-      {/* Діалог створення користувача */}
-      <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-w-[95vw] rounded-lg">
-          <DialogHeader>
-            <DialogTitle className="text-gray-900 dark:text-white text-lg sm:text-xl font-bold">
-              Додати користувача
-            </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400 text-sm">
-              Заповніть інформацію про нового користувача системи.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={userForm.handleSubmit(onSubmitUser)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                Ім'я
-              </Label>
-              <Input
-                id="name"
-                placeholder="Введіть повне ім'я"
-                className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm"
-                {...userForm.register('name')}
-              />
-              {userForm.formState.errors.name && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {userForm.formState.errors.name.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Введіть email адресу"
-                className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm"
-                {...userForm.register('email')}
-              />
-              {userForm.formState.errors.email && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {userForm.formState.errors.email.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                Телефон
-              </Label>
-              <Input
-                id="phone"
-                placeholder="+38 (XXX) XXX-XX-XX"
-                className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm"
-                {...userForm.register('phone')}
-              />
-              {userForm.formState.errors.phone && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {userForm.formState.errors.phone.message}
-                </p>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="role" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                  Роль
-                </Label>
-                <Select
-                  value={userForm.watch('role')}
-                  onValueChange={(value: 'admin' | 'user' | 'moderator') =>
-                    userForm.setValue('role', value)
-                  }
-                >
-                  <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm">
-                    <SelectValue placeholder="Виберіть роль" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                    <SelectItem value="user" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Користувач</SelectItem>
-                    <SelectItem value="moderator" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Модератор</SelectItem>
-                    <SelectItem value="admin" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Адміністратор</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                  Статус
-                </Label>
-                <Select
-                  value={userForm.watch('status')}
-                  onValueChange={(value: 'active' | 'inactive') =>
-                    userForm.setValue('status', value)
-                  }
-                >
-                  <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm">
-                    <SelectValue placeholder="Виберіть статус" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                    <SelectItem value="active" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Активний</SelectItem>
-                    <SelectItem value="inactive" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Неактивний</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsCreateUserOpen(false)}
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm w-full sm:w-auto order-2 sm:order-1"
-              >
-                Скасувати
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={createUserMutation.isPending}
-                className="bg-linear-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 shadow-lg text-sm w-full sm:w-auto order-1 sm:order-2"
-              >
-                {createUserMutation.isPending ? (
-                  <>
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Створення...
-                  </>
-                ) : (
-                  'Створити користувача'
+        {/* Модалки */}
+        <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+          <DialogContent className="max-w-sm border border-slate-200 bg-white px-4 py-4 text-base sm:px-6 dark:border-slate-800 dark:bg-slate-950">
+            <DialogHeader>
+              <DialogTitle className="text-lg sm:text-xl">
+                Новий користувач
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+                Додайте адміністратора, менеджера магазину або клієнта.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={userForm.handleSubmit(onSubmitUser)}
+              className="space-y-3 pt-1"
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="user-name">Ім&apos;я</Label>
+                <Input
+                  id="user-name"
+                  {...userForm.register("name")}
+                  className="h-11 text-base"
+                />
+                {userForm.formState.errors.name && (
+                  <p className="text-xs text-red-500">
+                    {userForm.formState.errors.name.message}
+                  </p>
                 )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+              </div>
 
-      {/* Діалог створення товару */}
-      <Dialog open={isCreateProductOpen} onOpenChange={setIsCreateProductOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-w-[95vw] rounded-lg">
-          <DialogHeader>
-            <DialogTitle className="text-gray-900 dark:text-white text-lg sm:text-xl font-bold">
-              Додати товар
-            </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400 text-sm">
-              Заповніть інформацію про новий товар для каталогу.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={productForm.handleSubmit(onSubmitProduct)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="product-name" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                Назва товару
-              </Label>
-              <Input
-                id="product-name"
-                placeholder="Введіть назву товару"
-                className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm"
-                {...productForm.register('name')}
-              />
-              {productForm.formState.errors.name && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {productForm.formState.errors.name.message}
-                </p>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="category" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                  Категорія
-                </Label>
-                <Select
-                  onValueChange={(value) => productForm.setValue('category', value)}
+              <div className="space-y-1.5">
+                <Label htmlFor="user-email">Email</Label>
+                <Input
+                  id="user-email"
+                  type="email"
+                  {...userForm.register("email")}
+                  className="h-11 text-base"
+                />
+                {userForm.formState.errors.email && (
+                  <p className="text-xs text-red-500">
+                    {userForm.formState.errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="user-phone">Телефон</Label>
+                <Input
+                  id="user-phone"
+                  {...userForm.register("phone")}
+                  className="h-11 text-base"
+                />
+                {userForm.formState.errors.phone && (
+                  <p className="text-xs text-red-500">
+                    {userForm.formState.errors.phone.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Роль</Label>
+                  <select
+                    value={userRole}
+                    onChange={(e) => {
+                      const value = e.target.value as
+                        | "user"
+                        | "admin"
+                        | "moderator";
+                      setUserRole(value);
+                      userForm.setValue("role", value);
+                    }}
+                    className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    <option value="user">Користувач</option>
+                    <option value="moderator">Модератор</option>
+                    <option value="admin">Адмін</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Статус</Label>
+                  <select
+                    value={userStatus}
+                    onChange={(e) => {
+                      const value = e.target.value as "active" | "inactive";
+                      setUserStatus(value);
+                      userForm.setValue("status", value);
+                    }}
+                    className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    <option value="active">Активний</option>
+                    <option value="inactive">Неактивний</option>
+                  </select>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 flex-1 text-sm"
+                  onClick={() => setIsCreateUserOpen(false)}
                 >
-                  <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm">
-                    <SelectValue placeholder="Виберіть категорію" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                    <SelectItem value="Декоративні" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Декоративні</SelectItem>
-                    <SelectItem value="Суккуленти" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Суккуленти</SelectItem>
-                    <SelectItem value="Квітучі" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Квітучі</SelectItem>
-                    <SelectItem value="Дерева" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Дерева</SelectItem>
-                    <SelectItem value="Кактуси" className="text-gray-900 dark:text-white focus:bg-gray-100 dark:focus:bg-gray-600 text-sm">Кактуси</SelectItem>
-                  </SelectContent>
-                </Select>
+                  Скасувати
+                </Button>
+                <Button
+                  type="submit"
+                  className="h-11 flex-1 bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700"
+                  disabled={createUserMutation.isPending}
+                >
+                  {createUserMutation.isPending
+                    ? "Створення..."
+                    : "Створити користувача"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={isCreateProductOpen}
+          onOpenChange={setIsCreateProductOpen}
+        >
+          <DialogContent className="max-w-sm border border-slate-200 bg-white px-4 py-4 text-base sm:px-6 dark:border-slate-800 dark:bg-slate-950">
+            <DialogHeader>
+              <DialogTitle className="text-lg sm:text-xl">
+                Новий товар
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+                Додайте нову рослину або позицію каталогу.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={productForm.handleSubmit(onSubmitProduct)}
+              className="space-y-3 pt-1"
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="product-name">Назва</Label>
+                <Input
+                  id="product-name"
+                  {...productForm.register("name")}
+                  className="h-11 text-base"
+                />
+                {productForm.formState.errors.name && (
+                  <p className="text-xs text-red-500">
+                    {productForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-category">Категорія</Label>
+                <Input
+                  id="product-category"
+                  placeholder="Напр. Декоративні, Сукуленти..."
+                  {...productForm.register("category")}
+                  className="h-11 text-base"
+                />
                 {productForm.formState.errors.category && (
-                  <p className="text-sm text-red-600 dark:text-red-400">
+                  <p className="text-xs text-red-500">
                     {productForm.formState.errors.category.message}
                   </p>
                 )}
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="price" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                  Ціна (₴)
-                </Label>
-                <Input
-                  id="price"
-                  type="number"
-                  placeholder="0.00"
-                  className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm"
-                  {...productForm.register('price', { valueAsNumber: true })}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="product-price">Ціна (₴)</Label>
+                  <Input
+                    id="product-price"
+                    type="number"
+                    className="h-11 text-base"
+                    {...productForm.register("price", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  {productForm.formState.errors.price && (
+                    <p className="text-xs text-red-500">
+                      {productForm.formState.errors.price.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="product-stock">Кількість</Label>
+                  <Input
+                    id="product-stock"
+                    type="number"
+                    className="h-11 text-base"
+                    {...productForm.register("stock", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  {productForm.formState.errors.stock && (
+                    <p className="text-xs text-red-500">
+                      {productForm.formState.errors.stock.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-description">Опис</Label>
+                <Textarea
+                  id="product-description"
+                  className="min-h-[100px] text-base"
+                  {...productForm.register("description")}
                 />
-                {productForm.formState.errors.price && (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {productForm.formState.errors.price.message}
+                {productForm.formState.errors.description && (
+                  <p className="text-xs text-red-500">
+                    {productForm.formState.errors.description.message}
                   </p>
                 )}
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="stock" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                Кількість на складі
-              </Label>
-              <Input
-                id="stock"
-                type="number"
-                placeholder="0"
-                className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm"
-                {...productForm.register('stock', { valueAsNumber: true })}
-              />
-              {productForm.formState.errors.stock && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {productForm.formState.errors.stock.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                Опис товару
-              </Label>
-              <Textarea
-                id="description"
-                placeholder="Детальний опис товару..."
-                className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-sm min-h-20 sm:min-h-[100px]"
-                {...productForm.register('description')}
-              />
-              {productForm.formState.errors.description && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {productForm.formState.errors.description.message}
-                </p>
-              )}
-            </div>
-
-            <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsCreateProductOpen(false)}
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm w-full sm:w-auto order-2 sm:order-1"
-              >
-                Скасувати
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={createProductMutation.isPending}
-                className="bg-linear-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 shadow-lg text-sm w-full sm:w-auto order-1 sm:order-2"
-              >
-                {createProductMutation.isPending ? (
-                  <>
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Створення...
-                  </>
-                ) : (
-                  'Створити товар'
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Overlay для мобільного меню */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-    </div>
+              <DialogFooter className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 flex-1 text-sm"
+                  onClick={() => setIsCreateProductOpen(false)}
+                >
+                  Скасувати
+                </Button>
+                <Button
+                  type="submit"
+                  className="h-11 flex-1 bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700"
+                  disabled={createProductMutation.isPending}
+                >
+                  {createProductMutation.isPending
+                    ? "Створення..."
+                    : "Створити товар"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </LazyMotion>
   );
 }
 
-// Головний компонент сторінки з провайдером
+// ───────────────────────────────────────────────────────────
+// Головний експорт сторінки
+// ───────────────────────────────────────────────────────────
+
 export default function AdminPage() {
   return (
     <QueryClientProvider client={queryClient}>

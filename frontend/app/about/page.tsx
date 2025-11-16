@@ -1,542 +1,520 @@
 "use client";
 
 import React from "react";
-import { LazyMotion, m, domAnimation, Variants } from "framer-motion";
-import { useRef, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { 
-  Leaf, 
-  Sparkles, 
-  Users, 
-  Target, 
-  Award, 
-  Heart, 
-  Globe, 
-  Shield,
-  CheckCircle,
-  ArrowRight,
-  Star,
-  Calendar,
+import { motion } from "framer-motion";
+import {
+  Leaf,
+  Users,
   Sprout,
-  Trees
+  Award,
+  Target,
+  Globe,
+  Heart,
+  Shield,
+  Calendar,
+  Trees,
+  ArrowRight,
+  CheckCircle,
 } from "lucide-react";
 
-// Optimized animated section with GPU-accelerated properties
-function AnimatedSection({ 
-  children, 
-  delay = 0,
+const fadeInUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+};
+
+const containerStagger = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+function Section({
+  children,
   className = "",
-  stagger = 0
-}: { 
-  children: React.ReactNode; 
-  delay?: number;
+}: {
+  children: React.ReactNode;
   className?: string;
-  stagger?: number;
 }) {
-  const [isInView, setIsInView] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsInView(true);
-        }
-      },
-      { 
-        threshold: 0.1,
-        rootMargin: "50px"
-      }
-    );
-
-    const currentRef = ref.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, []);
-
   return (
-    <m.div
-      ref={ref}
-      initial={{ opacity: 0, y: 30 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-      transition={{ 
-        duration: 0.5,
-        delay: isInView ? delay : 0,
-        ease: [0.25, 0.46, 0.45, 0.94]
-      }}
-      className={className}
-      style={{ willChange: 'transform, opacity' }}
-    >
-      {children}
-    </m.div>
+    <section className={className}>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">{children}</div>
+    </section>
   );
 }
 
-// Stagger animation for multiple children
-function StaggerContainer({ 
-  children, 
-  className = "",
-  staggerDelay = 0.1 
-}: { 
-  children: React.ReactNode;
-  className?: string;
-  staggerDelay?: number;
+function StatCard({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
 }) {
-  const containerVariants: Variants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: staggerDelay,
-        delayChildren: 0.1
-      }
-    }
-  };
-
-  const childVariants: Variants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number]
-      }
-    }
-  };
-
   return (
-    <m.div
-      variants={containerVariants}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-50px" }}
-      className={className}
+    <motion.div variants={fadeInUp} className="flex flex-col items-center gap-2">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg sm:h-16 sm:w-16">
+        {icon}
+      </div>
+      <p className="text-2xl font-semibold text-gray-900 dark:text-white sm:text-3xl">
+        {value}
+      </p>
+      <p className="text-sm text-gray-600 dark:text-gray-300">{label}</p>
+    </motion.div>
+  );
+}
+
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <motion.div
+      variants={fadeInUp}
+      className="flex h-full flex-col rounded-2xl border border-gray-100 bg-white/80 p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md dark:border-gray-800 dark:bg-gray-900/80"
     >
-      {React.Children.map(children, (child, index) => (
-        <m.div key={index} variants={childVariants} style={{ willChange: 'transform, opacity' }}>
-          {child}
-        </m.div>
-      ))}
-    </m.div>
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">
+        {icon}
+      </div>
+      <h3 className="mb-2 text-base font-semibold text-gray-900 dark:text-white">
+        {title}
+      </h3>
+      <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+        {description}
+      </p>
+    </motion.div>
   );
 }
 
 export default function AboutPage() {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Memoized data to prevent unnecessary recalculations
-  const statsData = useMemo(() => [
-    { number: "8+", label: "Років досвіду", icon: <Calendar className="w-6 h-6" /> },
-    { number: "12,000+", label: "Задоволених клієнтів", icon: <Users className="w-6 h-6" /> },
-    { number: "2,500+", label: "Видів рослин", icon: <Sprout className="w-6 h-6" /> },
-    { number: "3,500+", label: "Успішних проектів", icon: <Award className="w-6 h-6" /> }
-  ], []);
-
-  const featuresData = useMemo(() => [
+  const stats = [
     {
-      icon: <Shield className="w-8 h-8" />,
-      title: "Гарантія якості",
-      description: "Всі рослини проходять ретельний відбір та мають гарантію приживання"
+      icon: <Calendar className="h-6 w-6" />,
+      value: "8+",
+      label: "Років досвіду",
     },
     {
-      icon: <Sparkles className="w-8 h-8" />,
-      title: "Експертний підбір",
-      description: "Наші флористи допоможуть підібрати рослини під ваш простір та умови"
+      icon: <Users className="h-6 w-6" />,
+      value: "12 000+",
+      label: "Задоволених клієнтів",
     },
     {
-      icon: <Trees className="w-8 h-8" />,
-      title: "Власні теплиці",
-      description: "Вирощуємо рослини в ідеальних умовах з дотриманням всіх стандартів"
+      icon: <Sprout className="h-6 w-6" />,
+      value: "2 500+",
+      label: "Видів рослин",
     },
     {
-      icon: <Heart className="w-8 h-8" />,
-      title: "Турбота про клієнтів",
-      description: "Персональний супровід та підтримка на всіх етапах"
+      icon: <Award className="h-6 w-6" />,
+      value: "3 500+",
+      label: "Реалізованих проектів",
     },
-    {
-      icon: <Globe className="w-8 h-8" />,
-      title: "Екологічність",
-      description: "Використовуємо екологічно чисті матеріали та методи вирощування"
-    },
-    {
-      icon: <Award className="w-8 h-8" />,
-      title: "Професійна команда",
-      description: "Досвідчені фахівці з ботаніки, дизайну та догляду за рослинами"
-    }
-  ], []);
+  ];
 
-  const missionItems = useMemo(() => [
-    "Покращення якості повітря в приміщеннях",
-    "Створення гармонійного середовища",
-    "Екологічно відповідальний підхід",
-    "Навчання клієнтів правильному догляду"
-  ], []);
+  const missionPoints = [
+    "Покращуємо якість повітря та мікроклімат у приміщеннях.",
+    "Допомагаємо створити спокійний, затишний та гармонійний простір.",
+    "Працюємо з повагою до природи та екологічними підходами.",
+    "Навчаємо базовому догляду, щоб рослини жили у вас довго.",
+  ];
 
-  const valuesData = useMemo(() => [
+  const values = [
     { icon: "🌱", label: "Сталий розвиток" },
     { icon: "💚", label: "Любов до природи" },
-    { icon: "🏆", label: "Якість" },
-    { icon: "🤝", label: "Партнерство" }
-  ], []);
+    { icon: "🏆", label: "Якість у деталях" },
+    { icon: "🤝", label: "Довіра та партнерство" },
+  ];
 
-  const achievementsData = useMemo(() => [
-    "🏆 Найкращий онлайн-магазин рослин 2023",
-    "🌿 Понад 12,000 задоволених клієнтів",
-    "💚 Екологічно відповідальний бізнес",
-    "⭐ 4.9/5 рейтинг на основі 2,500+ відгуків"
-  ], []);
+  const features = [
+    {
+      icon: <Shield className="h-6 w-6" />,
+      title: "Гарантія якості",
+      description:
+        "Кожна рослина проходить відбір, адаптацію та підготовку до нової домівки.",
+    },
+    {
+      icon: <Target className="h-6 w-6" />,
+      title: "Підбір під ваш простір",
+      description:
+        "Рекомендуємо рослини з урахуванням освітлення, площі та стилю інтерʼєру.",
+    },
+    {
+      icon: <Trees className="h-6 w-6" />,
+      title: "Власні теплиці",
+      description:
+        "Вирощуємо рослини у контрольованих умовах за сучасними стандартами.",
+    },
+    {
+      icon: <Heart className="h-6 w-6" />,
+      title: "Підтримка після покупки",
+      description:
+        "Залишаємося з вами: даємо поради, відповідаємо на питання, допомагаємо з доглядом.",
+    },
+    {
+      icon: <Globe className="h-6 w-6" />,
+      title: "Еко-підхід",
+      description:
+        "Використовуємо безпечні добрива, субстрати та упаковку з турботою про природу.",
+    },
+    {
+      icon: <Award className="h-6 w-6" />,
+      title: "Професійна команда",
+      description:
+        "Фахівці з ботаніки, дизайну та сервісу працюють разом для крутого результату.",
+    },
+  ];
 
-  if (!isClient) {
-    return (
-      <div className="content-with-navbar flex flex-col min-h-screen bg-white dark:bg-gray-900">
-        {/* Simple static fallback */}
-        <div className="min-h-[50vh] flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20" />
-      </div>
-    );
-  }
+  const achievements = [
+    "🏆 Учасники профільних виставок та івентів у сфері ландшафтного дизайну.",
+    "🌿 Тисячі рослин, які прижилися та радують клієнтів щодня.",
+    "💚 Системний підхід до якості, сервісу та довгострокової співпраці.",
+    "⭐ Високі оцінки за сервіс та підтримку клієнтів.",
+  ];
 
   return (
-    <LazyMotion features={domAnimation}>
-      <div className="content-with-navbar flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-        {/* 🌿 Hero Section - Optimized with reduced blur */}
-        <section className="relative min-h-[50vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-emerald-900/20">
-          {/* Optimized background elements with reduced blur */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute top-10 left-10 w-72 h-72 bg-emerald-200/30 rounded-full blur-2xl"></div>
-            <div className="absolute top-1/2 right-20 w-96 h-96 bg-green-300/20 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-20 left-1/3 w-80 h-80 bg-emerald-100/40 rounded-full blur-2xl"></div>
-          </div>
+    <div className="content-with-navbar min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50/20 to-white text-gray-900 dark:from-gray-950 dark:via-gray-950 dark:to-gray-900 dark:text-gray-100">
+      {/* HERO */}
+      <Section className="pt-20 pb-12 sm:pt-24 sm:pb-16">
+        <motion.div
+          variants={containerStagger}
+          initial="hidden"
+          animate="visible"
+          className="flex flex-col items-center text-center"
+        >
+          <motion.div
+            variants={fadeInUp}
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-800"
+          >
+            <Leaf className="h-4 w-4" />
+            Про PlantShop
+          </motion.div>
 
-          <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 text-center">
-            <AnimatedSection>
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight">
-                <span className="bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent dark:from-emerald-400 dark:to-green-300">
-                  PlantShop
-                </span>
-                <br />
-                <span className="text-gray-900 dark:text-white">Ваш провідник у світ</span>
-                <br />
-                <span className="text-gray-900 dark:text-white">природи</span>
-              </h1>
-            </AnimatedSection>
+          <motion.h1
+            variants={fadeInUp}
+            className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl md:text-5xl dark:text-white"
+          >
+            Ми допомагаємо простору{" "}
+            <span className="bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent dark:from-emerald-400 dark:to-green-300">
+              дихати
+            </span>{" "}
+            разом з вами
+          </motion.h1>
 
-            <AnimatedSection delay={0.1}>
-              <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-8 leading-relaxed">
-                Ми створюємо гармонійний зв'язок між людиною та природою, 
-                перетворюючи простір на оазу спокою та краси
-              </p>
-            </AnimatedSection>
+          <motion.p
+            variants={fadeInUp}
+            className="mt-3 max-w-2xl text-sm leading-relaxed text-gray-600 sm:text-base dark:text-gray-300"
+          >
+            PlantShop — це команда, що поєднує любов до рослин, дизайн мислення
+            та зручний онлайн-сервіс. Ми не просто продаємо рослини — ми
+            допомагаємо створити живий, затишний та здоровий простір.
+          </motion.p>
 
-            <AnimatedSection delay={0.2}>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Link
-                  href="/plants"
-                  className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-4 px-8 rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                  style={{ willChange: 'transform' }}
-                >
-                  <Leaf className="w-5 h-5" />
-                  Переглянути колекцію
-                </Link>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-4 px-8 rounded-2xl hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300"
-                >
-                  Зв'язатися з нами
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
+          <motion.div
+            variants={fadeInUp}
+            className="mt-6 flex flex-wrap justify-center gap-3"
+          >
+            <Link
+              href="/plants"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <Leaf className="h-4 w-4" />
+              Переглянути рослини
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 transition hover:border-emerald-500 hover:text-emerald-600 dark:border-gray-700 dark:text-gray-100 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
+            >
+              Звʼязатися з нами
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
+        </motion.div>
+      </Section>
+
+      {/* STATS */}
+      <Section className="pb-12">
+        <motion.div
+          variants={containerStagger}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-2 gap-6 rounded-3xl border border-gray-100 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/80 sm:grid-cols-4 sm:p-6"
+        >
+          {stats.map((stat) => (
+            <StatCard
+              key={stat.label}
+              icon={stat.icon}
+              value={stat.value}
+              label={stat.label}
+            />
+          ))}
+        </motion.div>
+      </Section>
+
+      {/* MISSION & VALUES */}
+      <Section className="pb-14">
+        <div className="grid gap-10 lg:grid-cols-2">
+          {/* Місія */}
+          <motion.div
+            variants={containerStagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.3 }}
+            className="space-y-4"
+          >
+            <motion.div variants={fadeInUp} className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <Target className="h-5 w-5" />
               </div>
-            </AnimatedSection>
-          </div>
-        </section>
+              <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
+                Наша місія
+              </h2>
+            </motion.div>
 
-        {/* 📊 Stats Section with Stagger */}
-        <section className="py-16 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <StaggerContainer className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8" staggerDelay={0.08}>
-              {statsData.map((stat, index) => (
-                <div key={index} className="text-center group">
-                  <div 
-                    className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg mb-4 group-hover:scale-110 transition-transform duration-300"
-                    style={{ willChange: 'transform' }}
-                  >
-                    <div className="text-white">
-                      {stat.icon}
-                    </div>
-                  </div>
-                  <div className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                    {stat.number}
-                  </div>
-                  <div className="text-sm md:text-base text-gray-600 dark:text-gray-400 font-medium">
-                    {stat.label}
-                  </div>
-                </div>
+            <motion.p
+              variants={fadeInUp}
+              className="text-sm leading-relaxed text-gray-600 sm:text-base dark:text-gray-300"
+            >
+              Ми хочемо, щоб більше людей відчули, як живі рослини змінюють
+              настрій, повітря та атмосферу. Завдання PlantShop — зробити
+              зелений простір доступним і простим у догляді, навіть якщо ви
+              ніколи раніше не мали кімнатних рослин.
+            </motion.p>
+
+            <motion.ul
+              variants={containerStagger}
+              className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-200"
+            >
+              {missionPoints.map((point) => (
+                <motion.li
+                  key={point}
+                  variants={fadeInUp}
+                  className="flex items-start gap-2"
+                >
+                  <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
+                  <span>{point}</span>
+                </motion.li>
               ))}
-            </StaggerContainer>
-          </div>
-        </section>
+            </motion.ul>
+          </motion.div>
 
-        {/* 🎯 Mission & Vision */}
-        <section className="py-16 bg-gray-50 dark:bg-gray-800/50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-start">
-              {/* Mission */}
-              <AnimatedSection className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
-                    <Target className="w-6 h-6 text-white" />
-                  </div>
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-                    Наша місія
-                  </h2>
-                </div>
-                
-                <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Ми прагнемо зробити світ зеленішим, починаючи з вашого дому. 
-                  Кожна рослина, яку ми доставляємо, - це не просто декор, а живий організм, 
-                  що наповнює простір енергією, очищає повітря та створює атмосферу гармонії.
-                </p>
-                
-                <div className="space-y-3">
-                  {missionItems.map((item, index) => (
-                    <m.div 
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      viewport={{ once: true }}
-                      className="flex items-center gap-3"
-                      style={{ willChange: 'transform, opacity' }}
-                    >
-                      <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                      <span className="text-gray-700 dark:text-gray-300">{item}</span>
-                    </m.div>
-                  ))}
-                </div>
-              </AnimatedSection>
-
-              {/* Vision */}
-              <AnimatedSection delay={0.1} className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
-                    <Globe className="w-6 h-6 text-white" />
-                  </div>
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-                    Наше бачення
-                  </h2>
-                </div>
-                
-                <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Ми уявляємо майбутнє, де кожен будинок, офіс та громадський простір 
-                  наповнені зеленими рослинами, де люди живуть у гармонії з природою, 
-                  а міста перетворюються на квітучі сади.
-                </p>
-                
-                <div className="bg-gradient-to-r from-emerald-500/10 to-green-600/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                    Наші цінності
-                  </h3>
-                  <StaggerContainer className="grid grid-cols-2 gap-4" staggerDelay={0.05}>
-                    {valuesData.map((value, index) => (
-                      <div key={index} className="flex items-center gap-3">
-                        <span className="text-2xl">{value.icon}</span>
-                        <span className="text-gray-700 dark:text-gray-300 font-medium">
-                          {value.label}
-                        </span>
-                      </div>
-                    ))}
-                  </StaggerContainer>
-                </div>
-              </AnimatedSection>
-            </div>
-          </div>
-        </section>
-
-        {/* 🌍 Our Story */}
-        <section className="py-16 bg-white dark:bg-gray-900">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <AnimatedSection className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                Наша <span className="text-emerald-600 dark:text-emerald-400">історія</span>
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Від невеликої мрії до лідера ринку в галузі комнатних рослин
-              </p>
-            </AnimatedSection>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-start">
-              <AnimatedSection className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Початок шляху
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Все почалося у 2016 році з невеликої теплиці та великої мрії - 
-                    зробити якісні комнатні рослини доступними для кожного. 
-                    Засновник компанії, Олександр Петренко, розпочав свій шлях 
-                    з любові до природи та бажання поділитися цією любов'ю з іншими.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Зростання та розвиток
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    За 8 років ми перетворилися з невеликого магазину на повноцінний 
-                    екосистемний проект, що включає продаж рослин, ландшафтний дизайн, 
-                    консультації з догляду та освітні майстер-класи.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Сьогодення та майбутнє
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Сьогодні PlantShop - це команда з 50+ професіоналів, 
-                    власні теплиці в 3 регіонах України та тисячі щасливих клієнтів. 
-                    Ми продовжуємо розвиватися та впроваджувати інновації у світі рослин.
-                  </p>
-                </div>
-              </AnimatedSection>
-
-              <AnimatedSection delay={0.1} className="relative">
-                <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-3xl p-6 md:p-8 text-white">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3">
-                      <Award className="w-8 h-8" />
-                      <h3 className="text-2xl font-bold">Наші досягнення</h3>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {achievementsData.map((achievement, index) => (
-                        <m.div 
-                          key={index}
-                          initial={{ opacity: 0, x: 20 }}
-                          whileInView={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.4, delay: index * 0.1 }}
-                          viewport={{ once: true }}
-                          className="flex items-center gap-3"
-                          style={{ willChange: 'transform, opacity' }}
-                        >
-                          <Star className="w-5 h-5 text-yellow-300 flex-shrink-0" />
-                          <span>{achievement}</span>
-                        </m.div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Reduced decorative elements for performance */}
-                <div className="absolute -top-4 -right-4 w-20 h-20 bg-emerald-200/30 rounded-full blur-xl"></div>
-                <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-green-300/20 rounded-full blur-xl"></div>
-              </AnimatedSection>
-            </div>
-          </div>
-        </section>
-
-        {/* 💪 Why Choose Us with Stagger */}
-        <section className="py-16 bg-gray-50 dark:bg-gray-800/50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <AnimatedSection className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                Чому обирають <span className="text-emerald-600 dark:text-emerald-400">нас</span>
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Ми пропонуємо не просто рослини, а комплексне рішення для вашого простору
-              </p>
-            </AnimatedSection>
-
-            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" staggerDelay={0.08}>
-              {featuresData.map((feature, index) => (
-                <div 
-                  key={index}
-                  className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 group"
-                >
-                  <div 
-                    className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300"
-                    style={{ willChange: 'transform' }}
-                  >
-                    <div className="text-white">
-                      {feature.icon}
-                    </div>
-                  </div>
-                  
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                    {feature.title}
-                  </h3>
-                  
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    {feature.description}
-                  </p>
-                </div>
-              ))}
-            </StaggerContainer>
-          </div>
-        </section>
-
-        {/* 🎯 Call to Action */}
-        <section className="py-16 bg-gradient-to-r from-emerald-600 to-green-700 text-white">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-            <AnimatedSection className="space-y-8">
-              <h2 className="text-4xl md:text-5xl font-bold">
-                Готові перетворити ваш простір?
-              </h2>
-              
-              <p className="text-xl opacity-90 max-w-2xl mx-auto">
-                Приєднуйтесь до тисячі клієнтів, які вже довірили нам створення 
-                своєї ідеальної зеленої оази
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Link
-                  href="/plants"
-                  className="inline-flex items-center gap-3 bg-white text-emerald-600 font-bold py-4 px-8 rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                  style={{ willChange: 'transform' }}
-                >
-                  <Leaf className="w-5 h-5" />
-                  Обрати рослини
-                </Link>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-3 border-2 border-white text-white font-semibold py-4 px-8 rounded-2xl hover:bg-white hover:text-emerald-600 transition-all duration-300"
-                >
-                  Отримати консультацію
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
+          {/* Цінності */}
+          <motion.div
+            variants={containerStagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.3 }}
+            className="space-y-4 rounded-3xl border border-emerald-100 bg-emerald-50/60 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/40 sm:p-6"
+          >
+            <motion.div variants={fadeInUp} className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                <Globe className="h-5 w-5" />
               </div>
+              <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
+                Наші цінності
+              </h2>
+            </motion.div>
 
-              <StaggerContainer className="flex flex-wrap justify-center items-center gap-6 text-sm opacity-80" staggerDelay={0.05}>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Гарантія якості</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Професійна підтримка</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Безкоштовна доставка</span>
-                </div>
-              </StaggerContainer>
-            </AnimatedSection>
+            <motion.p
+              variants={fadeInUp}
+              className="text-sm leading-relaxed text-emerald-900/90 dark:text-emerald-100"
+            >
+              Все, що ми робимо, базується на повазі до природи, людей і
+              простору, в якому вони живуть.
+            </motion.p>
+
+            <motion.div
+              variants={containerStagger}
+              className="mt-3 grid grid-cols-2 gap-3 text-sm sm:gap-4"
+            >
+              {values.map((value) => (
+                <motion.div
+                  key={value.label}
+                  variants={fadeInUp}
+                  className="flex items-center gap-2 rounded-2xl bg-white/70 px-3 py-2 text-gray-800 shadow-sm dark:bg-gray-950/60 dark:text-gray-100"
+                >
+                  <span className="text-lg">{value.icon}</span>
+                  <span>{value.label}</span>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
+        </div>
+      </Section>
+
+      {/* STORY */}
+      <Section className="pb-14">
+        <div className="grid gap-10 lg:grid-cols-2">
+          <motion.div
+            variants={containerStagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.3 }}
+            className="space-y-5"
+          >
+            <motion.h2
+              variants={fadeInUp}
+              className="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white"
+            >
+              Як зʼявився PlantShop
+            </motion.h2>
+
+            <motion.p
+              variants={fadeInUp}
+              className="text-sm leading-relaxed text-gray-600 sm:text-base dark:text-gray-300"
+            >
+              Все почалося з маленької теплиці та великого бажання — дати людям
+              можливість мати красиві, здорові рослини без складних процесів
+              пошуку та догляду. З часом до ідеї приєдналася команда
+              однодумців — ботаніки, декоратори, ландшафтні дизайнери.
+            </motion.p>
+
+            <motion.p
+              variants={fadeInUp}
+              className="text-sm leading-relaxed text-gray-600 sm:text-base dark:text-gray-300"
+            >
+              Сьогодні PlantShop — це зручний онлайн-сервіс, консультації,
+              проєкти озеленення квартир, офісів, кавʼярень та шоурумів, а також
+              підтримка клієнтів на кожному етапі.
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            variants={containerStagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.3 }}
+            className="space-y-4 rounded-3xl border border-gray-100 bg-white/80 p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900/80 sm:p-6"
+          >
+            <motion.div
+              variants={fadeInUp}
+              className="flex items-center gap-3"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <Award className="h-5 w-5" />
+              </div>
+              <h3 className="text-base font-semibold text-gray-900 sm:text-lg dark:text-white">
+                Те, чим ми пишаємося
+              </h3>
+            </motion.div>
+
+            <motion.ul
+              variants={containerStagger}
+              className="mt-2 space-y-3 text-sm text-gray-700 dark:text-gray-200"
+            >
+              {achievements.map((item) => (
+                <motion.li
+                  key={item}
+                  variants={fadeInUp}
+                  className="flex items-start gap-2"
+                >
+                  <span className="mt-0.5 text-lg">•</span>
+                  <span>{item}</span>
+                </motion.li>
+              ))}
+            </motion.ul>
+          </motion.div>
+        </div>
+      </Section>
+
+      {/* WHY US */}
+      <Section className="pb-16">
+        <motion.div
+          variants={containerStagger}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          className="space-y-6 text-center"
+        >
+          <motion.h2
+            variants={fadeInUp}
+            className="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white"
+          >
+            Чому клієнти повертаються до нас
+          </motion.h2>
+          <motion.p
+            variants={fadeInUp}
+            className="mx-auto max-w-2xl text-sm leading-relaxed text-gray-600 sm:text-base dark:text-gray-300"
+          >
+            Ми будуємо сервіс навколо людей: простий вибір, зрозуміла інформація
+            про догляд, чесна комунікація та живі, здорові рослини.
+          </motion.p>
+        </motion.div>
+
+        <motion.div
+          variants={containerStagger}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+        >
+          {features.map((f) => (
+            <FeatureCard
+              key={f.title}
+              icon={f.icon}
+              title={f.title}
+              description={f.description}
+            />
+          ))}
+        </motion.div>
+      </Section>
+
+      {/* CTA */}
+      <Section className="pb-20">
+        <motion.div
+          variants={fadeIn}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          className="overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600 to-green-700 px-5 py-8 text-center text-white shadow-lg sm:px-8"
+        >
+          <h2 className="text-xl font-semibold sm:text-2xl">
+            Готові додати більше зелені у своє життя?
+          </h2>
+          <p className="mt-2 text-sm text-emerald-50 sm:text-base">
+            Оберіть рослини для свого дому чи офісу, а ми допоможемо з
+            рекомендаціями та доглядом.
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/plants"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-emerald-700 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <Leaf className="h-4 w-4" />
+              Перейти до каталогу
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/70 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Потрібна консультація
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
-        </section>
-      </div>
-    </LazyMotion>
+          <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs text-emerald-50/90">
+            <span className="inline-flex items-center gap-1">
+              <CheckCircle className="h-3.5 w-3.5" />
+              Підтримка після покупки
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <CheckCircle className="h-3.5 w-3.5" />
+              Актуальні рекомендації по догляду
+            </span>
+          </div>
+        </motion.div>
+      </Section>
+    </div>
   );
 }

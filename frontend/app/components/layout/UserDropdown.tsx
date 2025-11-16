@@ -46,7 +46,7 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { logout, ensureAuthAndGo } = useAuth(); // 🟢 забираем ensureAuthAndGo
+  const { logout, ensureAuthAndGo } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -70,7 +70,6 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
     closeDropdown();
   };
 
-  // ⬇️ ГЛАВНАЯ МАГИЯ: перед навигацией обновляем токен
   const handleProfileClick = async () => {
     closeDropdown();
     await ensureAuthAndGo('/dashboard');
@@ -78,7 +77,7 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
 
   const handleOrdersClick = async () => {
     closeDropdown();
-    await ensureAuthAndGo('/orders'); // или другой маршрут, когда сделаешь
+    await ensureAuthAndGo('/dashboard/orders');
   };
 
   return (

@@ -1,36 +1,31 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { LazyMotion, m, domAnimation } from "framer-motion";
-import { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from 'next/navigation';
-import { 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Clock, 
-  Send, 
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Clock,
+  Send,
   ArrowRight,
   MessageCircle,
   CheckCircle,
-  Shield,
   HeadphonesIcon,
-  Leaf,
+  Shield,
   Sparkles,
-  Users,
-  Target,
-  Star,
   Zap,
-  Cloud,
-  Bot
 } from "lucide-react";
 
-// Типы для TypeScript
-interface SectionProps {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
+// Типы
+interface ContactFormData {
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+  consent: boolean;
 }
 
 interface ContactMethod {
@@ -39,76 +34,26 @@ interface ContactMethod {
   details: string;
   description: string;
   link: string;
-  gradient: string;
-  bgGradient: string;
 }
 
-// Оптимизированные motion компоненты
 const MotionDiv = m.div;
 
-// Modern Background с профессиональным дизайном
-function ModernBackground() {
-  return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Основной градиентный фон */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-emerald-900/10" />
-      
-      {/* Сложные геометрические паттерны */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-emerald-500/5 to-transparent" />
-      <div className="absolute bottom-0 left-0 w-full h-96 bg-gradient-to-t from-green-500/5 to-transparent" />
-      
-      {/* Абстрактные формы */}
-      <div className="absolute top-20 right-10% w-80 h-80 bg-emerald-400/10 rounded-full blur-3xl animate-pulse-slow" />
-      <div className="absolute bottom-40 left-5% w-96 h-96 bg-green-400/8 rounded-full blur-3xl animate-pulse-medium" />
-      <div className="absolute top-60 left-30% w-64 h-64 bg-teal-400/6 rounded-full blur-3xl animate-pulse-fast" />
-      
-      {/* Линии и сетки */}
-      <div className="absolute inset-0 opacity-[0.015]">
-        <div 
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-              radial-gradient(circle at 25% 25%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 75% 75%, rgba(5, 150, 105, 0.1) 0%, transparent 50%),
-              linear-gradient(45deg, transparent 48%, rgba(16, 185, 129, 0.03) 50%, transparent 52%)
-            `,
-            backgroundSize: '100% 100%, 100% 100%, 60px 60px'
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// Modern Animated Section
-function ModernSection({ children, delay = 0, className = "" }: SectionProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isVisible) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1, rootMargin: '50px' }
-    );
-
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [isVisible]);
-
+// Небольшой анимированный контейнер (оптимальный)
+function SectionFade({
+  children,
+  delay = 0,
+  className = "",
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+}) {
   return (
     <MotionDiv
-      ref={ref}
-      initial={{ opacity: 0, y: 80, scale: 0.95 }}
-      animate={isVisible ? { opacity: 1, y: 0, scale: 1 } : {}}
-      transition={{ 
-        duration: 0.8,
-        delay: isVisible ? delay : 0,
-        ease: [0.25, 0.46, 0.45, 0.94]
-      }}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.5, delay }}
       className={className}
     >
       {children}
@@ -116,665 +61,539 @@ function ModernSection({ children, delay = 0, className = "" }: SectionProps) {
   );
 }
 
-// Modern Card Component
-function ModernCard({ children, delay = 0, className = "" }: SectionProps) {
-  return (
-    <ModernSection delay={delay} className={className}>
-      <MotionDiv
-        whileHover={{ 
-          y: -8,
-          transition: { duration: 0.3, ease: "easeOut" }
-        }}
-        className="group relative"
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-600 rounded-3xl opacity-0 group-hover:opacity-5 transition-opacity duration-300" />
-        <div className="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
-          {/* Акцентная полоска */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-green-600" />
-          {children}
-        </div>
-      </MotionDiv>
-    </ModernSection>
-  );
-}
+const CONTACT_METHODS: ContactMethod[] = [
+  {
+    icon: <Phone className="w-6 h-6" />,
+    title: "Телефон",
+    details: "+38 (067) 123-45-67",
+    description: "Пн–Пт: 09:00–18:00",
+    link: "tel:+380671234567",
+  },
+  {
+    icon: <Mail className="w-6 h-6" />,
+    title: "Email",
+    details: "hello@plantshop.ua",
+    description: "Відповідаємо протягом 24 годин",
+    link: "mailto:hello@plantshop.ua",
+  },
+  {
+    icon: <MessageCircle className="w-6 h-6" />,
+    title: "Месенджери",
+    details: "Telegram / Viber",
+    description: "Зручне спілкування у чаті",
+    link: "#",
+  },
+  {
+    icon: <MapPin className="w-6 h-6" />,
+    title: "Шоурум",
+    details: "м. Київ, вул. Зелена, 123",
+    description: "Пн–Сб: 10:00–20:00",
+    link: "https://maps.google.com",
+  },
+];
+
+const STATS = [
+  { number: "10K+", label: "постійних клієнтів" },
+  { number: "99%", label: "позитивних відгуків" },
+  { number: "24/7", label: "підтримка онлайн" },
+];
+
+const SUPPORT_POINTS = [
+  "Персональні рекомендації по підбору рослин",
+  "Допомога з доглядом та пересадкою",
+  "Консультації щодо озеленення квартири або офісу",
+  "Післяпродажна підтримка та супровід",
+];
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState({
-    name: "", email: "", phone: "", subject: "", message: "", consent: false
+  const [formData, setFormData] = useState<ContactFormData>({
+    name: "",
+    email: "",
+    phone: "",
+    subject: "",
+    message: "",
+    consent: false,
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const pathname = usePathname();
 
-  const contactMethods = useMemo<ContactMethod[]>(() => [
-    {
-      icon: <Phone className="w-6 h-6" />,
-      title: "Телефон",
-      details: "+38 (067) 123-45-67",
-      description: "Пн-Пт: 9:00 - 18:00",
-      link: "tel:+380671234567",
-      gradient: "from-blue-500 to-cyan-600",
-      bgGradient: "from-blue-500/10 to-cyan-600/10"
-    },
-    {
-      icon: <Mail className="w-6 h-6" />,
-      title: "Email",
-      details: "hello@plantshop.ua",
-      description: "Відповідаємо протягом 24 годин",
-      link: "mailto:hello@plantshop.ua",
-      gradient: "from-emerald-500 to-green-600",
-      bgGradient: "from-emerald-500/10 to-green-600/10"
-    },
-    {
-      icon: <MapPin className="w-6 h-6" />,
-      title: "Офіс",
-      details: "м. Київ, вул. Зелена 123",
-      description: "Пн-Сб: 10:00 - 20:00",
-      link: "https://maps.google.com",
-      gradient: "from-purple-500 to-pink-600",
-      bgGradient: "from-purple-500/10 to-pink-600/10"
-    },
-    {
-      icon: <MessageCircle className="w-6 h-6" />,
-      title: "Чат",
-      details: "Telegram, Viber",
-      description: "Миттєві відповіді",
-      link: "#",
-      gradient: "from-orange-500 to-red-600",
-      bgGradient: "from-orange-500/10 to-red-600/10"
-    }
-  ], []);
-
-  const features = useMemo(() => [
-    {
-      icon: <Zap className="w-8 h-8" />,
-      title: "Миттєва відповідь",
-      description: "Середній час відповіді - 15 хвилин"
-    },
-    {
-      icon: <Users className="w-8 h-8" />,
-      title: "Команда експертів",
-      description: "30+ професійних консультантів"
-    },
-    {
-      icon: <Shield className="w-8 h-8" />,
-      title: "Гарантія якості",
-      description: "30 днів гарантії на всі рослини"
-    },
-    {
-      icon: <HeadphonesIcon className="w-8 h-8" />,
-      title: "Цілодобова підтримка",
-      description: "Завжди на зв'язку"
-    }
-  ], []);
-
-  const stats = useMemo(() => [
-    { number: "10K+", label: "Задоволених клієнтів", suffix: "" },
-    { number: "99", label: "Позитивних відгуків", suffix: "%" },
-    { number: "24/7", label: "Підтримка", suffix: "" },
-    { number: "15", label: "Хвилин середній час відповіді", suffix: "хв" }
-  ], []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      window.dispatchEvent(new Event('scroll'));
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [pathname]);
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox"
+        ? (e.target as HTMLInputElement).checked
+        : value,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Тут потім підключиш реальну відправку (бекенд / email-сервіс)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
     setIsSubmitting(false);
     setIsSubmitted(true);
+
     setTimeout(() => {
       setIsSubmitted(false);
-      setFormData({ name: "", email: "", phone: "", subject: "", message: "", consent: false });
-    }, 5000);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        subject: "",
+        message: "",
+        consent: false,
+      });
+    }, 4000);
   };
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 overflow-hidden">
-        
-        {/* 🌟 СОВРЕМЕННЫЙ ФОН */}
-        <ModernBackground />
-        
-        {/* 🎯 Hero Section - Полностью переработанная */}
-        <section className="relative min-h-screen flex items-center justify-center pt-20 pb-32">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/3 via-transparent to-green-500/2" />
-          
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <ModernSection delay={0.1}>
-              <div className="inline-flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl px-6 py-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm mb-8">
-                <Sparkles className="w-5 h-5 text-emerald-600" />
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Premium Plant Consultations
+      {/* Обёртка страницы */}
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50/60 via-white to-emerald-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-50">
+        {/* Верхний блок (hero) */}
+        <section className="pt-28 pb-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <SectionFade>
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/80 dark:bg-slate-800/80 border border-emerald-100/70 dark:border-emerald-900/60 px-4 py-2 shadow-sm">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                  PlantShop — турбота про ваш зелений простір
                 </span>
               </div>
-            </ModernSection>
+            </SectionFade>
 
-            <ModernSection delay={0.2}>
-              <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black mb-8 leading-tight">
-                <span className="bg-gradient-to-r from-slate-900 via-emerald-800 to-green-900 dark:from-white dark:via-emerald-200 dark:to-green-300 bg-clip-text text-transparent">
-                  Contact Us
-                </span>
-              </h1>
-            </ModernSection>
+            <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)] items-start">
+              {/* Текстовая часть */}
+              <SectionFade delay={0.05} className="space-y-6">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
+                  <span className="bg-gradient-to-r from-emerald-700 via-green-700 to-emerald-500 dark:from-emerald-300 dark:via-emerald-200 dark:to-green-300 bg-clip-text text-transparent">
+                    Контакти
+                  </span>
+                </h1>
 
-            <ModernSection delay={0.3}>
-              <p className="text-xl sm:text-2xl text-slate-600 dark:text-slate-400 max-w-4xl mx-auto mb-12 leading-relaxed font-light">
-                Let's create your perfect green space together. Our expert team is ready to provide 
-                personalized consultations and professional advice for your plant needs.
-              </p>
-            </ModernSection>
+                <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-xl">
+                  Маєте запитання щодо рослин, замовлення або догляду? Напишіть
+                  нам — і ми допоможемо підібрати ідеальні рослини саме для
+                  вашого простору.
+                </p>
 
-            <ModernSection delay={0.4}>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <MotionDiv whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <div className="flex flex-wrap gap-4">
                   <Link
-                    href="#contact"
-                    className="group bg-gradient-to-r from-emerald-600 to-green-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-3 backdrop-blur-sm"
+                    href="#contact-form"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white px-5 py-3 text-sm sm:text-base font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition"
                   >
-                    <MessageCircle className="w-5 h-5" />
-                    <span>Start Conversation</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <MessageCircle className="w-4 h-4" />
+                    Написати нам
+                    <ArrowRight className="w-4 h-4" />
                   </Link>
-                </MotionDiv>
-                <MotionDiv whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+
                   <Link
                     href="tel:+380671234567"
-                    className="group bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-4 px-8 rounded-2xl hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-300 flex items-center gap-3"
+                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-200/70 dark:border-emerald-700/70 bg-white/70 dark:bg-slate-900/70 px-5 py-3 text-sm sm:text-base font-medium text-emerald-700 dark:text-emerald-300 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-200 transition"
                   >
-                    <Phone className="w-5 h-5" />
-                    <span>Call Now</span>
+                    <Phone className="w-4 h-4" />
+                    Подзвонити зараз
                   </Link>
-                </MotionDiv>
-              </div>
-            </ModernSection>
-          </div>
+                </div>
+              </SectionFade>
 
-          {/* Scroll Indicator */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20">
-            <MotionDiv
-              animate={{ y: [0, 12, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="w-6 h-10 border-2 border-slate-400 dark:border-slate-600 rounded-full flex justify-center backdrop-blur-sm">
-                <div className="w-1 h-3 bg-slate-400 dark:bg-slate-600 rounded-full mt-2" />
-              </div>
-            </MotionDiv>
-          </div>
-        </section>
-
-        {/* 📊 Stats Section - Минималистичная */}
-        <section className="relative py-20 bg-slate-50/50 dark:bg-slate-800/30 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-              {stats.map((stat, index) => (
-                <ModernSection key={index} delay={index * 0.1} className="text-center">
-                  <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl p-8 border border-slate-200/40 dark:border-slate-700/40">
-                    <div className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                      {stat.number}<span className="text-emerald-600">{stat.suffix}</span>
-                    </div>
-                    <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                      {stat.label}
-                    </div>
-                  </div>
-                </ModernSection>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ✨ Features Section */}
-        <section className="relative py-24">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <ModernSection className="text-center mb-16">
-              <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-                Why Choose <span className="text-emerald-600">PlantShop</span>?
-              </h2>
-              <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-                We combine expertise with exceptional customer service to deliver the best plant care experience
-              </p>
-            </ModernSection>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {features.map((feature, index) => (
-                <ModernCard key={index} delay={index * 0.1} className="text-center">
-                  <div className="p-8">
-                    <MotionDiv
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-6 text-white"
-                    >
-                      {feature.icon}
-                    </MotionDiv>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
-                      {feature.title}
-                    </h3>
-                    <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </div>
-                </ModernCard>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* 📞 Contact Methods - Premium дизайн */}
-        <section id="contact" className="relative py-24 bg-slate-50/50 dark:bg-slate-800/30 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <ModernSection className="text-center mb-20">
-              <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-                Get in <span className="text-emerald-600">Touch</span>
-              </h2>
-              <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-                Choose your preferred method of communication. We're here to help you create the perfect green environment.
-              </p>
-            </ModernSection>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
-              {contactMethods.map((method, index) => (
-                <ModernCard key={index} delay={index * 0.1}>
-                  <a href={method.link} className="block p-8 group">
-                    <MotionDiv
-                      whileHover={{ scale: 1.15, rotate: 360 }}
-                      transition={{ duration: 0.5 }}
-                      className={`w-14 h-14 bg-gradient-to-r ${method.gradient} rounded-2xl flex items-center justify-center mb-6 shadow-lg`}
-                    >
-                      {method.icon}
-                    </MotionDiv>
-                    
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
-                      {method.title}
-                    </h3>
-                    
-                    <p className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      {method.details}
-                    </p>
-                    
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                      {method.description}
-                    </p>
-
-                    <MotionDiv
-                      whileHover={{ x: 5 }}
-                      className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium text-sm"
-                    >
-                      <span>Contact Now</span>
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </MotionDiv>
-                  </a>
-                </ModernCard>
-              ))}
-            </div>
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-              {/* Contact Form */}
-              <div className="lg:col-span-2">
-                <ModernCard>
-                  <div className="p-10">
-                    <div className="flex items-center gap-4 mb-10">
-                      <MotionDiv
-                        whileHover={{ rotate: 15 }}
-                        className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg"
-                      >
-                        <Send className="w-7 h-7 text-white" />
-                      </MotionDiv>
-                      <div>
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-                          Send Us a Message
-                        </h3>
-                        <p className="text-slate-600 dark:text-slate-400">
-                          Fill out the form below and we'll get back to you within hours
-                        </p>
-                      </div>
-                    </div>
-
-                    {isSubmitted ? (
-                      <MotionDiv
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="text-center py-12"
-                      >
-                        <MotionDiv
-                          animate={{ scale: [1, 1.1, 1] }}
-                          transition={{ duration: 0.6 }}
-                          className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-6"
-                        >
-                          <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
-                        </MotionDiv>
-                        <h4 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-                          Message Sent Successfully!
-                        </h4>
-                        <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
-                          Thank you for reaching out. Our team will contact you shortly to discuss your plant needs.
-                        </p>
-                        <MotionDiv whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          <button
-                            onClick={() => setIsSubmitted(false)}
-                            className="bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-3 px-8 rounded-xl hover:shadow-lg transition-all duration-300"
-                          >
-                            Send Another Message
-                          </button>
-                        </MotionDiv>
-                      </MotionDiv>
-                    ) : (
-                      <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label htmlFor="name" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                              Full Name *
-                            </label>
-                            <MotionDiv whileFocus={{ scale: 1.02 }}>
-                              <input
-                                type="text"
-                                id="name"
-                                name="name"
-                                required
-                                value={formData.name}
-                                onChange={handleInputChange}
-                                className="w-full px-4 py-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none transition-all duration-200"
-                                placeholder="Enter your full name"
-                              />
-                            </MotionDiv>
-                          </div>
-                          <div>
-                            <label htmlFor="email" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                              Email Address *
-                            </label>
-                            <MotionDiv whileFocus={{ scale: 1.02 }}>
-                              <input
-                                type="email"
-                                id="email"
-                                name="email"
-                                required
-                                value={formData.email}
-                                onChange={handleInputChange}
-                                className="w-full px-4 py-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none transition-all duration-200"
-                                placeholder="your@email.com"
-                              />
-                            </MotionDiv>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label htmlFor="phone" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                              Phone Number
-                            </label>
-                            <MotionDiv whileFocus={{ scale: 1.02 }}>
-                              <input
-                                type="tel"
-                                id="phone"
-                                name="phone"
-                                value={formData.phone}
-                                onChange={handleInputChange}
-                                className="w-full px-4 py-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none transition-all duration-200"
-                                placeholder="+38 (0__) ___ ____"
-                              />
-                            </MotionDiv>
-                          </div>
-                          <div>
-                            <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                              Subject *
-                            </label>
-                            <MotionDiv whileFocus={{ scale: 1.02 }}>
-                              <select
-                                id="subject"
-                                name="subject"
-                                required
-                                value={formData.subject}
-                                onChange={handleInputChange}
-                                className="w-full px-4 py-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none transition-all duration-200"
-                              >
-                                <option value="">Select a subject</option>
-                                <option value="consultation">Plant Consultation</option>
-                                <option value="order">Order Inquiry</option>
-                                <option value="delivery">Delivery & Shipping</option>
-                                <option value="care">Plant Care Advice</option>
-                                <option value="partnership">Partnership</option>
-                                <option value="other">Other</option>
-                              </select>
-                            </MotionDiv>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label htmlFor="message" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                            Your Message *
-                          </label>
-                          <MotionDiv whileFocus={{ scale: 1.01 }}>
-                            <textarea
-                              id="message"
-                              name="message"
-                              required
-                              rows={6}
-                              value={formData.message}
-                              onChange={handleInputChange}
-                              className="w-full px-4 py-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800 outline-none transition-all duration-200 resize-none"
-                              placeholder="Tell us about your plant needs, questions, or how we can help you create your perfect green space..."
-                            />
-                          </MotionDiv>
-                        </div>
-
-                        <div className="flex items-start gap-4">
-                          <MotionDiv whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                            <input
-                              type="checkbox"
-                              id="consent"
-                              name="consent"
-                              required
-                              checked={formData.consent}
-                              onChange={handleInputChange}
-                              className="mt-1 w-5 h-5 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 focus:ring-2"
-                            />
-                          </MotionDiv>
-                          <label htmlFor="consent" className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                            I agree to the processing of my personal data and accept the Privacy Policy. 
-                            I understand that my information will be used solely for the purpose of providing consultation services.
-                          </label>
-                        </div>
-
-                        <MotionDiv whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                          <button
-                            type="submit"
-                            disabled={isSubmitting || !formData.consent}
-                            className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-5 px-8 rounded-xl hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3 text-lg"
-                          >
-                            {isSubmitting ? (
-                              <>
-                                <MotionDiv
-                                  animate={{ rotate: 360 }}
-                                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                  className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
-                                />
-                                <span>Sending Message...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Send className="w-5 h-5" />
-                                <span>Send Message</span>
-                              </>
-                            )}
-                          </button>
-                        </MotionDiv>
-                      </form>
-                    )}
-                  </div>
-                </ModernCard>
-              </div>
-
-              {/* Sidebar Information */}
-              <div className="space-y-8">
-                {/* Business Hours */}
-                <ModernCard delay={0.2}>
-                  <div className="p-8">
-                    <div className="flex items-center gap-3 mb-6">
-                      <Clock className="w-6 h-6 text-emerald-600" />
-                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Business Hours</h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center py-3 border-b border-slate-200 dark:border-slate-700">
-                        <span className="text-slate-600 dark:text-slate-400">Monday - Friday</span>
-                        <span className="font-semibold text-slate-900 dark:text-white">9:00 - 18:00</span>
-                      </div>
-                      <div className="flex justify-between items-center py-3 border-b border-slate-200 dark:border-slate-700">
-                        <span className="text-slate-600 dark:text-slate-400">Saturday</span>
-                        <span className="font-semibold text-slate-900 dark:text-white">10:00 - 16:00</span>
-                      </div>
-                      <div className="flex justify-between items-center py-3">
-                        <span className="text-slate-600 dark:text-slate-400">Sunday</span>
-                        <span className="font-semibold text-slate-900 dark:text-white">Closed</span>
-                      </div>
-                    </div>
-                  </div>
-                </ModernCard>
-
-                {/* Support Info */}
-                <ModernCard delay={0.3}>
-                  <div className="p-8">
-                    <div className="flex items-center gap-3 mb-6">
-                      <HeadphonesIcon className="w-6 h-6 text-emerald-600" />
-                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Premium Support</h3>
-                    </div>
-                    <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                      Our dedicated support team is committed to providing exceptional service and expert guidance for all your plant care needs.
-                    </p>
-                    <div className="space-y-3">
-                      {["Expert Plant Consultants", "Fast Response Times", "Personalized Solutions", "Follow-up Care"].map((item, index) => (
-                        <div key={index} className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                          <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                          <span className="text-sm">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </ModernCard>
-
-                {/* Emergency Contact */}
-                <ModernCard delay={0.4}>
-                  <div className="p-8 bg-gradient-to-br from-orange-500/5 to-red-500/5 border-orange-200 dark:border-orange-800">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Zap className="w-6 h-6 text-orange-600" />
-                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Urgent Plant Care?</h3>
-                    </div>
-                    <p className="text-slate-600 dark:text-slate-400 mb-4 text-sm">
-                      For immediate assistance with plant emergencies or urgent consultations.
-                    </p>
-                    <MotionDiv whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Link
-                        href="tel:+380671234567"
-                        className="w-full bg-orange-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-orange-700 transition-all duration-300 flex items-center justify-center gap-2 text-sm"
-                      >
+              {/* Карточка с быстрыми контактами */}
+              <SectionFade delay={0.1}>
+                <div className="rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-emerald-100/70 dark:border-slate-800 p-6 shadow-md">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">
+                    Швидкі контакти
+                  </p>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-xl bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-300">
                         <Phone className="w-4 h-4" />
-                        Emergency Hotline
-                      </Link>
-                    </MotionDiv>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Телефон
+                        </p>
+                        <a
+                          href="tel:+380671234567"
+                          className="font-semibold text-slate-900 dark:text-slate-50"
+                        >
+                          +38 (067) 123-45-67
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-xl bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-300">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Email
+                        </p>
+                        <a
+                          href="mailto:hello@plantshop.ua"
+                          className="font-semibold text-slate-900 dark:text-slate-50 break-all"
+                        >
+                          hello@plantshop.ua
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-xl bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-300">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Графік роботи
+                        </p>
+                        <p className="text-slate-800 dark:text-slate-200">
+                          Пн–Пт: 09:00–18:00
+                          <br />
+                          Сб: 10:00–16:00
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </ModernCard>
-              </div>
+                </div>
+              </SectionFade>
             </div>
-          </div>
-        </section>
 
-        {/* 🎯 Final CTA - Premium */}
-        <section className="relative py-24 bg-gradient-to-br from-slate-900 via-emerald-900 to-green-900 text-white overflow-hidden">
-          {/* Декоративные элементы */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-3xl" />
-            <div className="absolute bottom-10 right-10 w-24 h-24 bg-emerald-400 rounded-full blur-3xl" />
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-green-400 rounded-full blur-3xl" />
-          </div>
-          
-          <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <ModernSection className="space-y-8">
-              <MotionDiv
-                animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
-                transition={{ duration: 6, repeat: Infinity }}
-              >
-                <Leaf className="w-16 h-16 mx-auto text-emerald-400" />
-              </MotionDiv>
-              
-              <h2 className="text-4xl sm:text-5xl font-bold">
-                Ready to Transform Your Space?
-              </h2>
-              
-              <p className="text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
-                Join thousands of satisfied customers who have created their dream green environments with our expert guidance.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <MotionDiv whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Link
-                    href="tel:+380671234567"
-                    className="bg-white text-slate-900 font-bold py-4 px-8 rounded-2xl hover:shadow-2xl transition-all duration-300 flex items-center gap-3"
+            {/* Статистика */}
+            <SectionFade delay={0.15} className="mt-10">
+              <div className="grid gap-4 sm:grid-cols-3">
+                {STATS.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-100/70 dark:border-slate-800 px-5 py-4 flex flex-col gap-1 shadow-sm"
                   >
-                    <Phone className="w-5 h-5" />
-                    <span>Call Expert Now</span>
-                  </Link>
-                </MotionDiv>
-                <MotionDiv whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Link
-                    href="#contact"
-                    className="border-2 border-white text-white font-semibold py-4 px-8 rounded-2xl hover:bg-white hover:text-slate-900 transition-all duration-300 flex items-center gap-3"
-                  >
-                    <span>Get Free Consultation</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </Link>
-                </MotionDiv>
-              </div>
-
-              <div className="flex flex-wrap justify-center items-center gap-8 text-sm text-slate-400 pt-8">
-                {["No Commitment", "Free Assessment", "Expert Advice", "Satisfaction Guaranteed"].map((item, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    <span>{item}</span>
+                    <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-300">
+                      {stat.number}
+                    </span>
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                      {stat.label}
+                    </span>
                   </div>
                 ))}
               </div>
-            </ModernSection>
+            </SectionFade>
+          </div>
+        </section>
+
+        {/* Блок способов связи */}
+        <section className="py-10">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <SectionFade className="mb-8 text-center">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">
+                Як з нами звʼязатися
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+                Оберіть зручний спосіб: телефон, пошта, месенджер або візит до
+                шоуруму.
+              </p>
+            </SectionFade>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {CONTACT_METHODS.map((method) => (
+                <SectionFade key={method.title}>
+                  <a
+                    href={method.link}
+                    className="group block rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-100/70 dark:border-slate-800 p-5 shadow-sm hover:shadow-md hover:border-emerald-400/80 transition"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 p-2">
+                        {method.icon}
+                      </div>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-50">
+                        {method.title}
+                      </h3>
+                    </div>
+                    <p className="font-medium text-sm text-slate-800 dark:text-slate-100 mb-1">
+                      {method.details}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {method.description}
+                    </p>
+                    <div className="mt-4 inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-300 text-xs font-medium group-hover:gap-2 transition-all">
+                      Звʼязатися
+                      <ArrowRight className="w-3 h-3" />
+                    </div>
+                  </a>
+                </SectionFade>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Основной блок: форма + сайдбар */}
+        <section id="contact-form" className="py-14 pb-24">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)] items-start">
+            {/* Форма */}
+            <SectionFade>
+              <div className="rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-100/70 dark:border-slate-800 p-6 sm:p-8 shadow-md">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="rounded-2xl bg-emerald-500 text-white p-3 shadow-md">
+                    <Send className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold">
+                      Напишіть нам
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                      Залиште свої контакти — ми повернемось з відповіддю протягом
+                      робочого дня.
+                    </p>
+                  </div>
+                </div>
+
+                {isSubmitted ? (
+                  <MotionDiv
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-10"
+                  >
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
+                      <CheckCircle className="h-9 w-9 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <h4 className="text-lg font-semibold mb-2">
+                      Повідомлення надіслано
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto">
+                      Дякуємо за звернення! Ми звʼяжемося з вами найближчим
+                      часом, щоб обговорити всі деталі.
+                    </p>
+                  </MotionDiv>
+                ) : (
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="name"
+                          className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5"
+                        >
+                          Імʼя *
+                        </label>
+                        <input
+                          id="name"
+                          name="name"
+                          type="text"
+                          required
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
+                          placeholder="Ваше імʼя"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="email"
+                          className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5"
+                        >
+                          Email *
+                        </label>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          required
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
+                          placeholder="you@example.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="phone"
+                          className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5"
+                        >
+                          Телефон
+                        </label>
+                        <input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
+                          placeholder="+38 (0__) ___ __ __"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="subject"
+                          className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5"
+                        >
+                          Тема *
+                        </label>
+                        <select
+                          id="subject"
+                          name="subject"
+                          required
+                          value={formData.subject}
+                          onChange={handleInputChange}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
+                        >
+                          <option value="">Оберіть тему</option>
+                          <option value="consultation">Консультація по рослинах</option>
+                          <option value="order">Питання по замовленню</option>
+                          <option value="delivery">Доставка та оплата</option>
+                          <option value="care">Догляд за рослинами</option>
+                          <option value="other">Інше питання</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="message"
+                        className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5"
+                      >
+                        Повідомлення *
+                      </label>
+                      <textarea
+                        id="message"
+                        name="message"
+                        required
+                        rows={5}
+                        value={formData.message}
+                        onChange={handleInputChange}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition resize-none"
+                        placeholder="Розкажіть коротко, що вас цікавить..."
+                      />
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <input
+                        id="consent"
+                        name="consent"
+                        type="checkbox"
+                        required
+                        checked={formData.consent}
+                        onChange={handleInputChange}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <label
+                        htmlFor="consent"
+                        className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed"
+                      >
+                        Я погоджуюсь на обробку моїх персональних даних відповідно
+                        до Політики конфіденційності.
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !formData.consent}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-3.5 text-sm sm:text-base font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <MotionDiv
+                            animate={{ rotate: 360 }}
+                            transition={{
+                              duration: 1,
+                              repeat: Infinity,
+                              ease: "linear",
+                            }}
+                            className="h-4 w-4 rounded-full border-2 border-white border-t-transparent"
+                          />
+                          Надсилаємо...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Надіслати повідомлення
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </SectionFade>
+
+            {/* Сайдбар */}
+            <SectionFade delay={0.05}>
+              <div className="space-y-6">
+                <div className="rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-100/70 dark:border-slate-800 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Clock className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
+                    <h3 className="font-semibold">Графік роботи</h3>
+                  </div>
+                  <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                    <div className="flex justify-between">
+                      <span>Пн–Пт</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-100">
+                        09:00–18:00
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Субота</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-100">
+                        10:00–16:00
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Неділя</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-100">
+                        Вихідний
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-100/70 dark:border-slate-800 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <HeadphonesIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
+                    <h3 className="font-semibold">Підтримка PlantShop</h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-4">
+                    Наша команда допоможе розібратися з будь-якими питаннями по
+                    рослинах, замовленнях та догляду.
+                  </p>
+                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                    {SUPPORT_POINTS.map((item) => (
+                      <div key={item} className="flex items-start gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 mt-0.5" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/90 to-green-600/90 text-white p-6 shadow-md">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="w-5 h-5" />
+                    <h3 className="font-semibold">Гарантія якості</h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-emerald-50/90 mb-4">
+                    Якщо з рослиною щось трапилось у перші 14 днів — ми знайдемо
+                    рішення: заміна, консультація або інший варіант.
+                  </p>
+                  <Link
+                    href="tel:+380671234567"
+                    className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-medium hover:bg-white/15 transition"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Екстрена консультація по рослинах
+                  </Link>
+                </div>
+              </div>
+            </SectionFade>
           </div>
         </section>
       </div>
-
-      {/* Global styles for анимаций */}
-      <style jsx global>{`
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.5; transform: scale(1); }
-          50% { opacity: 0.8; transform: scale(1.1); }
-        }
-        @keyframes pulse-medium {
-          0%, 100% { opacity: 0.3; transform: scale(1); }
-          50% { opacity: 0.6; transform: scale(1.05); }
-        }
-        @keyframes pulse-fast {
-          0%, 100% { opacity: 0.2; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(1.02); }
-        }
-        .animate-pulse-slow { animation: pulse-slow 8s ease-in-out infinite; }
-        .animate-pulse-medium { animation: pulse-medium 6s ease-in-out infinite; }
-        .animate-pulse-fast { animation: pulse-fast 4s ease-in-out infinite; }
-        
-        @media (prefers-reduced-motion: reduce) {
-          .animate-pulse-slow,
-          .animate-pulse-medium,
-          .animate-pulse-fast {
-            animation: none;
-          }
-        }
-      `}</style>
     </LazyMotion>
   );
 }

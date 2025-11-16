@@ -1,36 +1,44 @@
 "use client";
 
-import { 
-  LazyMotion, 
-  m, 
-  useScroll, 
-  useTransform, 
-  AnimatePresence, 
-  domAnimation, 
+import {
+  LazyMotion,
+  m,
+  AnimatePresence,
+  domAnimation,
   cubicBezier,
   useMotionValue,
-  useSpring 
+  useSpring,
+  Variants,
 } from "framer-motion";
-import React, { useEffect, useState, useRef, useMemo, useCallback, ReactNode } from "react";
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  ReactNode,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { 
-  Leaf, 
-  Sparkles, 
-  Sprout, 
-  Trees, 
-  ArrowRight, 
-  Play, 
-  Star, 
-  Shield, 
-  Truck, 
-  Clock, 
-  Users, 
-  Award 
-} from "lucide-react";
 import Particles from "./components/Particles";
+import {
+  Leaf,
+  Sparkles,
+  Sprout,
+  Trees,
+  ArrowRight,
+  Play,
+  Star,
+  Shield,
+  Truck,
+  Clock,
+  Users,
+  Award,
+  Home,
+  Building2,
+  Gift,
+} from "lucide-react";
 
-// Types for better TypeScript support
+// Types
 interface HeroImage {
   desktop: string;
   mobile: string;
@@ -44,20 +52,25 @@ interface StatItem {
   icon: ReactNode;
 }
 
-interface FeatureItem {
-  icon: ReactNode;
+interface DirectionItem {
   title: string;
   description: string;
-  features: string[];
+  tag: string;
+  icon: ReactNode;
 }
 
-interface ServiceItem {
-  icon: ReactNode;
+interface BenefitItem {
   title: string;
   description: string;
-  image: string;
-  features: string[];
-  price: string;
+  points: string[];
+  icon: ReactNode;
+}
+
+interface StepItem {
+  step: number;
+  title: string;
+  description: string;
+  icon: ReactNode;
 }
 
 // Optimized motion components
@@ -71,47 +84,165 @@ const ANIMATION = {
   duration: {
     fast: 0.3,
     normal: 0.6,
-    slow: 0.8
-  }
+    slow: 0.8,
+  },
 } as const;
 
-export default function HomePage() {
-  const { scrollY } = useScroll();
-  
-  // 🌿 Optimized scroll transforms with spring physics
-  const y1 = useTransform(scrollY, [0, 500], [0, 150], {
-    ease: ANIMATION.ease
-  });
+// Simple variants for new sections
+const fadeInUp: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: "easeOut" },
+  },
+};
 
+const staggerContainer: Variants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.12,
+    },
+  },
+};
+
+// Data for new sections
+const directions: DirectionItem[] = [
+  {
+    title: "Для дому",
+    description:
+      "Створюємо затишні зелені куточки, які підкреслюють стиль інтерʼєру й покращують самопочуття.",
+    tag: "Квартири • будинки • тераси",
+    icon: <Home className="w-6 h-6" />,
+  },
+  {
+    title: "Для офісу",
+    description:
+      "Озеленення робочих просторів, reception-зон та переговорних для сучасного бізнесу.",
+    tag: "Офіси • коворкінги • HoReCa",
+    icon: <Building2 className="w-6 h-6" />,
+  },
+  {
+    title: "Для подарунків",
+    description:
+      "Преміальні рослини та композиції, які хочеться дарувати й отримувати.",
+    tag: "Подарункові сети • композиції",
+    icon: <Gift className="w-6 h-6" />,
+  },
+];
+
+const benefits: BenefitItem[] = [
+  {
+    title: "Преміальні рослини",
+    description:
+      "Ми працюємо лише з перевіреними розплідниками та відбираємо рослини вручну.",
+    points: [
+      "Сертифіковані постачальники",
+      "Відбір перед відправкою",
+      "Гарантія якості",
+    ],
+    icon: <Award className="w-6 h-6" />,
+  },
+  {
+    title: "Комплексний підхід",
+    description:
+      "Від першої консультації до догляду — усе в одній команді без зайвої метушні.",
+    points: [
+      "Аналіз простору",
+      "Дизайн-концепція",
+      "Реалізація та супровід",
+    ],
+    icon: <Sparkles className="w-6 h-6" />,
+  },
+  {
+    title: "Догляд без стресу",
+    description:
+      "Навчаємо догляду або беремо його на себе: регулярні візити, діагностика та лікування.",
+    points: [
+      "Індивідуальні плани догляду",
+      "Професійна команда",
+      "Підтримка 24/7 онлайн",
+    ],
+    icon: <Shield className="w-6 h-6" />,
+  },
+  {
+    title: "Прозорі умови",
+    description:
+      "Чіткі етапи, строки та вартість — без прихованих платежів та «плюс ще ось це».",
+    points: [
+      "Фіксований кошторис",
+      "Реалістичні строки",
+      "Післяпроєктний супровід",
+    ],
+    icon: <Users className="w-6 h-6" />,
+  },
+];
+
+const steps: StepItem[] = [
+  {
+    step: 1,
+    title: "Знайомство та запит",
+    description:
+      "Ви заповнюєте коротку форму або зв’язуєтесь з нами. Ми уточнюємо ваші побажання та бюджет.",
+    icon: <Leaf className="w-5 h-5" />,
+  },
+  {
+    step: 2,
+    title: "Підбір рішень",
+    description:
+      "Готуємо пропозицію: рослини, композиції, варіанти розташування та орієнтовний кошторис.",
+    icon: <Sprout className="w-5 h-5" />,
+  },
+  {
+    step: 3,
+    title: "Реалізація проєкту",
+    description:
+      "Доставляємо, розміщуємо та, за потреби, монтуємо системи поливу. Ви одразу бачите результат.",
+    icon: <Trees className="w-5 h-5" />,
+  },
+  {
+    step: 4,
+    title: "Догляд та супровід",
+    description:
+      "Навчаємо базовому догляду або беремо його повністю на себе — з регулярними візитами.",
+    icon: <Clock className="w-5 h-5" />,
+  },
+];
+
+export default function HomePage() {
   // Hero images with proper typing
-  const heroImages: HeroImage[] = useMemo(() => [
-    {
-      desktop: "/images/block.jpg",
-      mobile: "/images/block.jpg",
-      alt: "Premium plants collection"
-    },
-    {
-      desktop: "/images/placeholder.jpg", 
-      mobile: "/images/placeholder.jpg",
-      alt: "Professional plant design"
-    },
-    {
-      desktop: "/images/placeholder2.jpg",
-      mobile: "/images/placeholder2.jpg", 
-      alt: "Modern green spaces"
-    },
-    {
-      desktop: "/images/block.jpg",
-      mobile: "/images/block.jpg",
-      alt: "Luxury plant arrangements"
-    }
-  ], []);
+  const heroImages: HeroImage[] = useMemo(
+    () => [
+      {
+        desktop: "/images/block.jpg",
+        mobile: "/images/block.jpg",
+        alt: "Premium plants collection",
+      },
+      {
+        desktop: "/images/placeholder.jpg",
+        mobile: "/images/placeholder.jpg",
+        alt: "Professional plant design",
+      },
+      {
+        desktop: "/images/placeholder2.jpg",
+        mobile: "/images/placeholder2.jpg",
+        alt: "Modern green spaces",
+      },
+      {
+        desktop: "/images/block.jpg",
+        mobile: "/images/block.jpg",
+        alt: "Luxury plant arrangements",
+      },
+    ],
+    []
+  );
 
   // State management
   const [current, setCurrent] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  
+
   // Optimized mouse position with motion values
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -123,18 +254,18 @@ export default function HomePage() {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
-    
+
     let timeoutId: NodeJS.Timeout;
     const handleResize = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(checkMobile, 100);
     };
-    
-    window.addEventListener('resize', handleResize);
+
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
       clearTimeout(timeoutId);
     };
   }, []);
@@ -149,7 +280,7 @@ export default function HomePage() {
         requestAnimationFrame(() => {
           const x = (e.clientX / window.innerWidth - 0.5) * 20;
           const y = (e.clientY / window.innerHeight - 0.5) * 20;
-          
+
           mouseX.set(x);
           mouseY.set(y);
           ticking = false;
@@ -158,51 +289,48 @@ export default function HomePage() {
       }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [isMobile, mouseX, mouseY]);
 
   // Optimized auto-rotate carousel
   useEffect(() => {
     if (isMobile) return;
-    
+
     const interval = setInterval(() => {
       if (!isAnimating) {
         setIsAnimating(true);
-        setCurrent(prev => (prev + 1) % heroImages.length);
+        setCurrent((prev) => (prev + 1) % heroImages.length);
         setTimeout(() => setIsAnimating(false), 600);
       }
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, [isAnimating, heroImages.length, isMobile]);
 
-  // Parallax section ref
-  const natureRef = useRef(null);
-  const { scrollYProgress } = useScroll({ 
-    target: natureRef, 
-    offset: ["start end", "end start"] 
+  // Stats counter
+  const [stats, setStats] = useState({
+    plants: 0,
+    customers: 0,
+    years: 0,
+    projects: 0,
   });
-  
-  // Optimized parallax transforms
-  const moveY1 = useTransform(scrollYProgress, [0, 1], [0, -100]);
-  const moveY2 = useTransform(scrollYProgress, [0, 1], [0, 80]);
-  const moveY3 = useTransform(scrollYProgress, [0, 1], [0, -60]);
 
-  // Stats counter with useCallback
-  const [stats, setStats] = useState({ plants: 0, customers: 0, years: 0, projects: 0 });
-  const targetStats = useMemo(() => ({ 
-    plants: 2500, 
-    customers: 12000, 
-    years: 8, 
-    projects: 3500 
-  }), []);
+  const targetStats = useMemo(
+    () => ({
+      plants: 2500,
+      customers: 12000,
+      years: 8,
+      projects: 3500,
+    }),
+    []
+  );
 
   useEffect(() => {
     const duration = 2000;
     const steps = 30;
     let step = 0;
-    
+
     const timer = setInterval(() => {
       step++;
       const progress = Math.min(step / steps, 1);
@@ -212,7 +340,7 @@ export default function HomePage() {
         plants: Math.floor(targetStats.plants * easeOut),
         customers: Math.floor(targetStats.customers * easeOut),
         years: Math.floor(targetStats.years * easeOut),
-        projects: Math.floor(targetStats.projects * easeOut)
+        projects: Math.floor(targetStats.projects * easeOut),
       });
 
       if (step >= steps) clearInterval(timer);
@@ -221,141 +349,54 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, [targetStats]);
 
-  // Animation variants for better performance
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        duration: ANIMATION.duration.normal
+  const statsData: StatItem[] = useMemo(
+    () => [
+      {
+        value: stats.plants,
+        label: "Видів рослин",
+        suffix: "+",
+        icon: <Sprout className="w-4 h-4 sm:w-4 sm:h-4" />,
+      },
+      {
+        value: stats.customers,
+        label: "Задоволених клієнтів",
+        suffix: "+",
+        icon: <Users className="w-4 h-4 sm:w-4 sm:h-4" />,
+      },
+      {
+        value: stats.years,
+        label: "Років досвіду",
+        suffix: "",
+        icon: <Award className="w-4 h-4 sm:w-4 sm:h-4" />,
+      },
+      {
+        value: stats.projects,
+        label: "Реалізованих проєктів",
+        suffix: "+",
+        icon: <Trees className="w-4 h-4 sm:w-4 sm:h-4" />,
+      },
+    ],
+    [stats]
+  );
+
+  const handleDotClick = useCallback(
+    (index: number) => {
+      if (!isAnimating) {
+        setIsAnimating(true);
+        setCurrent(index);
+        setTimeout(() => setIsAnimating(false), 600);
       }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: ANIMATION.duration.normal,
-        ease: ANIMATION.ease
-      }
-    }
-  };
-
-  const scaleVariants = {
-    hidden: { opacity: 0, scale: 0.9 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      transition: {
-        duration: ANIMATION.duration.slow,
-        ease: ANIMATION.ease
-      }
-    }
-  };
-
-  // Data extraction for maintainability
-  const statsData: StatItem[] = useMemo(() => [
-    { 
-      value: stats.plants, 
-      label: "Видів рослин", 
-      suffix: "+",
-      icon: <Sprout className="w-4 h-4 sm:w-4 sm:h-4" />,
     },
-    { 
-      value: stats.customers, 
-      label: "Задоволених клієнтів", 
-      suffix: "+",
-      icon: <Users className="w-4 h-4 sm:w-4 sm:h-4" />,
-    },
-    { 
-      value: stats.years, 
-      label: "Років досвіду", 
-      suffix: "",
-      icon: <Award className="w-4 h-4 sm:w-4 sm:h-4" />,
-    },
-    { 
-      value: stats.projects, 
-      label: "Реалізованих проектів", 
-      suffix: "+",
-      icon: <Trees className="w-4 h-4 sm:w-4 sm:h-4" />,
-    }
-  ], [stats]);
-
-  const featuresData: FeatureItem[] = useMemo(() => [
-    {
-      icon: <Award className="w-6 h-6 sm:w-8 sm:h-8" />,
-      title: "Преміум якість",
-      description: "Всі рослини проходять 5-ступінчастий контроль якості та походять з сертифікованих розплідників",
-      features: ["Сертифіковані розплідники", "Експертний контроль", "Гарантія якості"]
-    },
-    {
-      icon: <Truck className="w-6 h-6 sm:w-8 sm:h-8" />,
-      title: "Безпечна доставка",
-      description: "Спеціальна упаковка та швидка доставка гарантують, що рослини прибудуть до вас у ідеальному стані",
-      features: ["Спеціальна упаковка", "Експрес-доставка", "Відстеження"]
-    },
-    {
-      icon: <Shield className="w-6 h-6 sm:w-8 sm:h-8" />,
-      title: "Гарантія приживання",
-      description: "30-денна гарантія на всі рослини. Якщо щось піде не так - ми замінимо без зайвих питань",
-      features: ["30 днів гарантії", "Безкоштовна заміна", "Підтримка 24/7"]
-    },
-    {
-      icon: <Users className="w-6 h-6 sm:w-8 sm:h-8" />,
-      title: "Персональний консультант",
-      description: "Кожен клієнт отримує персонального фахівця, який супроводжує протягом усього життєвого циклу рослини",
-      features: ["Персональний підбір", "Консультації догляду", "Регулярний супровід"]
-    }
-  ], []);
-
-  const servicesData: ServiceItem[] = useMemo(() => [
-    {
-      icon: <Sprout className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" />,
-      title: "Продаж рослин",
-      description: "Ексклюзивні рослини з усього світу, підібрані нашими флористами",
-      image: "/images/placeholder.jpg",
-      features: ["Екзотичні види", "Флористичний підбір", "Консультація догляду"],
-      price: "від 299 ₴"
-    },
-    {
-      icon: <Trees className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" />,
-      title: "Ландшафтний дизайн",
-      description: "Повний цикл створення гармонійних просторів - від концепції до реалізації",
-      image: "/images/placeholder2.jpg",
-      features: ["3D візуалізація", "Підбір матеріалів", "Авторський нагляд"],
-      price: "від 15 000 ₴"
-    },
-    {
-      icon: <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" />,
-      title: "Догляд за рослинами",
-      description: "Професійне обслуговування та супровід ваших зелених композицій",
-      image: "/images/test.jpg",
-      features: ["Регулярний догляд", "Діагностика", "Лечення рослин"],
-      price: "від 999 ₴/міс"
-    }
-  ], []);
-
-  // Event handlers
-  const handleDotClick = useCallback((index: number) => {
-    if (!isAnimating) {
-      setIsAnimating(true);
-      setCurrent(index);
-      setTimeout(() => setIsAnimating(false), 600);
-    }
-  }, [isAnimating]);
+    [isAnimating]
+  );
 
   return (
     <LazyMotion features={domAnimation} strict>
-      {/* Enhanced background with smooth gradient transitions */}
+      {/* Background */}
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-emerald-900/10 text-gray-900 dark:text-gray-100 transition-colors duration-500 overflow-hidden">
         <main className="flex-grow">
-          
-          {/* 🌿 Optimized Hero Section */}
-          <HeroSection 
+          {/* 🔥 ТВОЙ HERO-БЛОК — БЕЗ ИЗМЕНЕНИЙ */}
+          <HeroSection
             current={current}
             isAnimating={isAnimating}
             isMobile={isMobile}
@@ -366,35 +407,19 @@ export default function HomePage() {
             onDotClick={handleDotClick}
           />
 
-          {/* 🏆 Optimized Features Section */}
-          <FeaturesSection 
-            featuresData={featuresData}
-            containerVariants={containerVariants}
-            itemVariants={itemVariants}
-            moveY1={moveY1}
-            moveY2={moveY2}
-          />
-
-          {/* 🌿 Optimized Services Section */}
-          <ServicesSection
-            ref={natureRef}
-            servicesData={servicesData}
-            containerVariants={containerVariants}
-            scaleVariants={scaleVariants}
-            moveY1={moveY1}
-            moveY2={moveY2}
-            moveY3={moveY3}
-          />
-
-          {/* 🌟 Optimized CTA Section */}
-          <CTASection isMobile={isMobile} />
+          {/* ⬇️ НОВЫЙ НИЗ ГЛАВНОЙ */}
+          <DirectionsSection />
+          <BenefitsSection />
+          <ProcessSection />
+          <FinalCTASection />
         </main>
       </div>
     </LazyMotion>
   );
 }
 
-// Extracted Hero Section Component
+// ================= Hero Section =================
+
 interface HeroSectionProps {
   current: number;
   isAnimating: boolean;
@@ -406,19 +431,19 @@ interface HeroSectionProps {
   onDotClick: (index: number) => void;
 }
 
-const HeroSection = ({ 
-  current, 
-  isAnimating, 
-  isMobile, 
-  heroImages, 
-  mouseX, 
-  mouseY, 
-  statsData, 
-  onDotClick 
+const HeroSection = ({
+  current,
+  isAnimating, // оставляю в пропсах, если захочешь ещё что-то добавить
+  isMobile,
+  heroImages,
+  mouseX,
+  mouseY,
+  statsData,
+  onDotClick,
 }: HeroSectionProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black dark:bg-gray-900">
-      {/* Dynamic background with optimized mouse parallax */}
+      {/* Dynamic background */}
       <div className="absolute inset-0 overflow-hidden">
         <AnimatePresence mode="wait">
           <MotionDiv
@@ -431,11 +456,15 @@ const HeroSection = ({
             style={{
               x: mouseX,
               y: mouseY,
-              scale: 1.02
+              scale: 1.02,
             }}
           >
             <Image
-              src={isMobile ? heroImages[current].mobile : heroImages[current].desktop}
+              src={
+                isMobile
+                  ? heroImages[current].mobile
+                  : heroImages[current].desktop
+              }
               alt={heroImages[current].alt}
               fill
               priority
@@ -447,54 +476,44 @@ const HeroSection = ({
             />
           </MotionDiv>
         </AnimatePresence>
-        
-        {/* Optimized gradient overlays */}
-        <div 
-          className="absolute inset-0 bg-gradient-to-t from-green-950/85 dark:from-gray-900/90 via-green-900/40 dark:via-gray-800/50 to-transparent"
-          style={{ willChange: 'opacity' }}
-        />
-        <div 
-          className="absolute inset-0 bg-gradient-to-r from-black/20 dark:from-gray-900/30 to-transparent"
-          style={{ willChange: 'opacity' }}
-        />
-        
-        {/* Optimized light spots - reduced on mobile */}
+
+        {/* Gradients */}
+        <div className="absolute inset-0 bg-gradient-to-t from-green-950/85 dark:from-gray-900/90 via-green-900/40 dark:via-gray-800/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/20 dark:from-gray-900/30 to-transparent" />
+
+        {/* Light spots */}
         {!isMobile && (
           <>
             <MotionDiv
-              animate={{ 
+              animate={{
                 scale: [1, 1.1, 1],
                 opacity: [0.1, 0.15, 0.1],
               }}
               transition={{ repeat: Infinity, duration: 8, ease: "easeInOut" }}
               className="absolute top-1/4 left-1/4 w-64 h-64 bg-emerald-400/10 dark:bg-emerald-500/5 blur-[80px] rounded-full"
-              style={{ willChange: 'transform, opacity' }}
             />
             <MotionDiv
-              animate={{ 
+              animate={{
                 scale: [1.1, 1, 1.1],
                 opacity: [0.15, 0.2, 0.15],
               }}
               transition={{ repeat: Infinity, duration: 10, ease: "easeInOut" }}
               className="absolute bottom-1/4 right-1/4 w-60 h-60 bg-green-300/15 dark:bg-green-400/10 blur-[70px] rounded-full"
-              style={{ willChange: 'transform, opacity' }}
             />
           </>
         )}
       </div>
 
-      {/* Main Content Container */}
+      {/* Content */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-center min-h-screen py-8 lg:py-12">
-
-          {/* Main Heading */}
+          {/* Heading */}
           <div className="text-center space-y-4 lg:space-y-6 mb-6 lg:mb-8">
             <MotionDiv
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.1, ease: ANIMATION.ease }}
               className="space-y-3 lg:space-y-4"
-              style={{ willChange: 'transform, opacity' }}
             >
               <h1 className="pt-10 text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-7xl font-black leading-[1.1] tracking-tight">
                 <span className="bg-gradient-to-r from-emerald-200 via-green-300 to-emerald-400 bg-clip-text text-transparent block">
@@ -515,9 +534,8 @@ const HeroSection = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
               className="text-lg sm:text-xl md:text-2xl text-green-50/90 dark:text-green-100/80 max-w-3xl lg:max-w-4xl mx-auto leading-relaxed font-light px-2 sm:px-4"
-              style={{ willChange: 'transform, opacity' }}
             >
-              Ексклюзивні рослини, професійний догляд та авторські рішення 
+              Ексклюзивні рослини, професійний догляд та авторські рішення
               <br className="hidden sm:block" />
               для створення ідеального простору
             </MotionP>
@@ -529,19 +547,21 @@ const HeroSection = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
             className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 lg:mb-10"
-            style={{ willChange: 'transform, opacity' }}
           >
-            <PrimaryButton href="/plants" icon={<Leaf className="w-4 h-4" />} text="До каталогу" />
+            <PrimaryButton
+              href="/plants"
+              icon={<Leaf className="w-4 h-4" />}
+              text="До каталогу"
+            />
             <SecondaryButton icon={<Play className="w-3 h-3" />} text="Відео тур" />
           </MotionDiv>
 
-          {/* Stats Grid */}
+          {/* Stats */}
           <MotionDiv
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.7, ease: "easeOut" }}
             className="w-full max-w-2xl lg:max-w-4xl mx-auto mb-4"
-            style={{ willChange: 'transform, opacity' }}
           >
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-2 sm:px-0">
               {statsData.map((stat, index) => (
@@ -550,19 +570,20 @@ const HeroSection = ({
             </div>
           </MotionDiv>
 
-          {/* Extra spacing */}
-          <div className="h-6 sm:h-8 lg:h-12"></div>
+          <div className="h-6 sm:h-8 lg:h-12" />
         </div>
       </div>
 
-      {/* Enhanced Progress Dots */}
+      {/* Dots */}
       <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-3 z-10">
         {heroImages.map((_, i) => (
           <button
             key={i}
             onClick={() => onDotClick(i)}
             className={`relative h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
-              current === i ? "w-6 sm:w-8 bg-emerald-400" : "w-1.5 sm:w-2 bg-white/50 dark:bg-gray-400/50 hover:bg-white/70 dark:hover:bg-gray-300/70"
+              current === i
+                ? "w-6 sm:w-8 bg-emerald-400"
+                : "w-1.5 sm:w-2 bg-white/50 dark:bg-gray-400/50 hover:bg-white/70 dark:hover:bg-gray-300/70"
             }`}
           >
             {current === i && (
@@ -570,21 +591,27 @@ const HeroSection = ({
                 layoutId="activeDot"
                 className="absolute inset-0 bg-emerald-400 rounded-full"
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                style={{ willChange: 'transform' }}
               />
             )}
           </button>
         ))}
       </div>
 
-      {/* Scroll Indicator */}
       {!isMobile && <ScrollIndicator />}
     </section>
   );
 };
 
-// Extracted Button Components
-const PrimaryButton = ({ href, icon, text }: { href: string; icon: React.ReactNode; text: string }) => (
+// Buttons
+const PrimaryButton = ({
+  href,
+  icon,
+  text,
+}: {
+  href: string;
+  icon: ReactNode;
+  text: string;
+}) => (
   <Link
     href={href}
     className="group relative inline-flex items-center justify-center gap-2 bg-white dark:bg-gray-800 text-green-800 dark:text-green-200 font-bold py-3 sm:py-3 px-6 sm:px-8 rounded-xl sm:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden min-w-[160px] sm:min-w-[180px]"
@@ -599,29 +626,39 @@ const PrimaryButton = ({ href, icon, text }: { href: string; icon: React.ReactNo
   </Link>
 );
 
-const SecondaryButton = ({ icon, text }: { icon: React.ReactNode; text: string }) => (
+const SecondaryButton = ({
+  icon,
+  text,
+}: {
+  icon: ReactNode;
+  text: string;
+}) => (
   <button className="group relative inline-flex items-center justify-center gap-2 bg-transparent border border-white/40 dark:border-gray-400/40 text-white dark:text-gray-200 font-semibold py-3 sm:py-3 px-5 sm:px-6 rounded-xl sm:rounded-2xl backdrop-blur-md hover:bg-white/10 dark:hover:bg-gray-700/50 hover:border-white/60 dark:hover:border-gray-300/60 transition-all duration-300 hover:-translate-y-1 min-w-[140px] sm:min-w-[150px]">
     {icon}
     <span className="text-sm sm:text-base whitespace-nowrap">{text}</span>
   </button>
 );
 
-// Extracted Stat Card Component
-const StatCard = ({ stat, index }: { stat: StatItem; index: number }) => (
+// Stat Card
+const StatCard = ({
+  stat,
+  index,
+}: {
+  stat: StatItem;
+  index: number;
+}) => (
   <m.div
     initial={{ opacity: 0, scale: 0.9, y: 20 }}
     animate={{ opacity: 1, scale: 1, y: 0 }}
     transition={{ delay: 0.8 + index * 0.1, duration: 0.5 }}
     className="group text-center p-3 sm:p-3 bg-white/5 dark:bg-gray-800/30 backdrop-blur-sm rounded-xl border border-white/10 dark:border-gray-600/30 hover:bg-white/10 dark:hover:bg-gray-800/50 transition-all duration-300 hover:-translate-y-1"
-    style={{ willChange: 'transform, opacity' }}
   >
     <div className="inline-flex items-center justify-center p-2 bg-emerald-500/20 rounded-lg mb-2 group-hover:scale-110 transition-transform duration-300">
-      <div className="text-emerald-300">
-        {stat.icon}
-      </div>
+      <div className="text-emerald-300">{stat.icon}</div>
     </div>
     <div className="text-xl sm:text-2xl font-bold text-white mb-1">
-      {stat.value}{stat.suffix}
+      {stat.value}
+      {stat.suffix}
     </div>
     <div className="text-green-200/90 dark:text-green-300/90 text-xs font-medium leading-tight">
       {stat.label}
@@ -629,20 +666,18 @@ const StatCard = ({ stat, index }: { stat: StatItem; index: number }) => (
   </m.div>
 );
 
-// Extracted Scroll Indicator Component
+// Scroll Indicator
 const ScrollIndicator = () => (
   <MotionDiv
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     transition={{ delay: 1.2, duration: 0.8 }}
     className="absolute bottom-6 sm:bottom-8 right-6 sm:right-8 flex items-center gap-2 text-white/60 dark:text-gray-300/60 text-sm font-medium"
-    style={{ willChange: 'opacity' }}
   >
     <MotionDiv
       animate={{ y: [0, 6, 0] }}
       transition={{ repeat: Infinity, duration: 1.5 }}
       className="w-3 h-4 border border-white/30 dark:border-gray-400/30 rounded-full flex justify-center"
-      style={{ willChange: 'transform' }}
     >
       <div className="w-px h-1.5 bg-white/50 dark:bg-gray-400/50 rounded-full mt-1" />
     </MotionDiv>
@@ -650,359 +685,313 @@ const ScrollIndicator = () => (
   </MotionDiv>
 );
 
-// Features Section Component
-interface FeaturesSectionProps {
-  featuresData: FeatureItem[];
-  containerVariants: any;
-  itemVariants: any;
-  moveY1: any;
-  moveY2: any;
+// ================= New lower sections =================
+
+interface SectionHeaderProps {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  align?: "left" | "center";
 }
 
-const FeaturesSection = ({ featuresData, containerVariants, itemVariants, moveY1, moveY2 }: FeaturesSectionProps) => (
-  <section className="relative py-20 sm:py-32 bg-white dark:bg-gray-900 overflow-hidden transition-colors duration-300">
-    {/* Background Elements */}
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <MotionDiv
-        style={{ y: moveY1, willChange: 'transform' }}
-        className="absolute top-[-10rem] left-[-10rem] w-[30rem] h-[30rem] sm:w-[40rem] sm:h-[40rem] bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-[120px] sm:blur-[160px]"
-      />
-      <MotionDiv
-        style={{ y: moveY2, willChange: 'transform' }}
-        className="absolute top-1/3 right-[-10rem] w-[35rem] h-[35rem] sm:w-[45rem] sm:h-[45rem] bg-green-50 dark:bg-green-900/10 rounded-full blur-[140px] sm:blur-[180px]"
-      />
-    </div>
+const SectionHeader: React.FC<SectionHeaderProps> = ({
+  eyebrow,
+  title,
+  description,
+  align = "center",
+}) => {
+  const alignment =
+    align === "center" ? "text-center items-center" : "text-left items-start";
 
-    <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-      {/* Section Header */}
-      <MotionDiv
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        viewport={{ once: true, margin: "-50px" }}
-        className="text-center mb-12 sm:mb-20"
-        style={{ willChange: 'transform, opacity' }}
-      >
-        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white mb-4 sm:mb-6">
-          Чому обирають{" "}
-          <span className="bg-gradient-to-r from-emerald-600 to-green-700 dark:from-emerald-400 dark:to-green-500 bg-clip-text text-transparent">
-            нас
-          </span>
-        </h2>
-        <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed px-4">
-          Ми поєднуємо красу природи з інноваційними технологіями
+  return (
+    <m.div variants={fadeInUp} className={`flex flex-col gap-3 ${alignment}`}>
+      {eyebrow && (
+        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50/80 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+          <Sparkles className="w-3 h-3" />
+          {eyebrow}
+        </span>
+      )}
+      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+        {title}
+      </h2>
+      {description && (
+        <p className="max-w-2xl text-sm sm:text-base text-gray-600 dark:text-gray-300">
+          {description}
         </p>
-      </MotionDiv>
+      )}
+    </m.div>
+  );
+};
 
-      {/* Features Grid */}
-      <MotionDiv
-        variants={containerVariants}
+const DirectionsSection: React.FC = () => (
+  <section className="relative py-12 sm:py-16 lg:py-20 bg-white dark:bg-gray-900 transition-colors duration-300">
+    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/70 to-transparent dark:via-emerald-800/60" />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <m.div
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, margin: "-50px" }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8"
-        style={{ willChange: 'transform, opacity' }}
+        viewport={{ once: true, amount: 0.2 }}
+        variants={staggerContainer}
+        className="flex flex-col gap-10"
       >
-        {featuresData.map((feature, index) => (
-          <FeatureCard key={index} feature={feature} variants={itemVariants} />
-        ))}
-      </MotionDiv>
+        <SectionHeader
+          eyebrow="Напрямки роботи"
+          title="Де найкраще розкриваються декоративні рослини"
+          description="Ми працюємо як з приватними просторами, так і з бізнесом — адаптуючи підхід під ваш стиль, освітлення та режим життя."
+        />
+
+        <m.div
+          variants={staggerContainer}
+          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {directions.map((item) => (
+            <m.article
+              key={item.title}
+              variants={fadeInUp}
+              className="group flex flex-col gap-4 rounded-2xl border border-emerald-100 bg-white/80 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-emerald-900/60 dark:bg-gray-900/80"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
+                  {item.icon}
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-50">
+                    {item.title}
+                  </h3>
+                  <span className="text-xs text-emerald-700/80 dark:text-emerald-200/90">
+                    {item.tag}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                {item.description}
+              </p>
+
+              <div className="mt-auto pt-3 text-xs text-emerald-700/80 dark:text-emerald-200/90">
+                Індивідуальний підбір під ваш простір та освітлення.
+              </div>
+            </m.article>
+          ))}
+        </m.div>
+      </m.div>
     </div>
   </section>
 );
 
-// Feature Card Component
-const FeatureCard = ({ feature, variants }: { feature: FeatureItem; variants: any }) => (
-  <MotionDiv
-    variants={variants}
-    whileHover={{ 
-      y: -4, 
-      transition: { type: "spring", stiffness: 400, damping: 25 } 
-    }}
-    className="group relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-gray-700 shadow-xl hover:shadow-2xl p-6 sm:p-8 transition-all duration-300 overflow-hidden"
-    style={{ willChange: 'transform, opacity' }}
-  >
-    <div className="absolute inset-0 bg-gradient-to-br from-white dark:from-gray-800 via-emerald-50/50 dark:via-emerald-900/10 to-white dark:to-gray-800 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-    
-    <div className="relative z-10">
-      <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl sm:rounded-2xl shadow-lg mb-4 sm:mb-6 group-hover:scale-105 transition-transform duration-300">
-        <div className="text-white">
-          {feature.icon}
-        </div>
-      </div>
-
-      <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">{feature.title}</h3>
-      <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm sm:text-base mb-4 sm:mb-6">{feature.description}</p>
-
-      <ul className="space-y-2 sm:space-y-3">
-        {feature.features.map((item, idx) => (
-          <li key={idx} className="flex items-center gap-2 sm:gap-3 text-gray-700 dark:text-gray-300 text-sm sm:text-base">
-            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-500 rounded-full flex-shrink-0" />
-            <span className="font-medium">{item}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  </MotionDiv>
-);
-
-// Services Section Component
-interface ServicesSectionProps {
-  servicesData: ServiceItem[];
-  containerVariants: any;
-  scaleVariants: any;
-  moveY1: any;
-  moveY2: any;
-  moveY3: any;
-}
-
-const ServicesSection = React.forwardRef<HTMLDivElement, ServicesSectionProps>(
-  ({ servicesData, containerVariants, scaleVariants, moveY1, moveY2, moveY3 }, ref) => (
-    <section ref={ref} className="relative py-20 sm:py-32 bg-gradient-to-b from-white to-emerald-50/30 dark:from-gray-900 dark:to-emerald-900/10 overflow-hidden transition-colors duration-300">
-      {/* Parallax Backgrounds */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <MotionDiv
-          style={{ y: moveY1, willChange: 'transform' }}
-          className="absolute top-[-10rem] left-[-10rem] w-[30rem] h-[30rem] sm:w-[40rem] sm:h-[40rem] bg-emerald-200/40 dark:bg-emerald-800/20 rounded-full blur-[120px] sm:blur-[160px]"
-        />
-        <MotionDiv
-          style={{ y: moveY2, willChange: 'transform' }}
-          className="absolute top-1/3 right-[-10rem] w-[35rem] h-[35rem] sm:w-[45rem] sm:h-[45rem] bg-green-300/25 dark:bg-green-800/15 rounded-full blur-[140px] sm:blur-[180px]"
-        />
-        <MotionDiv
-          style={{ y: moveY3, willChange: 'transform' }}
-          className="absolute bottom-[-8rem] left-[10%] w-[25rem] h-[25rem] sm:w-[35rem] sm:h-[35rem] bg-emerald-100/40 dark:bg-emerald-800/10 rounded-full blur-[120px] sm:blur-[160px]"
-        />
-      </div>
-
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 text-center">
-        {/* Section Header */}
-        <MotionDiv
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true, margin: "-50px" }}
-          className="mb-12 sm:mb-20"
-          style={{ willChange: 'transform, opacity' }}
-        >
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white mb-4 sm:mb-6">
-            Наші{" "}
-            <span className="bg-gradient-to-r from-emerald-600 to-green-700 dark:from-emerald-400 dark:to-green-500 bg-clip-text text-transparent">
-              послуги
-            </span>
-          </h2>
-          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-4">
-            Комплексний підхід до створення ідеального зеленого простору
-          </p>
-        </MotionDiv>
-
-        {/* Services Grid */}
-        <MotionDiv
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
-          style={{ willChange: 'transform, opacity' }}
-        >
-          {servicesData.map((service, i) => (
-            <ServiceCard key={i} service={service} variants={scaleVariants} />
-          ))}
-        </MotionDiv>
-      </div>
-    </section>
-  )
-);
-
-ServicesSection.displayName = 'ServicesSection';
-
-// Service Card Component
-const ServiceCard = ({ service, variants }: { service: ServiceItem; variants: any }) => (
-  <MotionDiv
-    variants={variants}
-    whileHover={{
-      y: -6,
-      scale: 1.02,
-      transition: { type: "spring", stiffness: 400, damping: 25 }
-    }}
-    className="group relative bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-xl hover:shadow-2xl overflow-hidden transition-all duration-300"
-    style={{ willChange: 'transform, opacity' }}
-  >
-    {/* Service Image */}
-    <div className="relative h-40 sm:h-48 overflow-hidden">
-      <Image
-        src={service.image}
-        alt={service.title}
-        fill
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        className="object-cover group-hover:scale-105 transition-transform duration-500"
-        quality={85}
-        placeholder="blur"
-        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaUMkX0RbNPoLbqoWrC90iW6nP/2Q=="
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-lg sm:rounded-xl px-2 py-1 sm:px-3 sm:py-2">
-        <span className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">{service.price}</span>
-      </div>
+const BenefitsSection: React.FC = () => (
+  <section className="relative py-14 sm:py-18 lg:py-20 bg-gradient-to-br from-emerald-50/70 via-white to-green-50/60 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/30">
+    <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute left-10 top-10 h-32 w-32 rounded-full bg-emerald-100/60 blur-3xl dark:bg-emerald-900/60" />
+      <div className="absolute right-10 bottom-10 h-40 w-40 rounded-full bg-green-100/60 blur-3xl dark:bg-emerald-900/40" />
     </div>
 
-    {/* Service Content */}
-    <div className="p-4 sm:p-6 lg:p-8">
-      <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl sm:rounded-2xl shadow-lg mb-4 sm:mb-6 group-hover:scale-105 transition-transform duration-300">
-        <div className="text-white">
-          {service.icon}
-        </div>
-      </div>
-
-      <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">{service.title}</h3>
-      <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm sm:text-base mb-4 sm:mb-6">{service.description}</p>
-
-      <ul className="space-y-2 sm:space-y-3 mb-6 sm:mb-8">
-        {service.features.map((feature, idx) => (
-          <li key={idx} className="flex items-center gap-2 sm:gap-3 text-gray-700 dark:text-gray-300 text-sm sm:text-base">
-            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-500 rounded-full flex-shrink-0" />
-            <span>{feature}</span>
-          </li>
-        ))}
-      </ul>
-
-      <button className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-3 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 group">
-        <span className="flex items-center justify-center gap-2 text-sm sm:text-base">
-          Детальніше
-          <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
-        </span>
-      </button>
-    </div>
-  </MotionDiv>
-);
-
-// CTA Section Component
-const CTASection = ({ isMobile }: { isMobile: boolean }) => (
-  <section className="relative py-20 sm:py-36 px-4 sm:px-6 text-center text-white overflow-hidden bg-gray-900 dark:bg-gray-800 transition-colors duration-300">
-    {/* Enhanced Background */}
-    <div className="absolute inset-0">
-      <MotionDiv
-        initial={{ scale: 1.05, opacity: 0 }}
-        whileInView={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 1.2, ease: "easeOut" }}
-        viewport={{ once: true }}
-        className="absolute inset-0"
-        style={{ willChange: 'transform, opacity' }}
+    <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
+      <m.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={staggerContainer}
+        className="flex flex-col gap-10"
       >
-        <Image
-          src="/images/plants-bg.jpg"
-          alt="Plants background"
-          fill
-          sizes="100vw"
-          className="object-cover"
-          quality={80}
-          placeholder="blur"
-          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaUMkX0RbNPoLbqoWrC90iW6nP/2Q=="
+        <SectionHeader
+          eyebrow="Наш підхід"
+          title="Чому клієнти повертаються до нас знову"
+          description="Ми будуємо довготривалі стосунки — з людьми та їхніми рослинами. У кожному проєкті поєднуємо естетику, практичність та реалістні умови догляду."
         />
-      </MotionDiv>
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-900/95 via-gray-900/80 to-gray-900/95 dark:from-gray-800/95 dark:via-gray-800/80 dark:to-gray-800/95" />
+
+        <m.div
+          variants={staggerContainer}
+          className="grid gap-6 md:grid-cols-2"
+        >
+          {benefits.map((item) => (
+            <m.article
+              key={item.title}
+              variants={fadeInUp}
+              className="group relative flex flex-col gap-4 rounded-2xl border border-emerald-100/80 bg-white/80 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-emerald-900/60 dark:bg-gray-900/85"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/40">
+                  {item.icon}
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-50">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+
+              <ul className="mt-1 space-y-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+                {item.points.map((point) => (
+                  <li key={point} className="flex items-start gap-2">
+                    <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </m.article>
+          ))}
+        </m.div>
+      </m.div>
+    </div>
+  </section>
+);
+
+const ProcessSection: React.FC = () => (
+  <section className="relative py-14 sm:py-18 lg:py-20 bg-white dark:bg-gray-900 transition-colors duration-300">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <m.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={staggerContainer}
+        className="flex flex-col gap-10"
+      >
+        <SectionHeader
+          eyebrow="Як це відбувається"
+          title="Простий та прозорий процес співпраці"
+          description="Ми цінуємо ваш час. Тому зробили процес таким, щоб з перших кроків було зрозуміло, що буде далі."
+        />
+
+        <m.ol
+          variants={staggerContainer}
+          className="grid gap-5 md:grid-cols-2 lg:grid-cols-4"
+        >
+          {steps.map((step) => (
+            <m.li
+              key={step.step}
+              variants={fadeInUp}
+              className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white/80 p-4 text-sm shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-gray-800 dark:bg-gray-900/85"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[11px] text-white">
+                    {step.step}
+                  </span>
+                  <span>крок</span>
+                </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                  {step.icon}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">
+                  {step.title}
+                </h3>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                  {step.description}
+                </p>
+              </div>
+            </m.li>
+          ))}
+        </m.ol>
+
+        <m.div
+          variants={fadeInUp}
+          className="flex flex-col gap-3 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-4 text-xs sm:text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100 md:flex-row md:items-center md:justify-between"
+        >
+          <p>
+            Щоб розпочати, достатньо надіслати кілька фото простору та коротко
+            описати ваші очікування. Решту — ми візьмемо на себе.
+          </p>
+          <Link
+            href="/consultation"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-400 bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:bg-emerald-400"
+          >
+            <Sparkles className="w-3 h-3" />
+            Заповнити форму консультації
+          </Link>
+        </m.div>
+      </m.div>
+    </div>
+  </section>
+);
+
+const FinalCTASection: React.FC = () => (
+  <section className="relative py-20 sm:py-24 px-4 sm:px-6 overflow-hidden">
+    {/* Фон-картинка + ефекти */}
+    <div className="absolute inset-0">
+      <Image
+        src="/images/plants-bg.jpg"
+        alt="Декоративні рослини на фоні"
+        fill
+        priority={false}
+        sizes="100vw"
+        className="object-cover"
+      />
+      {/* Напівпрозорий градієнт, щоб текст був читабельний */}
+      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/90 via-gray-900/75 to-gray-900/40 dark:from-gray-950/95 dark:via-gray-900/85 dark:to-gray-900/60" />
       <Particles />
     </div>
 
-    {/* Optimized glow */}
-    {!isMobile && (
-      <MotionDiv
-        animate={{ 
-          opacity: [0.3, 0.5, 0.3]
-        }}
-        transition={{ repeat: Infinity, duration: 8 }}
-        className="absolute top-1/3 left-1/2 w-[300px] h-[300px] sm:w-[600px] sm:h-[600px] bg-emerald-500/20 dark:bg-emerald-400/10 blur-[80px] sm:blur-[120px] rounded-full mix-blend-screen"
-        style={{ willChange: 'opacity' }}
-      />
-    )}
-
-    <div className="relative z-10 max-w-4xl mx-auto">
-      <MotionDiv
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        viewport={{ once: true }}
-        className="mb-6 sm:mb-8"
-        style={{ willChange: 'transform, opacity' }}
+    <div className="relative max-w-6xl mx-auto text-center text-white">
+      <m.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={staggerContainer}
+        className="flex flex-col items-center gap-8"
       >
-        <span className="inline-flex items-center gap-2 bg-emerald-500/20 dark:bg-emerald-400/10 backdrop-blur-md border border-emerald-400/30 dark:border-emerald-300/20 text-emerald-200 dark:text-emerald-100 px-4 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-sm font-medium">
-          <Star className="w-3 h-3 sm:w-4 sm:h-4" />
-          Преміум якість з 2016 року
-        </span>
-      </MotionDiv>
+        <m.div variants={fadeInUp} className="space-y-4">
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/60 bg-emerald-500/15 px-4 py-1.5 text-xs font-medium uppercase tracking-wide text-emerald-100">
+            <Star className="w-3 h-3" />
+            Професійне озеленення без зайвих турбот
+          </span>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold">
+            Готові до{" "}
+            <span className="bg-gradient-to-r from-emerald-300 to-green-400 bg-clip-text text-transparent">
+              живого
+            </span>{" "}
+            простору, в який хочеться повертатися?
+          </h2>
+          <p className="mx-auto max-w-2xl text-sm sm:text-base text-gray-200">
+            Обговорімо ваш простір, стиль і бюджет — запропонуємо кілька
+            варіантів рішень та допоможемо обрати ідеальний формат.
+          </p>
+        </m.div>
 
-      <MotionH2
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-        className="text-3xl sm:text-5xl lg:text-7xl font-black mb-6 sm:mb-8 leading-tight"
-        style={{ willChange: 'transform, opacity' }}
-      >
-        Готові створити{" "}
-        <span className="bg-gradient-to-r from-emerald-300 to-green-400 bg-clip-text text-transparent">
-          ідеальний
-        </span>
-        <br />
-        зелений простір?
-      </MotionH2>
-
-      <MotionP
-        initial={{ opacity: 0, y: 15 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.6 }}
-        className="text-lg sm:text-xl lg:text-2xl opacity-90 max-w-2xl mx-auto mb-8 sm:mb-12 leading-relaxed"
-        style={{ willChange: 'transform, opacity' }}
-      >
-        Приєднуйтесь до 12,000+ клієнтів, які вже довірили нам створення 
-        своєї ідеальної атмосфери.
-      </MotionP>
-
-      <MotionDiv
-        initial={{ opacity: 0, y: 15 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.6 }}
-        className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center"
-        style={{ willChange: 'transform, opacity' }}
-      >
-        <Link
-          href="/consultation"
-          className="group relative inline-flex items-center gap-3 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-bold py-4 px-8 sm:py-5 sm:px-12 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+        <m.div
+          variants={fadeInUp}
+          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-300" />
-          <span className="text-base sm:text-lg">Отримати консультацію</span>
-        </Link>
+          <Link
+            href="/consultation"
+            className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm sm:text-base font-semibold text-emerald-900 shadow-lg shadow-emerald-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Запланувати консультацію</span>
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          </Link>
 
-        <Link
-          href="/portfolio"
-          className="group inline-flex items-center gap-2 bg-transparent border-2 border-white/30 dark:border-gray-400/30 text-white dark:text-gray-200 font-semibold py-4 px-6 sm:py-5 sm:px-8 rounded-2xl backdrop-blur-md hover:bg-white/10 dark:hover:bg-gray-700/50 hover:border-white/50 dark:hover:border-gray-300/50 transition-all duration-300"
+          <Link
+            href="/portfolio"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200/70 bg-black/10 px-5 py-3 text-xs sm:text-sm font-medium text-emerald-50 backdrop-blur-sm transition-all duration-200 hover:bg-emerald-500/15"
+          >
+            <span>Переглянути реалізовані проєкти</span>
+          </Link>
+        </m.div>
+
+        <m.div
+          variants={fadeInUp}
+          className="mt-2 flex flex-wrap items-center justify-center gap-4 text-[11px] text-gray-200/90"
         >
-          <span className="text-sm sm:text-base">Переглянути портфоліо</span>
-          <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </MotionDiv>
-
-      {/* Trust badges */}
-      <MotionDiv
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        transition={{ delay: 0.5, duration: 0.6 }}
-        className="mt-12 sm:mt-16 flex flex-wrap justify-center items-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-400 dark:text-gray-500"
-        style={{ willChange: 'opacity' }}
-      >
-        <div className="flex items-center gap-1 sm:gap-2">
-          <Shield className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
-          <span>Гарантія якості</span>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-2">
-          <Truck className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
-          <span>Безпечна доставка</span>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-2">
-          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
-          <span>Підтримка 24/7</span>
-        </div>
-      </MotionDiv>
+          <div className="flex items-center gap-2">
+            <Shield className="w-3 h-3 text-emerald-300" />
+            <span>30 днів гарантії на всі рослини</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Truck className="w-3 h-3 text-emerald-300" />
+            <span>Акуратна доставка по місту та області</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Award className="w-3 h-3 text-emerald-300" />
+            <span>Проєкти для дому, бізнесу та івентів</span>
+          </div>
+        </m.div>
+      </m.div>
     </div>
   </section>
 );

@@ -31,14 +31,11 @@ interface MobileNavigationProps {
 export function MobileNavigation({
   open,
   links,
-  theme,
-  isAnimating,
   totalItems,
   wishlistItems,
   activeMobileSubmenu,
   mobileMenuRef,
   onClose,
-  onThemeToggle,
   onAuthOpen,
   onSearchOpen,
   onCartOpen,
@@ -251,7 +248,12 @@ export function MobileNavigation({
                     <Settings className="w-4 h-4 mr-3" />
                     Мій профіль
                   </button>
-                  <button className="w-full flex items-center p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
+                  <button 
+                    onClick={async () => {
+                      onClose();
+                      await ensureAuthAndGo('/dashboard/orders');
+                    }}
+                    className="w-full flex items-center p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium">
                     <Package className="w-4 h-4 mr-3" />
                     Мої замовлення
                   </button>

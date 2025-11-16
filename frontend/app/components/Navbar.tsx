@@ -51,7 +51,7 @@ export default function Navbar() {
     toggleMobileSubmenu,
   } = useNavbarState();
 
-  const { theme, toggleTheme, isAnimating } = useTheme();
+  const { theme, toggleTheme, isAnimating, isLoaded } = useTheme();
   const { totalItems } = useCart();
 
   // Refs for click outside detection
@@ -72,7 +72,6 @@ export default function Navbar() {
       if (params.has('auth')) {
         params.delete('auth');
         const qs = params.toString();
-        // заменяем URL без перезагрузки страницы
         router.replace(qs ? `${currentPath}?${qs}` : currentPath);
       }
     }
@@ -83,16 +82,13 @@ export default function Navbar() {
     const authParam = searchParams.get('auth');
 
     if (authParam === 'login') {
-      setActiveTab('login');   // открыть вкладку логина
-      setShowAuth(true);       // показать модалку
+      setActiveTab('login');
+      setShowAuth(true);
     }
   }, [searchParams, setActiveTab, setShowAuth]);
 
-
-  // Scroll effect
   useScrollEffect(setScrolled);
 
-  // Close modals when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -114,7 +110,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open, showAuth, searchOpen, setOpen, setShowAuth, setSearchOpen]);
 
-  // Prevent body scroll when modals are open
   useEffect(() => {
     if (open || showAuth || searchOpen) {
       document.body.style.overflow = 'hidden';
@@ -127,11 +122,10 @@ export default function Navbar() {
     };
   }, [open, showAuth, searchOpen]);
 
-  const wishlistItems = 2; // This should come from wishlist context
+  const wishlistItems = 2;
 
   return (
     <LazyMotion features={domAnimation} strict>
-      {/* Modals */}
       <CartModal 
         isOpen={cartModalOpen} 
         onClose={() => setCartModalOpen(false)} 
@@ -141,7 +135,6 @@ export default function Navbar() {
         onClose={() => setWishlistModalOpen(false)} 
       />
 
-      {/* Main Navbar */}
       <MotionNav
         variants={navVariants}
         initial="hidden"
@@ -166,11 +159,11 @@ export default function Navbar() {
             onWishlistOpen={openWishlistModal}
             onSearchOpen={() => setSearchOpen(true)}
             onMenuOpen={() => setOpen(true)}
+            isThemeLoaded={isLoaded}
           />
         </div>
       </MotionNav>
 
-      {/* Mobile Navigation */}
       <MobileNavigation
         open={open}
         links={NAV_LINKS}
@@ -195,7 +188,6 @@ export default function Navbar() {
         onSubmenuToggle={toggleMobileSubmenu}
       />
 
-      {/* Search Modal */}
       <SearchModal
         searchOpen={searchOpen}
         searchModalRef={searchModalRef}
@@ -204,7 +196,6 @@ export default function Navbar() {
         onClose={() => setSearchOpen(false)}
       />
 
-      {/* Auth Modal */}
       <AuthModal
         showAuth={showAuth}
         activeTab={activeTab}

@@ -22,6 +22,7 @@ interface DesktopNavigationProps {
   onWishlistOpen: () => void;
   onSearchOpen: () => void;
   onMenuOpen: () => void;
+  isThemeLoaded?: boolean;
 }
 
 export function DesktopNavigation({
@@ -36,6 +37,7 @@ export function DesktopNavigation({
   onWishlistOpen,
   onSearchOpen,
   onMenuOpen,
+  isThemeLoaded,
 }: DesktopNavigationProps) {
   const { user, isLoading } = useAuth();
 
@@ -75,7 +77,7 @@ export function DesktopNavigation({
                   <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-2">
                     {link.submenu.map((subItem) => (
                       <Link
-                        key={subItem.href}
+                        key={`${subItem.href}-${subItem.label}`}
                         href={subItem.href}
                         className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 font-medium"
                       >
@@ -120,9 +122,15 @@ export function DesktopNavigation({
                 exit={{ scale: 0.8, rotate: 90, opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
               >
-                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                {!isThemeLoaded
+                  ? <Sun className="w-5 h-5" />
+                  : theme === 'light'
+                    ? <Moon className="w-5 h-5" />
+                    : <Sun className="w-5 h-5" />
+                }
               </MotionP>
             </AnimatePresence>
+
           </button>
 
           {/* Wishlist Button */}
@@ -154,20 +162,16 @@ export function DesktopNavigation({
           </button>
 
           {/* User Auth - ТОЛЬКО для десктопа */}
-          {!isLoading && (
-            <>
-              {user ? (
-                <UserDropdown user={user} />
-              ) : (
-                <button
-                  onClick={onAuthOpen}
-                  className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium"
-                >
-                  <User className="w-4 h-4" />
-                  <span>Увійти</span>
-                </button>
-              )}
-            </>
+          {user ? (
+            <UserDropdown user={user} />
+          ) : (
+            <button
+              onClick={onAuthOpen}
+              className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 lg:px-4 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium"
+            >
+              <User className="w-4 h-4" />
+              <span>Увійти</span>
+            </button>
           )}
         </div>
 

@@ -230,3 +230,13 @@ html, body {
     filter: invert(1) hue-rotate(180deg);
   }
 }
+
+html {
+  font-size: 16px; /* дефолт */
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 17px; /* чуть крупнее на десктопе */
+  }
+}

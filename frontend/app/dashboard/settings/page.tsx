@@ -1,45 +1,40 @@
 'use client';
 
-import Link from "next/link";
-import React, { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { cn } from '@/lib/utils'
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { LazyMotion, m as motion, domAnimation, AnimatePresence } from 'framer-motion';
+import {
   User,
   Mail,
   Phone,
   MapPin,
   Lock,
   Bell,
-  Palette,
   Shield,
   Download,
   Trash2,
-  Eye,
-  EyeOff,
-  Check,
-  X,
-  Save,
   ArrowLeft,
-  Camera,
-  Globe,
-  Moon,
-  Sun
 } from 'lucide-react';
 
-// Types
-interface UserProfile {
-  id: string;
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotification } from '@/app/components/NotificationSystem';
+
+// ---- Типы ----
+
+type SectionId = 'profile' | 'notifications' | 'privacy' | 'data';
+
+interface ProfileState {
   name: string;
   email: string;
   phone: string;
   address: string;
-  avatar: string;
   bio: string;
 }
 
 interface NotificationSettings {
   emailNotifications: boolean;
-  pushNotifications: boolean;
   orderUpdates: boolean;
   careReminders: boolean;
   promotional: boolean;
@@ -51,701 +46,671 @@ interface PrivacySettings {
   personalizedAds: boolean;
 }
 
-// Mock data
-const mockUser: UserProfile = {
-  id: '1',
-  name: 'Alexander Green',
-  email: 'alex.green@example.com',
-  phone: '+1 (555) 123-4567',
-  address: '123 Garden Street, Greenville, CA 90210',
-  avatar: '/api/placeholder/100/100',
-  bio: 'Passionate plant lover and urban gardener. Always looking for new green friends to add to my collection! 🌿'
-};
+interface NavigationProps {
+  children: React.ReactNode
+  className?: string
+}
 
-const initialNotifications: NotificationSettings = {
-  emailNotifications: true,
-  pushNotifications: true,
-  orderUpdates: true,
-  careReminders: true,
-  promotional: false
-};
+export function Navigation({ children, className }: NavigationProps) {
+  return (
+    <nav className={cn('space-y-1.5', className)}>
+      {children}
+    </nav>
+  )
+}
 
-const initialPrivacy: PrivacySettings = {
-  profileVisibility: 'public',
-  dataSharing: true,
-  personalizedAds: false
-};
+interface NavigationItemProps {
+  children: React.ReactNode
+  isActive?: boolean
+  onClick?: () => void
+  className?: string
+}
 
-// Reusable Components from dashboard (adapted for settings)
-const PrimaryButton = ({ children, onClick, icon, disabled = false }: { 
-  children: string; 
-  onClick?: () => void; 
-  icon?: React.ReactNode;
-  disabled?: boolean;
+export function NavigationItem({ 
+  children, 
+  isActive = false, 
+  onClick, 
+  className 
+}: NavigationItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition',
+        isActive
+          ? 'bg-emerald-600 text-white shadow-sm'
+          : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900',
+        className
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ---- Базовые компоненты / UI ----
+
+const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className = '',
 }) => (
-  <motion.button
-    whileHover={{ scale: disabled ? 1 : 1.02, y: disabled ? 0 : -1 }}
-    whileTap={{ scale: disabled ? 1 : 0.98 }}
-    onClick={onClick}
-    disabled={disabled}
-    className={`flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-medium shadow-lg transition-all duration-300 ${
-      disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl'
-    }`}
-  >
-    {icon}
-    {children}
-  </motion.button>
-);
-
-const SecondaryButton = ({ children, onClick, icon }: { 
-  children: string; 
-  onClick?: () => void; 
-  icon?: React.ReactNode;
-}) => (
-  <motion.button
-    whileHover={{ scale: 1.02, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
-    whileTap={{ scale: 0.98 }}
-    onClick={onClick}
-    className="flex items-center gap-2 px-6 py-3 border border-emerald-500 text-emerald-600 dark:text-emerald-400 rounded-xl font-medium transition-all duration-300"
-  >
-    {icon}
-    {children}
-  </motion.button>
-);
-
-const GlassCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
-    className={`bg-white/10 dark:bg-gray-900/20 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl shadow-black/5 ${className}`}
+    transition={{ duration: 0.2, ease: 'easeOut' }}
+    className={
+      'rounded-2xl bg-white/80 dark:bg-gray-900/80 border border-gray-100/70 dark:border-gray-800/80 shadow-sm backdrop-blur-lg ' +
+      className
+    }
   >
     {children}
   </motion.div>
 );
 
-const ToggleSwitch = ({ 
-  enabled, 
-  onChange,
-  label 
-}: { 
-  enabled: boolean; 
-  onChange: (enabled: boolean) => void;
-  label?: string;
-}) => (
-  <div className="flex items-center justify-between">
-    {label && <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>}
-    <button
-      type="button"
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-        enabled ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'
-      }`}
-      onClick={() => onChange(!enabled)}
-    >
-      <span
-        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-          enabled ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </button>
-  </div>
-);
-
-const SettingsSection = ({ 
-  title, 
-  description, 
-  children,
-  icon 
-}: { 
-  title: string; 
+const SectionShell: React.FC<{
+  icon: React.ReactNode;
+  title: string;
   description?: string;
   children: React.ReactNode;
-  icon?: React.ReactNode;
-}) => (
-  <GlassCard className="p-6">
-    <div className="flex items-start gap-4 mb-6">
-      {icon && (
-        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
-          {icon}
-        </div>
-      )}
-      <div className="flex-1">
-        <h3 className="text-xl font-black text-gray-900 dark:text-white">{title}</h3>
+}> = ({ icon, title, description, children }) => (
+  <Card className="p-5 sm:p-6">
+    <div className="mb-5 flex items-start gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+        {icon}
+      </div>
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">
+          {title}
+        </h2>
         {description && (
-          <p className="text-gray-600 dark:text-gray-300 mt-1">{description}</p>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{description}</p>
         )}
       </div>
     </div>
     {children}
-  </GlassCard>
+  </Card>
 );
 
-const InputField = ({ 
-  label, 
-  type = 'text',
-  value,
-  onChange,
-  placeholder,
-  icon,
-  error
-}: {
+const Input: React.FC<{
   label: string;
+  value: string;
+  onChange: (value: string) => void;
   type?: string;
-  value: string;
-  onChange: (value: string) => void;
   placeholder?: string;
-  icon?: React.ReactNode;
-  error?: string;
-}) => {
-  const [showPassword, setShowPassword] = useState(false);
-
-  return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {label}
-      </label>
-      <div className="relative">
-        {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-            {icon}
-          </div>
-        )}
-        <input
-          type={type === 'password' && showPassword ? 'text' : type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={`w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200 ${
-            error ? 'border-red-500' : ''
-          }`}
-        />
-        {type === 'password' && (
-          <button
-            type="button"
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
-        )}
-      </div>
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-    </div>
-  );
-};
-
-const RadioGroup = ({ 
-  options, 
-  value, 
-  onChange,
-  label 
-}: {
-  options: { value: string; label: string; description?: string }[];
-  value: string;
-  onChange: (value: string) => void;
-  label?: string;
-}) => (
-  <div className="space-y-4">
-    {label && <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>}
-    {options.map((option) => (
-      <div key={option.value} className="flex items-start space-x-3">
-        <input
-          type="radio"
-          id={option.value}
-          name="radio-group"
-          checked={value === option.value}
-          onChange={() => onChange(option.value)}
-          className="mt-1 text-emerald-500 focus:ring-emerald-500"
-        />
-        <div className="flex-1">
-          <label htmlFor={option.value} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {option.label}
-          </label>
-          {option.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">{option.description}</p>
-          )}
-        </div>
-      </div>
-    ))}
+}> = ({ label, value, onChange, type = 'text', placeholder }) => (
+  <div className="space-y-1.5">
+    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      {label}
+    </label>
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
+    />
   </div>
 );
 
+const Textarea: React.FC<{
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}> = ({ label, value, onChange, placeholder }) => (
+  <div className="space-y-1.5">
+    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      {label}
+    </label>
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={4}
+      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
+    />
+  </div>
+);
+
+const ToggleRow: React.FC<{
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}> = ({ label, description, checked, onChange }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    className="flex w-full items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5 text-left text-sm transition hover:border-emerald-200 hover:bg-emerald-50/60 dark:border-gray-800 dark:bg-gray-900/70 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/20"
+  >
+    <div>
+      <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-50">{label}</p>
+      {description && (
+        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{description}</p>
+      )}
+    </div>
+    <div
+      className={
+        'flex h-5 w-9 items-center rounded-full px-0.5 transition ' +
+        (checked
+          ? 'bg-emerald-500'
+          : 'bg-gray-300 dark:bg-gray-700')
+      }
+    >
+      <div
+        className={
+          'h-4 w-4 rounded-full bg-white shadow-sm transition-transform ' +
+          (checked ? 'translate-x-4' : 'translate-x-0')
+        }
+      />
+    </div>
+  </button>
+);
+
+// ---- Основная страница ----
+
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState('profile');
-  const [user, setUser] = useState<UserProfile>(mockUser);
-  const [notifications, setNotifications] = useState<NotificationSettings>(initialNotifications);
-  const [privacy, setPrivacy] = useState<PrivacySettings>(initialPrivacy);
-  const [isDark, setIsDark] = useState(false);
-  const [language, setLanguage] = useState('en');
-  const [saved, setSaved] = useState(true);
-  const [changes, setChanges] = useState<Partial<UserProfile>>({});
+  const router = useRouter();
+  const { user } = useAuth();
+  const { addNotification } = useNotification();
 
-  const handleUserUpdate = useCallback((field: keyof UserProfile, value: string) => {
-    setUser(prev => ({ ...prev, [field]: value }));
-    setChanges(prev => ({ ...prev, [field]: value }));
-    setSaved(false);
-  }, []);
+  // Профиль
+  const [profile, setProfile] = useState<ProfileState>({
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    phone: '',
+    address: '',
+    bio: '',
+  });
 
-  const handleNotificationToggle = useCallback((key: keyof NotificationSettings, value: boolean) => {
-    setNotifications(prev => ({ ...prev, [key]: value }));
-    setSaved(false);
-  }, []);
+  useEffect(() => {
+    setProfile((prev) => ({
+      ...prev,
+      name: user?.name ?? prev.name,
+      email: user?.email ?? prev.email,
+    }));
+  }, [user]);
 
-  const handlePrivacyUpdate = useCallback((field: keyof PrivacySettings, value: any) => {
-    setPrivacy(prev => ({ ...prev, [field]: value }));
-    setSaved(false);
-  }, []);
+  // Настройки
+  const [notifications, setNotifications] = useState<NotificationSettings>({
+    emailNotifications: true,
+    orderUpdates: true,
+    careReminders: true,
+    promotional: false,
+  });
+
+  const [privacy, setPrivacy] = useState<PrivacySettings>({
+    profileVisibility: 'friends',
+    dataSharing: false,
+    personalizedAds: false,
+  });
+
+  const [activeSection, setActiveSection] = useState<SectionId>('profile');
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const sidebarItems: { id: SectionId; label: string; icon: React.ReactNode }[] = useMemo(
+    () => [
+      { id: 'profile', label: 'Профіль', icon: <User className="h-4 w-4" /> },
+      { id: 'notifications', label: 'Сповіщення', icon: <Bell className="h-4 w-4" /> },
+      { id: 'privacy', label: 'Конфіденційність', icon: <Shield className="h-4 w-4" /> },
+      { id: 'data', label: 'Дані та акаунт', icon: <Download className="h-4 w-4" /> },
+    ],
+    []
+  );
+
+  const markChanged = useCallback(() => setHasChanges(true), []);
+
+  const handleProfileChange = useCallback(
+    (field: keyof ProfileState, value: string) => {
+      setProfile((prev) => ({ ...prev, [field]: value }));
+      markChanged();
+    },
+    [markChanged]
+  );
+
+  const handleNotificationChange = useCallback(
+    (field: keyof NotificationSettings, value: boolean) => {
+      setNotifications((prev) => ({ ...prev, [field]: value }));
+      markChanged();
+    },
+    [markChanged]
+  );
+
+  const handlePrivacyChange = useCallback(
+    (field: keyof PrivacySettings, value: PrivacySettings[typeof field]) => {
+      setPrivacy((prev) => ({ ...prev, [field]: value }));
+      markChanged();
+    },
+    [markChanged]
+  );
 
   const handleSave = useCallback(() => {
-    // Simulate API call
-    console.log('Saving changes:', changes);
-    setSaved(true);
-    setChanges({});
-    
-    // Show success feedback
-    const timer = setTimeout(() => {
-      // Reset feedback after 2 seconds
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, [changes]);
+    // Здесь в будущем можно вызвать API (PATCH /me, /settings и т.п.)
+    addNotification({
+      type: 'success',
+      title: 'Налаштування збережено',
+      message: 'Ваші зміни профілю та налаштувань будуть застосовані.',
+      duration: 3000,
+    });
+    setHasChanges(false);
+  }, [addNotification]);
 
   const handleReset = useCallback(() => {
-    setUser(mockUser);
-    setNotifications(initialNotifications);
-    setPrivacy(initialPrivacy);
-    setChanges({});
-    setSaved(true);
-  }, []);
+    setProfile({
+      name: user?.name ?? '',
+      email: user?.email ?? '',
+      phone: '',
+      address: '',
+      bio: '',
+    });
+    setNotifications({
+      emailNotifications: true,
+      orderUpdates: true,
+      careReminders: true,
+      promotional: false,
+    });
+    setPrivacy({
+      profileVisibility: 'friends',
+      dataSharing: false,
+      personalizedAds: false,
+    });
+    setHasChanges(false);
+    addNotification({
+      type: 'info',
+      title: 'Скидання налаштувань',
+      message: 'Налаштування повернено до стандартних значень.',
+      duration: 2500,
+    });
+  }, [user, addNotification]);
 
-  const menuItems = [
-    { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
-    { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
-    { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4" /> },
-    { id: 'privacy', label: 'Privacy & Security', icon: <Shield className="w-4 h-4" /> },
-    { id: 'data', label: 'Data & Storage', icon: <Download className="w-4 h-4" /> }
-  ];
+  const handleDeleteAccount = useCallback(() => {
+    addNotification({
+      type: 'error',
+      title: 'Видалення акаунта',
+      message: 'Функція видалення акаунта буде доступна пізніше.',
+      duration: 3500,
+    });
+  }, [addNotification]);
 
   return (
-    <div className={`content-with-navbar min-h-screen bg-gradient-to-br from-gray-50 to-green-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-500 ${
-      isDark ? 'dark' : ''
-    }`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
-        >
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-                <SecondaryButton icon={<ArrowLeft className="w-4 h-4" />}>
-                    Back to Dashboard
-                </SecondaryButton>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-black text-gray-900 dark:text-white">Settings</h1>
-              <p className="text-gray-600 dark:text-gray-300">Manage your account preferences</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            {!saved && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex items-center gap-2 text-amber-600 dark:text-amber-400"
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-emerald-50/40 dark:from-gray-950 dark:to-gray-900">
+        <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-16 pt-24 sm:px-6 lg:px-8">
+          {/* Хедер */}
+          <motion.header
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
+          >
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white/80 px-3.5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-700 hover:shadow-md dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:border-emerald-500 dark:hover:text-emerald-300"
               >
-                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                Unsaved changes
-              </motion.div>
-            )}
-            <div className="flex gap-2">
-              <SecondaryButton icon={<X className="w-4 h-4" />} onClick={handleReset}>
-                Reset
-              </SecondaryButton>
-              <PrimaryButton 
-                icon={saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />} 
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Назад до кабінету
+              </Link>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+                  Налаштування профілю
+                </h1>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                  Керуйте особистими даними, сповіщеннями та конфіденційністю.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {hasChanges && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 ring-1 ring-amber-100 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-800/50">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Є незбережені зміни
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="rounded-xl border border-gray-200 bg-white/80 px-3.5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-900"
+              >
+                Скинути
+              </button>
+              <button
+                type="button"
                 onClick={handleSave}
-                disabled={saved}
+                disabled={!hasChanges}
+                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4.5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400/60"
               >
-                {saved ? 'Saved' : 'Save Changes'}
-              </PrimaryButton>
+                Зберегти зміни
+              </button>
+            </div>
+          </motion.header>
+
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)]">
+            {/* Сайдбар */}
+            <Card className="p-4 sm:p-6 h-fit">
+              <Navigation className="space-y-1.5">
+                {sidebarItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSection(item.id)}
+                    className={
+                      'flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ' +
+                      (activeSection === item.id
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900')
+                    }
+                  >
+                    <span
+                      className={
+                        'flex h-8 w-8 items-center justify-center rounded-lg ' +
+                        (activeSection === item.id
+                          ? 'bg-emerald-500/90 text-white'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300')
+                      }
+                    >
+                      {item.icon}
+                    </span>
+                    <span className="text-sm sm:text-base">{item.label}</span>
+                  </button>
+                ))}
+              </Navigation>
+            </Card>
+
+            {/* Основной контент */}
+            <div className="space-y-6">
+              <AnimatePresence mode="wait">
+                {activeSection === 'profile' && (
+                  <motion.div
+                    key="profile"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <SectionShell
+                      icon={<User className="h-5 w-5" />}
+                      title="Особиста інформація"
+                      description="Ім’я та контакти будуть використовуватися для оформлення замовлень та сповіщень."
+                    >
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Input
+                          label="Ім’я"
+                          value={profile.name}
+                          onChange={(v) => handleProfileChange('name', v)}
+                          placeholder="Ваше ім’я"
+                        />
+                        <Input
+                          label="Email"
+                          type="email"
+                          value={profile.email}
+                          onChange={(v) => handleProfileChange('email', v)}
+                          placeholder="Ваш email"
+                        />
+                        <Input
+                          label="Телефон"
+                          type="tel"
+                          value={profile.phone}
+                          onChange={(v) => handleProfileChange('phone', v)}
+                          placeholder="+380..."
+                        />
+                        <Input
+                          label="Адреса доставки"
+                          value={profile.address}
+                          onChange={(v) => handleProfileChange('address', v)}
+                          placeholder="Місто, вулиця, відділення пошти"
+                        />
+                      </div>
+
+                      <div className="mt-4">
+                        <Textarea
+                          label="Коротко про вас і ваші рослини"
+                          value={profile.bio}
+                          onChange={(v) => handleProfileChange('bio', v)}
+                          placeholder="Наприклад: люблю монстери та світлі інтер’єри..."
+                        />
+                      </div>
+                    </SectionShell>
+                  </motion.div>
+                )}
+
+                {activeSection === 'notifications' && (
+                  <motion.div
+                    key="notifications"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <SectionShell
+                      icon={<Bell className="h-5 w-5" />}
+                      title="Сповіщення"
+                      description="Оберіть, які повідомлення ви хочете отримувати від PlantShop."
+                    >
+                      <div className="space-y-3">
+                        <ToggleRow
+                          label="Email-сповіщення"
+                          description="Основні оновлення по акаунту та замовленнях."
+                          checked={notifications.emailNotifications}
+                          onChange={(v) =>
+                            handleNotificationChange('emailNotifications', v)
+                          }
+                        />
+                        <ToggleRow
+                          label="Оновлення замовлень"
+                          description="Статус замовлення, відправлення, доставка."
+                          checked={notifications.orderUpdates}
+                          onChange={(v) =>
+                            handleNotificationChange('orderUpdates', v)
+                          }
+                        />
+                        <ToggleRow
+                          label="Нагадування по догляду"
+                          description="Полив, підживлення та інші корисні поради."
+                          checked={notifications.careReminders}
+                          onChange={(v) =>
+                            handleNotificationChange('careReminders', v)
+                          }
+                        />
+                        <ToggleRow
+                          label="Акції та спецпропозиції"
+                          checked={notifications.promotional}
+                          onChange={(v) =>
+                            handleNotificationChange('promotional', v)
+                          }
+                        />
+                      </div>
+                    </SectionShell>
+                  </motion.div>
+                )}
+
+                {activeSection === 'privacy' && (
+                  <motion.div
+                    key="privacy"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <SectionShell
+                      icon={<Shield className="h-5 w-5" />}
+                      title="Конфіденційність та безпека"
+                      description="Керуйте тим, хто бачить інформацію про вас, та налаштуйте безпеку входу."
+                    >
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
+                            Видимість профілю
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {([
+                              {
+                                id: 'public',
+                                label: 'Публічний',
+                                desc: 'Профіль можуть бачити всі.',
+                              },
+                              {
+                                id: 'friends',
+                                label: 'Тільки клієнти',
+                                desc: 'Рекомендовано для більшості користувачів.',
+                              },
+                              {
+                                id: 'private',
+                                label: 'Приватний',
+                                desc: 'Профіль бачите лише ви.',
+                              },
+                            ] as const).map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() =>
+                                  handlePrivacyChange('profileVisibility', opt.id)
+                                }
+                                className={
+                                  'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left text-xs transition ' +
+                                  (privacy.profileVisibility === opt.id
+                                    ? 'border-emerald-500 bg-emerald-50/80 text-gray-900 dark:border-emerald-500 dark:bg-emerald-900/20 dark:text-gray-50'
+                                    : 'border-gray-200 bg-white/70 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-200 dark:hover:border-emerald-600')
+                                }
+                              >
+                                <span className="text-sm font-semibold">{opt.label}</span>
+                                <span className="mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                                  {opt.desc}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
+                            Дані та персоналізація
+                          </p>
+                          <ToggleRow
+                            label="Анонімна аналітика"
+                            description="Допомагає нам покращувати PlantShop. Без персональних даних."
+                            checked={privacy.dataSharing}
+                            onChange={(v) =>
+                              handlePrivacyChange('dataSharing', v)
+                            }
+                          />
+                          <ToggleRow
+                            label="Персоналізовані рекомендації"
+                            description="Підбір рослин з урахуванням ваших замовлень та переглядів."
+                            checked={privacy.personalizedAds}
+                            onChange={(v) =>
+                              handlePrivacyChange('personalizedAds', v)
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
+                            Пароль
+                          </p>
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <Input
+                              label="Поточний пароль"
+                              type="password"
+                              value=""
+                              onChange={() => {}}
+                              placeholder="********"
+                            />
+                            <Input
+                              label="Новий пароль"
+                              type="password"
+                              value=""
+                              onChange={() => {}}
+                              placeholder="********"
+                            />
+                            <Input
+                              label="Підтвердження"
+                              type="password"
+                              value=""
+                              onChange={() => {}}
+                              placeholder="********"
+                            />
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                            Зміна пароля буде доступна після підключення відповідного розділу на бекенді.
+                          </p>
+                        </div>
+                      </div>
+                    </SectionShell>
+                  </motion.div>
+                )}
+
+                {activeSection === 'data' && (
+                  <motion.div
+                    key="data"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <SectionShell
+                      icon={<Download className="h-5 w-5" />}
+                      title="Дані та акаунт"
+                      description="Експортуйте свої дані або керуйте акаунтом."
+                    >
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
+                            Дані акаунта
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addNotification({
+                                  type: 'info',
+                                  title: 'Експорт даних',
+                                  message:
+                                    'Функція експорту даних буде реалізована пізніше.',
+                                  duration: 3000,
+                                })
+                              }
+                              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white/80 px-4 py-2 text-xs font-medium text-gray-800 shadow-sm transition hover:border-emerald-400 hover:text-emerald-700 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-100 dark:hover:border-emerald-500"
+                            >
+                              <Download className="h-4 w-4" />
+                              Завантажити копію даних
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-red-600 dark:text-red-300">
+                            Небезпечна зона
+                          </p>
+                          <div className="rounded-2xl border border-red-200 bg-red-50/80 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
+                            <p className="font-semibold mb-1">
+                              Видалення акаунта
+                            </p>
+                            <p className="mb-3 text-xs">
+                              Після видалення акаунта всі ваші замовлення, історія
+                              та збережені дані будуть безповоротно видалені.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleDeleteAccount}
+                              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Видалити акаунт
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </SectionShell>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
-        </motion.header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar Navigation */}
-          <GlassCard className="p-6 lg:col-span-1 h-fit">
-            <nav className="space-y-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors duration-200 ${
-                    activeSection === item.id
-                      ? 'bg-emerald-500 text-white'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-800/50'
-                  }`}
-                >
-                  {item.icon}
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              ))}
-            </nav>
-          </GlassCard>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3 space-y-6">
-            <AnimatePresence mode="wait">
-              {activeSection === 'profile' && (
-                <motion.div
-                  key="profile"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <SettingsSection 
-                    title="Profile Information" 
-                    description="Update your personal details and how you appear on PlantShop"
-                    icon={<User className="w-5 h-5" />}
-                  >
-                    <div className="space-y-6">
-                      {/* Avatar Section */}
-                      <div className="flex items-center gap-6">
-                        <div className="relative">
-                          <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center text-white font-semibold text-xl">
-                            {user.name.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg"
-                          >
-                            <Camera className="w-4 h-4" />
-                          </motion.button>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900 dark:text-white">Profile Photo</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
-                            JPG, GIF or PNG. Max size 5MB.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Form Fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <InputField
-                          label="Full Name"
-                          value={user.name}
-                          onChange={(value) => handleUserUpdate('name', value)}
-                          placeholder="Enter your full name"
-                          icon={<User className="w-5 h-5" />}
-                        />
-                        <InputField
-                          label="Email Address"
-                          type="email"
-                          value={user.email}
-                          onChange={(value) => handleUserUpdate('email', value)}
-                          placeholder="Enter your email"
-                          icon={<Mail className="w-5 h-5" />}
-                        />
-                        <InputField
-                          label="Phone Number"
-                          type="tel"
-                          value={user.phone}
-                          onChange={(value) => handleUserUpdate('phone', value)}
-                          placeholder="Enter your phone number"
-                          icon={<Phone className="w-5 h-5" />}
-                        />
-                        <InputField
-                          label="Address"
-                          value={user.address}
-                          onChange={(value) => handleUserUpdate('address', value)}
-                          placeholder="Enter your address"
-                          icon={<MapPin className="w-5 h-5" />}
-                        />
-                      </div>
-
-                      <InputField
-                        label="Bio"
-                        value={user.bio}
-                        onChange={(value) => handleUserUpdate('bio', value)}
-                        placeholder="Tell us about yourself and your plant journey..."
-                      />
-                    </div>
-                  </SettingsSection>
-                </motion.div>
-              )}
-
-              {activeSection === 'notifications' && (
-                <motion.div
-                  key="notifications"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <SettingsSection 
-                    title="Notification Preferences" 
-                    description="Choose how and when you want to be notified"
-                    icon={<Bell className="w-5 h-5" />}
-                  >
-                    <div className="space-y-6">
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Email Notifications</h4>
-                        <ToggleSwitch
-                          label="Email notifications"
-                          enabled={notifications.emailNotifications}
-                          onChange={(value) => handleNotificationToggle('emailNotifications', value)}
-                        />
-                        <ToggleSwitch
-                          label="Order updates and tracking"
-                          enabled={notifications.orderUpdates}
-                          onChange={(value) => handleNotificationToggle('orderUpdates', value)}
-                        />
-                        <ToggleSwitch
-                          label="Plant care reminders"
-                          enabled={notifications.careReminders}
-                          onChange={(value) => handleNotificationToggle('careReminders', value)}
-                        />
-                        <ToggleSwitch
-                          label="Promotional emails"
-                          enabled={notifications.promotional}
-                          onChange={(value) => handleNotificationToggle('promotional', value)}
-                        />
-                      </div>
-
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Push Notifications</h4>
-                        <ToggleSwitch
-                          label="Push notifications"
-                          enabled={notifications.pushNotifications}
-                          onChange={(value) => handleNotificationToggle('pushNotifications', value)}
-                        />
-                      </div>
-                    </div>
-                  </SettingsSection>
-                </motion.div>
-              )}
-
-              {activeSection === 'appearance' && (
-                <motion.div
-                  key="appearance"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <SettingsSection 
-                    title="Appearance" 
-                    description="Customize how PlantShop looks and feels"
-                    icon={<Palette className="w-5 h-5" />}
-                  >
-                    <div className="space-y-8">
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Theme</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setIsDark(false)}
-                            className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                              !isDark 
-                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
-                                : 'border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50'
-                            }`}
-                          >
-                            <Sun className="w-6 h-6 mb-2 text-gray-600 dark:text-gray-300" />
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">Light</div>
-                          </motion.button>
-                          
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setIsDark(true)}
-                            className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                              isDark 
-                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
-                                : 'border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50'
-                            }`}
-                          >
-                            <Moon className="w-6 h-6 mb-2 text-gray-600 dark:text-gray-300" />
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">Dark</div>
-                          </motion.button>
-                          
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className="p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 opacity-50 cursor-not-allowed"
-                          >
-                            <Globe className="w-6 h-6 mb-2 text-gray-600 dark:text-gray-300" />
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">System</div>
-                          </motion.button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Language</h4>
-                        <select 
-                          value={language}
-                          onChange={(e) => setLanguage(e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
-                        >
-                          <option value="en">English</option>
-                          <option value="es">Español</option>
-                          <option value="fr">Français</option>
-                          <option value="de">Deutsch</option>
-                        </select>
-                      </div>
-                    </div>
-                  </SettingsSection>
-                </motion.div>
-              )}
-
-              {activeSection === 'privacy' && (
-                <motion.div
-                  key="privacy"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <SettingsSection 
-                    title="Privacy & Security" 
-                    description="Manage your privacy settings and account security"
-                    icon={<Shield className="w-5 h-5" />}
-                  >
-                    <div className="space-y-8">
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Profile Visibility</h4>
-                        <RadioGroup
-                          options={[
-                            {
-                              value: 'public',
-                              label: 'Public',
-                              description: 'Anyone can see your profile and plant collection'
-                            },
-                            {
-                              value: 'friends',
-                              label: 'Friends Only',
-                              description: 'Only your approved followers can see your profile'
-                            },
-                            {
-                              value: 'private',
-                              label: 'Private',
-                              description: 'Only you can see your profile'
-                            }
-                          ]}
-                          value={privacy.profileVisibility}
-                          onChange={(value) => handlePrivacyUpdate('profileVisibility', value)}
-                        />
-                      </div>
-
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Data & Privacy</h4>
-                        <ToggleSwitch
-                          label="Allow data sharing for research"
-                          enabled={privacy.dataSharing}
-                          onChange={(value) => handlePrivacyUpdate('dataSharing', value)}
-                        />
-                        <ToggleSwitch
-                          label="Personalized advertising"
-                          enabled={privacy.personalizedAds}
-                          onChange={(value) => handlePrivacyUpdate('personalizedAds', value)}
-                        />
-                      </div>
-
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Change Password</h4>
-                        <div className="grid grid-cols-1 gap-4">
-                          <InputField
-                            label="Current Password"
-                            type="password"
-                            value=""
-                            onChange={() => {}}
-                            placeholder="Enter current password"
-                            icon={<Lock className="w-5 h-5" />}
-                          />
-                          <InputField
-                            label="New Password"
-                            type="password"
-                            value=""
-                            onChange={() => {}}
-                            placeholder="Enter new password"
-                            icon={<Lock className="w-5 h-5" />}
-                          />
-                          <InputField
-                            label="Confirm New Password"
-                            type="password"
-                            value=""
-                            onChange={() => {}}
-                            placeholder="Confirm new password"
-                            icon={<Lock className="w-5 h-5" />}
-                          />
-                        </div>
-                        <PrimaryButton icon={<Lock className="w-4 h-4" />}>
-                          Update Password
-                        </PrimaryButton>
-                      </div>
-                    </div>
-                  </SettingsSection>
-                </motion.div>
-              )}
-
-              {activeSection === 'data' && (
-                <motion.div
-                  key="data"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <SettingsSection 
-                    title="Data & Storage" 
-                    description="Manage your data and storage preferences"
-                    icon={<Download className="w-5 h-5" />}
-                  >
-                    <div className="space-y-8">
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Data Management</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <PrimaryButton icon={<Download className="w-4 h-4" />}>
-                            Export Data
-                          </PrimaryButton>
-                          <SecondaryButton icon={<Trash2 className="w-4 h-4" />}>
-                            Clear Cache
-                          </SecondaryButton>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Account Actions</h4>
-                        <div className="p-4 border border-red-200 dark:border-red-800 rounded-xl bg-red-50 dark:bg-red-900/20">
-                          <h5 className="font-semibold text-red-800 dark:text-red-200 mb-2">
-                            Delete Account
-                          </h5>
-                          <p className="text-sm text-red-600 dark:text-red-300 mb-4">
-                            This action cannot be undone. All your data, plants, and history will be permanently deleted.
-                          </p>
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 transition-colors"
-                          >
-                            Delete My Account
-                          </motion.button>
-                        </div>
-                      </div>
-                    </div>
-                  </SettingsSection>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
+        </main>
       </div>
-    </div>
+    </LazyMotion>
   );
 }
