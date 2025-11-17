@@ -1,6 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useRef,
+} from 'react';
 
 import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
 import { useRouter } from 'next/navigation';
@@ -14,8 +21,17 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string, captchaToken: string) => Promise<{ success: boolean; message?: string }>;
-  register: (email: string, password: string, name: string, captchaToken: string) => Promise<{ success: boolean; message?: string }>;
+  login: (
+    email: string,
+    password: string,
+    captchaToken: string,
+  ) => Promise<{ success: boolean; message?: string }>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    captchaToken: string,
+  ) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   ensureAuthAndGo: (path: string) => Promise<void>;
@@ -24,6 +40,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 let globalMountCount = 0;
+
+// 🔑 ключ маркера авторизации в localStorage
+const AUTH_MARKER_KEY = 'ps_auth_marker';
+
+// вспомогательные функции для работы с маркером
+const hasAuthMarker = () => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(AUTH_MARKER_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const setAuthMarker = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(AUTH_MARKER_KEY, '1');
+  } catch {
+    // ignore
+  }
+};
+
+const clearAuthMarker = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(AUTH_MARKER_KEY);
+  } catch {
+    // ignore
+  }
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const mountId = useRef(++globalMountCount);
@@ -35,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   const ensureAuthAndGo = async (path: string) => {
+    // если уже на нужном пути и есть пользователь — лишний запрос/редирект не нужен
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
       if (currentPath === path && user) {
@@ -42,10 +90,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // ⚠️ если у нас вообще нет маркера авторизации,
+    // не дергаем /auth/me, сразу отправляем на логин
+    if (!hasAuthMarker()) {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        search.set('auth', 'login');
+        router.push('/?' + search.toString());
+      }
+      return;
+    }
+
     try {
       const { res, unauthorized } = await fetchWithRefresh('/auth/me');
 
       if (unauthorized) {
+        clearAuthMarker();
         setUser(null);
 
         if (typeof window !== 'undefined') {
@@ -68,6 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       router.push(path);
     } catch (error) {
+      clearAuthMarker();
+      setUser(null);
       if (typeof window !== 'undefined') {
         const search = new URLSearchParams(window.location.search);
         search.set('auth', 'login');
@@ -77,12 +139,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // ✅ минимизация запросов: если маркера нет — не зовём checkAuth
+    if (hasCheckedAuth.current) return;
+    hasCheckedAuth.current = true;
 
-    if (!hasCheckedAuth.current) {
-      hasCheckedAuth.current = true;
-      checkAuth();
+    if (!hasAuthMarker()) {
+      // пользователь явно не логинился в этом браузере
+      setUser(null);
+      setIsLoading(false);
+      return;
     }
 
+    // если маркер есть — уже имеет смысл проверить /auth/me
+    checkAuth();
   }, []);
 
   const checkAuth = async () => {
@@ -95,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { res, unauthorized } = await fetchWithRefresh('/auth/me');
 
       if (unauthorized) {
+        clearAuthMarker();
         setUser(null);
         return;
       }
@@ -122,7 +192,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string, captchaToken: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (
+    email: string,
+    password: string,
+    captchaToken: string,
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsLoading(true);
 
@@ -134,11 +208,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await res.json();
-      
+
       if (data.status === 'ok') {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // сразу ставим маркер — мы знаем, что бэк выдал куки
+        setAuthMarker();
+
+        // лёгкая пауза для установки/синка кук
+        await new Promise((resolve) => setTimeout(resolve, 100));
         await checkAuth();
-        
+
         return { success: true };
       } else {
         return { success: false, message: data.message || 'Login failed' };
@@ -150,19 +228,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, name: string, captchaToken: string): Promise<{ success: boolean; message?: string }> => {
+  const register = async (
+    email: string,
+    password: string,
+    name: string,
+    captchaToken: string,
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password, name, captchaToken }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password, name, captchaToken }),
+        },
+      );
 
       const data = await res.json();
 
       if (data.status === 'ok') {
+        // регистрация успешна, считаем что пользователь авторизован
+        setAuthMarker();
+
         if (data.user) {
           setUser(data.user);
           return { success: true };
@@ -171,7 +260,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return loginResult;
         }
       } else {
-        return { success: false, message: data.message || 'Registration failed' };
+        return {
+          success: false,
+          message: data.message || 'Registration failed',
+        };
       }
     } catch (error) {
       return { success: false, message: 'Network error' };
@@ -189,12 +281,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('🔐 Logout error:', error);
     } finally {
+      clearAuthMarker();
       setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, checkAuth, ensureAuthAndGo }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        register,
+        logout,
+        checkAuth,
+        ensureAuthAndGo,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

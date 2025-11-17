@@ -11,7 +11,7 @@ const PROTECTED_PATHS = {
     requireAuth: true,
     requireAdmin: false,
   },
-  "/admin": {
+    "/admin": {
     requireAuth: true,
     requireAdmin: true,
   },
@@ -47,10 +47,10 @@ async function checkAuth(request: NextRequest) {
     try {
       const data = await res.json();
       return data;
-    } catch (err) {
+    } catch {
       return null;
     }
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -69,24 +69,29 @@ export default async function proxy(request: NextRequest) {
   const cookieHeader = request.headers.get("cookie") || "";
   const hasRefreshToken = cookieHeader.includes("refresh_token=");
 
-  const authData = await checkAuth(request);
-
-  if (!authData?.user) {
-    if (hasRefreshToken) {
-      return NextResponse.next();
-    }
-
+  // ✅ если рефреш-куки вообще нет — нет смысла дёргать /auth/me
+  if (!hasRefreshToken) {
     const loginUrl = new URL("/", request.url);
-    loginUrl.searchParams.set("auth", "login");  
+    loginUrl.searchParams.set("auth", "login");
     return NextResponse.redirect(loginUrl);
   }
 
+  // есть refresh_token — можно попробовать аккуратно спросить бек
+  const authData = await checkAuth(request);
+
+  if (!authData?.user) {
+    // тут есть refresh_token, но /auth/me не вернул юзера
+    // даём фронтенду шанс сделать refresh через fetchWithRefresh
+    return NextResponse.next();
+  }
+
   const user = authData.user;
-  const routeConfig = PROTECTED_PATHS[matchedPath as keyof typeof PROTECTED_PATHS];
+  const routeConfig =
+    PROTECTED_PATHS[matchedPath as keyof typeof PROTECTED_PATHS];
 
   if (routeConfig.requireAdmin && !user.isAdmin) {
     const loginUrl = new URL("/", request.url);
-    loginUrl.searchParams.set("auth", "login");  
+    loginUrl.searchParams.set("auth", "login");
     return NextResponse.redirect(loginUrl);
   }
 

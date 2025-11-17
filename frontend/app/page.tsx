@@ -19,7 +19,6 @@ import React, {
 } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import Particles from "./components/Particles";
 import {
   Leaf,
   Sparkles,
@@ -36,6 +35,7 @@ import {
   Home,
   Building2,
   Gift,
+  MessageCircle,
 } from "lucide-react";
 
 // Types
@@ -75,10 +75,8 @@ interface StepItem {
 
 // Optimized motion components
 const MotionDiv = m.div;
-const MotionH2 = m.h2;
-const MotionP = m.p;
 
-// Animation constants for consistency
+// Animation constants
 const ANIMATION = {
   ease: cubicBezier(0.25, 0.46, 0.45, 0.94),
   duration: {
@@ -88,7 +86,7 @@ const ANIMATION = {
   },
 } as const;
 
-// Simple variants for new sections
+// Variants
 const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
@@ -107,7 +105,7 @@ const staggerContainer: Variants = {
   },
 };
 
-// Data for new sections
+// Data
 const directions: DirectionItem[] = [
   {
     title: "Для дому",
@@ -173,7 +171,7 @@ const benefits: BenefitItem[] = [
     points: [
       "Фіксований кошторис",
       "Реалістичні строки",
-      "Післяпроєктний супровід",
+      "Після проєктний супровід",
     ],
     icon: <Users className="w-6 h-6" />,
   },
@@ -184,7 +182,7 @@ const steps: StepItem[] = [
     step: 1,
     title: "Знайомство та запит",
     description:
-      "Ви заповнюєте коротку форму або зв’язуєтесь з нами. Ми уточнюємо ваші побажання та бюджет.",
+      "Ви заповнюєте коротку форму або зв'язуєтесь з нами. Ми уточнюємо ваші побажання та бюджет.",
     icon: <Leaf className="w-5 h-5" />,
   },
   {
@@ -211,7 +209,7 @@ const steps: StepItem[] = [
 ];
 
 export default function HomePage() {
-  // Hero images with proper typing
+  // Hero images
   const heroImages: HeroImage[] = useMemo(
     () => [
       {
@@ -238,18 +236,18 @@ export default function HomePage() {
     []
   );
 
-  // State management
+  // State
   const [current, setCurrent] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Optimized mouse position with motion values
+  // Mouse position
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const springMouseX = useSpring(mouseX, { stiffness: 300, damping: 30 });
   const springMouseY = useSpring(mouseY, { stiffness: 300, damping: 30 });
 
-  // Mobile detection with debounce
+  // Mobile detection
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -270,7 +268,7 @@ export default function HomePage() {
     };
   }, []);
 
-  // Optimized mouse move with throttling and motion values
+  // Mouse move
   useEffect(() => {
     if (isMobile) return;
 
@@ -293,7 +291,7 @@ export default function HomePage() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [isMobile, mouseX, mouseY]);
 
-  // Optimized auto-rotate carousel
+  // Auto-rotate carousel
   useEffect(() => {
     if (isMobile) return;
 
@@ -392,27 +390,51 @@ export default function HomePage() {
 
   return (
     <LazyMotion features={domAnimation} strict>
-      {/* Background */}
-      <div className="flex flex-col min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-emerald-900/10 text-gray-900 dark:text-gray-100 transition-colors duration-500 overflow-hidden">
-        <main className="flex-grow">
-          {/* 🔥 ТВОЙ HERO-БЛОК — БЕЗ ИЗМЕНЕНИЙ */}
-          <HeroSection
-            current={current}
-            isAnimating={isAnimating}
-            isMobile={isMobile}
-            heroImages={heroImages}
-            mouseX={springMouseX}
-            mouseY={springMouseY}
-            statsData={statsData}
-            onDotClick={handleDotClick}
-          />
+      {/* 🎨 ЄДИНИЙ ГЛОБАЛЬНИЙ ФОН З КРАСИВИМИ ГРАДІЄНТАМИ */}
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/20">
+        {/* Статичні світлові плями (абсолютне позиціонування тільки в межах контенту) */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Верхня ліва пляма */}
+          <div className="absolute -top-1/4 -left-1/4 w-[800px] h-[800px] bg-gradient-to-br from-emerald-400/30 via-green-300/20 to-transparent rounded-full blur-3xl" />
 
-          {/* ⬇️ НОВЫЙ НИЗ ГЛАВНОЙ */}
-          <DirectionsSection />
-          <BenefitsSection />
-          <ProcessSection />
-          <FinalCTASection />
-        </main>
+          {/* Центральна пляма */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] bg-gradient-to-tr from-green-400/25 via-emerald-300/15 to-transparent rounded-full blur-3xl" />
+
+          {/* Права нижня пляма */}
+          <div className="absolute top-2/3 -right-1/4 w-[900px] h-[900px] bg-gradient-to-tl from-emerald-500/35 via-green-400/20 to-transparent rounded-full blur-3xl" />
+
+          {/* Додаткова акцентна пляма */}
+          <div className="absolute top-2/3 left-1/4 w-[600px] h-[600px] bg-gradient-to-br from-green-300/20 to-transparent rounded-full blur-3xl" />
+
+          {/* Маленькі світлові акценти тільки для desktop */}
+          {!isMobile && (
+            <>
+              <div className="absolute top-1/4 right-1/3 w-[400px] h-[400px] bg-emerald-400/15 rounded-full blur-3xl" />
+              <div className="absolute top-1/2 left-1/3 w-[500px] h-[500px] bg-green-300/12 rounded-full blur-3xl" />
+            </>
+          )}
+        </div>
+
+        {/* Контент */}
+        <div className="relative">
+          <main>
+            <HeroSection
+              current={current}
+              isAnimating={isAnimating}
+              isMobile={isMobile}
+              heroImages={heroImages}
+              mouseX={springMouseX}
+              mouseY={springMouseY}
+              statsData={statsData}
+              onDotClick={handleDotClick}
+            />
+
+            <DirectionsSection />
+            <BenefitsSection />
+            <ProcessSection />
+            <FinalCTASection />
+          </main>
+        </div>
       </div>
     </LazyMotion>
   );
@@ -433,7 +455,7 @@ interface HeroSectionProps {
 
 const HeroSection = ({
   current,
-  isAnimating, // оставляю в пропсах, если захочешь ещё что-то добавить
+  isAnimating,
   isMobile,
   heroImages,
   mouseX,
@@ -442,8 +464,8 @@ const HeroSection = ({
   onDotClick,
 }: HeroSectionProps) => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black dark:bg-gray-900">
-      {/* Dynamic background */}
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Hero background з картинкою */}
       <div className="absolute inset-0 overflow-hidden">
         <AnimatePresence mode="wait">
           <MotionDiv
@@ -477,31 +499,9 @@ const HeroSection = ({
           </MotionDiv>
         </AnimatePresence>
 
-        {/* Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-t from-green-950/85 dark:from-gray-900/90 via-green-900/40 dark:via-gray-800/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/20 dark:from-gray-900/30 to-transparent" />
-
-        {/* Light spots */}
-        {!isMobile && (
-          <>
-            <MotionDiv
-              animate={{
-                scale: [1, 1.1, 1],
-                opacity: [0.1, 0.15, 0.1],
-              }}
-              transition={{ repeat: Infinity, duration: 8, ease: "easeInOut" }}
-              className="absolute top-1/4 left-1/4 w-64 h-64 bg-emerald-400/10 dark:bg-emerald-500/5 blur-[80px] rounded-full"
-            />
-            <MotionDiv
-              animate={{
-                scale: [1.1, 1, 1.1],
-                opacity: [0.15, 0.2, 0.15],
-              }}
-              transition={{ repeat: Infinity, duration: 10, ease: "easeInOut" }}
-              className="absolute bottom-1/4 right-1/4 w-60 h-60 bg-green-300/15 dark:bg-green-400/10 blur-[70px] rounded-full"
-            />
-          </>
-        )}
+        {/* Градієнти поверх зображення */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
       </div>
 
       {/* Content */}
@@ -528,17 +528,16 @@ const HeroSection = ({
               </h1>
             </MotionDiv>
 
-            {/* Description */}
-            <MotionP
+            <m.p
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-              className="text-lg sm:text-xl md:text-2xl text-green-50/90 dark:text-green-100/80 max-w-3xl lg:max-w-4xl mx-auto leading-relaxed font-light px-2 sm:px-4"
+              className="text-lg sm:text-xl md:text-2xl text-green-50/90 max-w-3xl lg:max-w-4xl mx-auto leading-relaxed font-light px-2 sm:px-4"
             >
               Ексклюзивні рослини, професійний догляд та авторські рішення
               <br className="hidden sm:block" />
               для створення ідеального простору
-            </MotionP>
+            </m.p>
           </div>
 
           {/* CTA Buttons */}
@@ -548,12 +547,24 @@ const HeroSection = ({
             transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
             className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 lg:mb-10"
           >
-            <PrimaryButton
+            <Link
               href="/plants"
-              icon={<Leaf className="w-4 h-4" />}
-              text="До каталогу"
-            />
-            <SecondaryButton icon={<Play className="w-3 h-3" />} text="Відео тур" />
+              className="group relative inline-flex items-center justify-center gap-2 bg-white text-green-800 font-bold py-3 sm:py-3 px-6 sm:px-8 rounded-xl sm:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden min-w-[160px] sm:min-w-[180px]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
+              <Leaf className="w-4 h-4" />
+              <span className="text-sm sm:text-base whitespace-nowrap">
+                До каталогу
+              </span>
+              <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform duration-300" />
+            </Link>
+
+            <button className="group inline-flex items-center justify-center gap-2 bg-transparent border border-white/40 text-white font-semibold py-3 sm:py-3 px-5 sm:px-6 rounded-xl sm:rounded-2xl backdrop-blur-md hover:bg-white/10 hover:border-white/60 transition-all duration-300 hover:-translate-y-1 min-w-[140px] sm:min-w-[150px]">
+              <Play className="w-3 h-3" />
+              <span className="text-sm sm:text-base whitespace-nowrap">
+                Відео тур
+              </span>
+            </button>
           </MotionDiv>
 
           {/* Stats */}
@@ -565,7 +576,24 @@ const HeroSection = ({
           >
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-2 sm:px-0">
               {statsData.map((stat, index) => (
-                <StatCard key={index} stat={stat} index={index} />
+                <m.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: 0.8 + index * 0.1, duration: 0.5 }}
+                  className="group text-center p-3 sm:p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div className="inline-flex items-center justify-center p-2 bg-emerald-500/20 rounded-lg mb-2 group-hover:scale-110 transition-transform duration-300">
+                    <div className="text-emerald-300">{stat.icon}</div>
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold text-white mb-1">
+                    {stat.value}
+                    {stat.suffix}
+                  </div>
+                  <div className="text-green-200/90 text-xs font-medium leading-tight">
+                    {stat.label}
+                  </div>
+                </m.div>
               ))}
             </div>
           </MotionDiv>
@@ -583,7 +611,7 @@ const HeroSection = ({
             className={`relative h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
               current === i
                 ? "w-6 sm:w-8 bg-emerald-400"
-                : "w-1.5 sm:w-2 bg-white/50 dark:bg-gray-400/50 hover:bg-white/70 dark:hover:bg-gray-300/70"
+                : "w-1.5 sm:w-2 bg-white/50 hover:bg-white/70"
             }`}
           >
             {current === i && (
@@ -597,95 +625,28 @@ const HeroSection = ({
         ))}
       </div>
 
-      {!isMobile && <ScrollIndicator />}
+      {!isMobile && (
+        <MotionDiv
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2, duration: 0.8 }}
+          className="absolute bottom-6 sm:bottom-8 right-6 sm:right-8 flex items-center gap-2 text-white/60 text-sm font-medium"
+        >
+          <MotionDiv
+            animate={{ y: [0, 6, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+            className="w-3 h-4 border border-white/30 rounded-full flex justify-center"
+          >
+            <div className="w-px h-1.5 bg-white/50 rounded-full mt-1" />
+          </MotionDiv>
+          Прокрутіть
+        </MotionDiv>
+      )}
     </section>
   );
 };
 
-// Buttons
-const PrimaryButton = ({
-  href,
-  icon,
-  text,
-}: {
-  href: string;
-  icon: ReactNode;
-  text: string;
-}) => (
-  <Link
-    href={href}
-    className="group relative inline-flex items-center justify-center gap-2 bg-white dark:bg-gray-800 text-green-800 dark:text-green-200 font-bold py-3 sm:py-3 px-6 sm:px-8 rounded-xl sm:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden min-w-[160px] sm:min-w-[180px]"
-  >
-    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
-    <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute -inset-full top-0 transform skew-x-12 bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover:animate-shine transition-all duration-1000" />
-    </div>
-    {icon}
-    <span className="text-sm sm:text-base whitespace-nowrap">{text}</span>
-    <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform duration-300 flex-shrink-0" />
-  </Link>
-);
-
-const SecondaryButton = ({
-  icon,
-  text,
-}: {
-  icon: ReactNode;
-  text: string;
-}) => (
-  <button className="group relative inline-flex items-center justify-center gap-2 bg-transparent border border-white/40 dark:border-gray-400/40 text-white dark:text-gray-200 font-semibold py-3 sm:py-3 px-5 sm:px-6 rounded-xl sm:rounded-2xl backdrop-blur-md hover:bg-white/10 dark:hover:bg-gray-700/50 hover:border-white/60 dark:hover:border-gray-300/60 transition-all duration-300 hover:-translate-y-1 min-w-[140px] sm:min-w-[150px]">
-    {icon}
-    <span className="text-sm sm:text-base whitespace-nowrap">{text}</span>
-  </button>
-);
-
-// Stat Card
-const StatCard = ({
-  stat,
-  index,
-}: {
-  stat: StatItem;
-  index: number;
-}) => (
-  <m.div
-    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-    animate={{ opacity: 1, scale: 1, y: 0 }}
-    transition={{ delay: 0.8 + index * 0.1, duration: 0.5 }}
-    className="group text-center p-3 sm:p-3 bg-white/5 dark:bg-gray-800/30 backdrop-blur-sm rounded-xl border border-white/10 dark:border-gray-600/30 hover:bg-white/10 dark:hover:bg-gray-800/50 transition-all duration-300 hover:-translate-y-1"
-  >
-    <div className="inline-flex items-center justify-center p-2 bg-emerald-500/20 rounded-lg mb-2 group-hover:scale-110 transition-transform duration-300">
-      <div className="text-emerald-300">{stat.icon}</div>
-    </div>
-    <div className="text-xl sm:text-2xl font-bold text-white mb-1">
-      {stat.value}
-      {stat.suffix}
-    </div>
-    <div className="text-green-200/90 dark:text-green-300/90 text-xs font-medium leading-tight">
-      {stat.label}
-    </div>
-  </m.div>
-);
-
-// Scroll Indicator
-const ScrollIndicator = () => (
-  <MotionDiv
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ delay: 1.2, duration: 0.8 }}
-    className="absolute bottom-6 sm:bottom-8 right-6 sm:right-8 flex items-center gap-2 text-white/60 dark:text-gray-300/60 text-sm font-medium"
-  >
-    <MotionDiv
-      animate={{ y: [0, 6, 0] }}
-      transition={{ repeat: Infinity, duration: 1.5 }}
-      className="w-3 h-4 border border-white/30 dark:border-gray-400/30 rounded-full flex justify-center"
-    >
-      <div className="w-px h-1.5 bg-white/50 dark:bg-gray-400/50 rounded-full mt-1" />
-    </MotionDiv>
-    Прокрутіть
-  </MotionDiv>
-);
-
-// ================= New lower sections =================
+// ================= Section Header Component =================
 
 interface SectionHeaderProps {
   eyebrow?: string;
@@ -706,16 +667,16 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
   return (
     <m.div variants={fadeInUp} className={`flex flex-col gap-3 ${alignment}`}>
       {eyebrow && (
-        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50/80 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-          <Sparkles className="w-3 h-3" />
+        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100/80 px-4 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm dark:bg-emerald-900/30 dark:text-emerald-300">
+          <Sparkles className="w-3.5 h-3.5" />
           {eyebrow}
         </span>
       )}
-      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+      <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
         {title}
       </h2>
       {description && (
-        <p className="max-w-2xl text-sm sm:text-base text-gray-600 dark:text-gray-300">
+        <p className="max-w-2xl text-base sm:text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
           {description}
         </p>
       )}
@@ -723,16 +684,17 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
   );
 };
 
+// ================= Directions Section =================
+
 const DirectionsSection: React.FC = () => (
-  <section className="relative py-12 sm:py-16 lg:py-20 bg-white dark:bg-gray-900 transition-colors duration-300">
-    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/70 to-transparent dark:via-emerald-800/60" />
+  <section className="relative py-20 sm:py-24 lg:py-32">
     <div className="max-w-7xl mx-auto px-4 sm:px-6">
       <m.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
         variants={staggerContainer}
-        className="flex flex-col gap-10"
+        className="flex flex-col gap-12 lg:gap-16"
       >
         <SectionHeader
           eyebrow="Напрямки роботи"
@@ -744,32 +706,36 @@ const DirectionsSection: React.FC = () => (
           variants={staggerContainer}
           className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {directions.map((item) => (
+          {directions.map((item, index) => (
             <m.article
               key={item.title}
               variants={fadeInUp}
-              className="group flex flex-col gap-4 rounded-2xl border border-emerald-100 bg-white/80 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-emerald-900/60 dark:bg-gray-900/80"
+              className="group relative flex flex-col gap-5 rounded-3xl border border-gray-100/50 bg-white/60 backdrop-blur-sm p-7 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl dark:border-gray-800/50 dark:bg-gray-900/40"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
+              {/* Світловий ефект при ховері */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-400/0 to-green-400/0 opacity-0 transition-opacity duration-300 group-hover:from-emerald-400/5 group-hover:to-green-400/5 group-hover:opacity-100" />
+
+              <div className="relative flex items-center gap-4">
+                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/30 transition-transform duration-300 group-hover:scale-110">
                   {item.icon}
                 </div>
                 <div className="flex flex-col">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-50">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                     {item.title}
                   </h3>
-                  <span className="text-xs text-emerald-700/80 dark:text-emerald-200/90">
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
                     {item.tag}
                   </span>
                 </div>
               </div>
 
-              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p className="relative text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                 {item.description}
               </p>
 
-              <div className="mt-auto pt-3 text-xs text-emerald-700/80 dark:text-emerald-200/90">
-                Індивідуальний підбір під ваш простір та освітлення.
+              <div className="relative mt-auto flex items-center gap-2 text-sm font-medium text-emerald-700 transition-colors group-hover:text-emerald-600 dark:text-emerald-400 dark:group-hover:text-emerald-300">
+                <span>Дізнатись більше</span>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             </m.article>
           ))}
@@ -779,55 +745,55 @@ const DirectionsSection: React.FC = () => (
   </section>
 );
 
-const BenefitsSection: React.FC = () => (
-  <section className="relative py-14 sm:py-18 lg:py-20 bg-gradient-to-br from-emerald-50/70 via-white to-green-50/60 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/30">
-    <div className="absolute inset-0 pointer-events-none">
-      <div className="absolute left-10 top-10 h-32 w-32 rounded-full bg-emerald-100/60 blur-3xl dark:bg-emerald-900/60" />
-      <div className="absolute right-10 bottom-10 h-40 w-40 rounded-full bg-green-100/60 blur-3xl dark:bg-emerald-900/40" />
-    </div>
+// ================= Benefits Section =================
 
-    <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
+const BenefitsSection: React.FC = () => (
+  <section className="relative py-20 sm:py-24 lg:py-32">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
       <m.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
         variants={staggerContainer}
-        className="flex flex-col gap-10"
+        className="flex flex-col gap-12 lg:gap-16"
       >
         <SectionHeader
           eyebrow="Наш підхід"
           title="Чому клієнти повертаються до нас знову"
-          description="Ми будуємо довготривалі стосунки — з людьми та їхніми рослинами. У кожному проєкті поєднуємо естетику, практичність та реалістні умови догляду."
+          description="Ми будуємо довготривалі стосунки — з людьми та їхніми рослинами. У кожному проєкті поєднуємо естетику, практичність та реалістичні умови догляду."
         />
 
         <m.div
           variants={staggerContainer}
           className="grid gap-6 md:grid-cols-2"
         >
-          {benefits.map((item) => (
+          {benefits.map((item, index) => (
             <m.article
               key={item.title}
               variants={fadeInUp}
-              className="group relative flex flex-col gap-4 rounded-2xl border border-emerald-100/80 bg-white/80 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-emerald-900/60 dark:bg-gray-900/85"
+              className="group relative flex flex-col gap-5 rounded-3xl border border-gray-100/50 bg-white/60 backdrop-blur-sm p-7 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl dark:border-gray-800/50 dark:bg-gray-900/40"
             >
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/40">
+              {/* Світловий ефект */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-400/0 to-green-400/0 opacity-0 transition-opacity duration-300 group-hover:from-emerald-400/5 group-hover:to-green-400/5 group-hover:opacity-100" />
+
+              <div className="relative flex items-start gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/30">
                   {item.icon}
                 </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-50">
+                <div className="flex-1">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                     {item.title}
                   </h3>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                     {item.description}
                   </p>
                 </div>
               </div>
 
-              <ul className="mt-1 space-y-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
-                {item.points.map((point) => (
-                  <li key={point} className="flex items-start gap-2">
-                    <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <ul className="relative space-y-2.5 text-sm text-gray-700 dark:text-gray-300">
+                {item.points.map((point, idx) => (
+                  <li key={idx} className="flex items-start gap-3">
+                    <span className="mt-1.5 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
                     <span>{point}</span>
                   </li>
                 ))}
@@ -840,15 +806,17 @@ const BenefitsSection: React.FC = () => (
   </section>
 );
 
+// ================= Process Section =================
+
 const ProcessSection: React.FC = () => (
-  <section className="relative py-14 sm:py-18 lg:py-20 bg-white dark:bg-gray-900 transition-colors duration-300">
+  <section className="relative py-20 sm:py-24 lg:py-32">
     <div className="max-w-7xl mx-auto px-4 sm:px-6">
       <m.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
         variants={staggerContainer}
-        className="flex flex-col gap-10"
+        className="flex flex-col gap-12 lg:gap-16"
       >
         <SectionHeader
           eyebrow="Як це відбувається"
@@ -858,30 +826,41 @@ const ProcessSection: React.FC = () => (
 
         <m.ol
           variants={staggerContainer}
-          className="grid gap-5 md:grid-cols-2 lg:grid-cols-4"
+          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
         >
-          {steps.map((step) => (
+          {steps.map((step, index) => (
             <m.li
               key={step.step}
               variants={fadeInUp}
-              className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white/80 p-4 text-sm shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-gray-800 dark:bg-gray-900/85"
+              className="relative flex flex-col gap-4 rounded-3xl border border-gray-100/50 bg-white/60 backdrop-blur-sm p-6 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl dark:border-gray-800/50 dark:bg-gray-900/40"
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[11px] text-white">
+              {/* З'єднувальна лінія між кроками */}
+              {index < steps.length - 1 && (
+                <div className="absolute left-full top-14 hidden h-0.5 w-6 bg-gradient-to-r from-emerald-400 to-transparent lg:block" />
+              )}
+
+              {/* Світловий ефект */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-400/0 to-green-400/0 opacity-0 transition-opacity duration-300 hover:from-emerald-400/5 hover:to-green-400/5 hover:opacity-100" />
+
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-sm font-bold text-white shadow-lg shadow-emerald-500/30">
                     {step.step}
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Крок
                   </span>
-                  <span>крок</span>
                 </div>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100/60 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                   {step.icon}
                 </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">
+
+              <div className="relative">
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                   {step.title}
                 </h3>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                   {step.description}
                 </p>
               </div>
@@ -891,17 +870,17 @@ const ProcessSection: React.FC = () => (
 
         <m.div
           variants={fadeInUp}
-          className="flex flex-col gap-3 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 px-4 py-4 text-xs sm:text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100 md:flex-row md:items-center md:justify-between"
+          className="flex flex-col items-center gap-4 rounded-3xl border border-emerald-200/60 bg-emerald-50/40 backdrop-blur-sm p-6 text-center shadow-lg dark:border-emerald-800/60 dark:bg-emerald-950/20 sm:flex-row sm:text-left"
         >
-          <p>
+          <p className="flex-1 text-sm text-emerald-900 dark:text-emerald-100">
             Щоб розпочати, достатньо надіслати кілька фото простору та коротко
             описати ваші очікування. Решту — ми візьмемо на себе.
           </p>
           <Link
             href="/consultation"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-400 bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:bg-emerald-400"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
           >
-            <Sparkles className="w-3 h-3" />
+            <Sparkles className="w-4 h-4" />
             Заповнити форму консультації
           </Link>
         </m.div>
@@ -910,44 +889,41 @@ const ProcessSection: React.FC = () => (
   </section>
 );
 
+// ================= Final CTA Section =================
+
 const FinalCTASection: React.FC = () => (
-  <section className="relative py-20 sm:py-24 px-4 sm:px-6 overflow-hidden">
-    {/* Фон-картинка + ефекти */}
-    <div className="absolute inset-0">
-      <Image
-        src="/images/plants-bg.jpg"
-        alt="Декоративні рослини на фоні"
-        fill
-        priority={false}
-        sizes="100vw"
-        className="object-cover"
-      />
-      {/* Напівпрозорий градієнт, щоб текст був читабельний */}
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/90 via-gray-900/75 to-gray-900/40 dark:from-gray-950/95 dark:via-gray-900/85 dark:to-gray-900/60" />
-      <Particles />
+  <section className="relative py-24 sm:py-32 lg:py-40 overflow-hidden">
+    {/* Темний оверлей для контрасту з текстом */}
+    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/60 to-black/80 dark:via-black/70 dark:to-black/90" />
+
+    {/* Додаткові світлові акценти без анімації */}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-green-500/15 rounded-full blur-3xl" />
     </div>
 
-    <div className="relative max-w-6xl mx-auto text-center text-white">
+    <div className="relative max-w-6xl mx-auto px-4 sm:px-6 text-center">
       <m.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
         variants={staggerContainer}
-        className="flex flex-col items-center gap-8"
+        className="flex flex-col items-center gap-10"
       >
-        <m.div variants={fadeInUp} className="space-y-4">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/60 bg-emerald-500/15 px-4 py-1.5 text-xs font-medium uppercase tracking-wide text-emerald-100">
-            <Star className="w-3 h-3" />
+        <m.div variants={fadeInUp} className="space-y-6">
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/50 bg-emerald-500/10 backdrop-blur-sm px-5 py-2 text-xs font-bold uppercase tracking-widest text-emerald-200">
+            <Star className="w-4 h-4" />
             Професійне озеленення без зайвих турбот
           </span>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight text-white">
             Готові до{" "}
-            <span className="bg-gradient-to-r from-emerald-300 to-green-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-emerald-300 via-green-400 to-emerald-500 bg-clip-text text-transparent">
               живого
             </span>{" "}
-            простору, в який хочеться повертатися?
+            простору,
+            <br />в який хочеться повертатися?
           </h2>
-          <p className="mx-auto max-w-2xl text-sm sm:text-base text-gray-200">
+          <p className="mx-auto max-w-2xl text-base sm:text-lg text-gray-200 leading-relaxed">
             Обговорімо ваш простір, стиль і бюджет — запропонуємо кілька
             варіантів рішень та допоможемо обрати ідеальний формат.
           </p>
@@ -955,40 +931,40 @@ const FinalCTASection: React.FC = () => (
 
         <m.div
           variants={fadeInUp}
-          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4"
+          className="flex flex-col gap-4 sm:flex-row sm:items-center"
         >
           <Link
             href="/consultation"
-            className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm sm:text-base font-semibold text-emerald-900 shadow-lg shadow-emerald-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl"
+            className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-white px-8 py-4 text-base font-bold text-emerald-900 shadow-2xl shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-emerald-500/40"
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-5 h-5" />
             <span>Запланувати консультацію</span>
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </Link>
 
           <Link
             href="/portfolio"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200/70 bg-black/10 px-5 py-3 text-xs sm:text-sm font-medium text-emerald-50 backdrop-blur-sm transition-all duration-200 hover:bg-emerald-500/15"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-300/40 bg-white/5 backdrop-blur-md px-7 py-4 text-base font-semibold text-emerald-50 transition-all duration-300 hover:border-emerald-300/60 hover:bg-white/10"
           >
-            <span>Переглянути реалізовані проєкти</span>
+            <span>Переглянути проєкти</span>
           </Link>
         </m.div>
 
         <m.div
           variants={fadeInUp}
-          className="mt-2 flex flex-wrap items-center justify-center gap-4 text-[11px] text-gray-200/90"
+          className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-300"
         >
           <div className="flex items-center gap-2">
-            <Shield className="w-3 h-3 text-emerald-300" />
-            <span>30 днів гарантії на всі рослини</span>
+            <Shield className="w-4 h-4 text-emerald-400" />
+            <span>30 днів гарантії</span>
           </div>
           <div className="flex items-center gap-2">
-            <Truck className="w-3 h-3 text-emerald-300" />
-            <span>Акуратна доставка по місту та області</span>
+            <Truck className="w-4 h-4 text-emerald-400" />
+            <span>Безкоштовна доставка</span>
           </div>
           <div className="flex items-center gap-2">
-            <Award className="w-3 h-3 text-emerald-300" />
-            <span>Проєкти для дому, бізнесу та івентів</span>
+            <Award className="w-4 h-4 text-emerald-400" />
+            <span>8+ років досвіду</span>
           </div>
         </m.div>
       </m.div>
