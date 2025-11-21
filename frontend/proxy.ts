@@ -32,7 +32,7 @@ async function checkAuth(request: NextRequest) {
       origin: request.nextUrl.origin,
       "x-forwarded-host": request.headers.get("host") || "",
       "x-requested-with": "XMLHttpRequest",
-    };
+    }; //test
 
     const res = await fetch(apiUrl, {
       method: "GET",
@@ -69,19 +69,15 @@ export default async function proxy(request: NextRequest) {
   const cookieHeader = request.headers.get("cookie") || "";
   const hasRefreshToken = cookieHeader.includes("refresh_token=");
 
-  // ✅ если рефреш-куки вообще нет — нет смысла дёргать /auth/me
   if (!hasRefreshToken) {
     const loginUrl = new URL("/", request.url);
     loginUrl.searchParams.set("auth", "login");
     return NextResponse.redirect(loginUrl);
   }
 
-  // есть refresh_token — можно попробовать аккуратно спросить бек
   const authData = await checkAuth(request);
 
   if (!authData?.user) {
-    // тут есть refresh_token, но /auth/me не вернул юзера
-    // даём фронтенду шанс сделать refresh через fetchWithRefresh
     return NextResponse.next();
   }
 
