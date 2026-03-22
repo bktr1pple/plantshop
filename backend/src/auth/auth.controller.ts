@@ -7,13 +7,13 @@ import {
   Res,
   Get,
   UnauthorizedException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { getRequiredEnv } from '../config/env';
 
 type CaptchaToken = string;
 type RequestCookies = Partial<Record<'access_token' | 'refresh_token', string>>;
@@ -32,6 +32,8 @@ interface RecaptchaVerifyResponse {
   success?: boolean;
 }
 
+const recaptchaSecret = getRequiredEnv('RECAPTCHA_SECRET_KEY');
+
 function isLocalhostHost(value?: string): boolean {
   return value === 'localhost' || value === '127.0.0.1';
 }
@@ -46,15 +48,9 @@ function isTokenExpiredError(error: unknown): error is { name: string } {
 }
 
 async function verifyCaptcha(token: CaptchaToken): Promise<boolean> {
-  const secret = process.env.RECAPTCHA_SECRET_KEY;
-  if (!secret) {
-    console.error('RECAPTCHA_SECRET_KEY is not set');
-    throw new InternalServerErrorException('Captcha is not configured');
-  }
-
   try {
     const params = new URLSearchParams();
-    params.append('secret', secret);
+    params.append('secret', recaptchaSecret);
     params.append('response', token);
 
     const response = await fetch(

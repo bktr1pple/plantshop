@@ -1,7 +1,9 @@
 type RequiredEnvKey =
   | 'JWT_ACCESS_SECRET'
   | 'JWT_REFRESH_SECRET'
-  | 'FRONTEND_URL';
+  | 'FRONTEND_URL'
+  | 'DATABASE_URL'
+  | 'RECAPTCHA_SECRET_KEY';
 
 export function getRequiredEnv(name: RequiredEnvKey): string {
   const value = process.env[name]?.trim();

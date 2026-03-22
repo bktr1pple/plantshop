@@ -3,7 +3,11 @@ import { AppModule } from './app.module';
 import cookieParserModule from 'cookie-parser';
 import { Logger } from '@nestjs/common';
 import type { RequestHandler } from 'express';
-import { getAllowedOriginsFromEnv, getPort } from './config/env';
+import {
+  getAllowedOriginsFromEnv,
+  getPort,
+  getRequiredEnv,
+} from './config/env';
 
 const cookieParser = cookieParserModule as unknown as () => RequestHandler;
 const logger = new Logger('Bootstrap');
@@ -14,6 +18,9 @@ function normalizeOrigin(origin: string): string {
 }
 
 async function bootstrap() {
+  getRequiredEnv('DATABASE_URL');
+  getRequiredEnv('RECAPTCHA_SECRET_KEY');
+
   const app = await NestFactory.create(AppModule);
 
   // Middleware для работы с куки
