@@ -4,16 +4,11 @@ import type { NextRequest } from "next/server";
 const AUTH_CHECK_PATH = "/auth/me";
 
 const INTERNAL_API_URL =
-  process.env.INTERNAL_API_URL ?? "http://127.0.0.1:4000";
+  process.env.INTERNAL_API_URL ?? "http://localhost:3001";
 
 const PROTECTED_PATHS = {
   "/dashboard": {
     requireAuth: true,
-    requireAdmin: false,
-  },
-    "/admin": {
-    requireAuth: true,
-    requireAdmin: true,
   },
 } as const;
 
@@ -32,7 +27,7 @@ async function checkAuth(request: NextRequest) {
       origin: request.nextUrl.origin,
       "x-forwarded-host": request.headers.get("host") || "",
       "x-requested-with": "XMLHttpRequest",
-    }; //test
+    };
 
     const res = await fetch(apiUrl, {
       method: "GET",
@@ -78,14 +73,6 @@ export default async function proxy(request: NextRequest) {
   const authData = await checkAuth(request);
 
   if (!authData?.user) {
-    return NextResponse.next();
-  }
-
-  const user = authData.user;
-  const routeConfig =
-    PROTECTED_PATHS[matchedPath as keyof typeof PROTECTED_PATHS];
-
-  if (routeConfig.requireAdmin && !user.isAdmin) {
     const loginUrl = new URL("/", request.url);
     loginUrl.searchParams.set("auth", "login");
     return NextResponse.redirect(loginUrl);
@@ -95,5 +82,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"],
+  matcher: ["/dashboard/:path*"],
 };

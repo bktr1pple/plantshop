@@ -40,12 +40,7 @@ const NotificationContext = React.createContext<{
   addNotification: (notification: Omit<Notification, 'id'>) => void;
   removeNotification: (id: string) => void;
   clearAll: () => void;
-}>({
-  notifications: [],
-  addNotification: () => {},
-  removeNotification: () => {},
-  clearAll: () => {},
-});
+} | undefined>(undefined);
 
 // Hook to use notifications
 export const useNotification = () => {
@@ -271,15 +266,24 @@ const NotificationItem: React.FC<{
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={notification.action.onClick}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r ${config.gradient} text-white shadow-md hover:shadow-lg transition-all duration-200`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r ${config.gradient} text-white shadow-md hover:shadow-lg transition-all duration-200`}
+                  >
+                    {notification.action.label}
+                  </motion.button>
+                </motion.div>
+              )}
+
+              <motion.p
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className={`mt-2 text-sm leading-relaxed ${config.text}`}
               >
                 {notification.message}
-              </motion.button>
-            </motion.div>
-          )}
-        </div>
-      </div>
-    </motion.div>
+              </motion.p>
+            </div>
+          </div>
+        </motion.div>
   );
 };
 

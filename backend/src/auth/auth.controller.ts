@@ -119,7 +119,10 @@ export class AuthController {
   }
 
   @Post('register')
-  async register(@Body() dto: RegisterDto) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const captchaValid = await verifyCaptcha(dto.captchaToken);
     if (!captchaValid) {
       return {
@@ -133,6 +136,10 @@ export class AuthController {
       dto.password,
       dto.name,
     );
+
+    const tokens = await this.authService.login(user.id, user.email);
+    this.setAuthCookies(res, tokens);
+
     return { status: 'ok', user };
   }
 

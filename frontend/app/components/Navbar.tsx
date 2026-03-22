@@ -8,6 +8,7 @@ import { LazyMotion, m, domAnimation } from "framer-motion";
 import { useNavbarState } from '@/app/hooks/useNavbarState';
 import { useTheme } from '@/components/ThemeContext';
 import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { useScrollEffect } from '@/app/hooks/useScrollEffect';
 
 // Components
@@ -53,6 +54,8 @@ export default function Navbar() {
 
   const { theme, toggleTheme, isAnimating, isLoaded } = useTheme();
   const { totalItems } = useCart();
+  const { wishlistItems } = useWishlist();
+  const wishlistCount = wishlistItems.length;
 
   // Refs for click outside detection
   const mobileMenuRef = useRef<HTMLDivElement>(null!);
@@ -81,8 +84,8 @@ export default function Navbar() {
   useEffect(() => {
     const authParam = searchParams.get('auth');
 
-    if (authParam === 'login') {
-      setActiveTab('login');
+    if (authParam === 'login' || authParam === 'register') {
+      setActiveTab(authParam);
       setShowAuth(true);
     }
   }, [searchParams, setActiveTab, setShowAuth]);
@@ -122,8 +125,6 @@ export default function Navbar() {
     };
   }, [open, showAuth, searchOpen]);
 
-  const wishlistItems = 2;
-
   return (
     <LazyMotion features={domAnimation} strict>
       <CartModal 
@@ -152,7 +153,7 @@ export default function Navbar() {
             theme={theme}
             isAnimating={isAnimating}
             totalItems={totalItems}
-            wishlistItems={wishlistItems}
+            wishlistItems={wishlistCount}
             onThemeToggle={toggleTheme}
             onAuthOpen={() => setShowAuth(true)}
             onCartOpen={openCartModal}
@@ -170,7 +171,7 @@ export default function Navbar() {
         theme={theme}
         isAnimating={isAnimating}
         totalItems={totalItems}
-        wishlistItems={wishlistItems}
+        wishlistItems={wishlistCount}
         activeMobileSubmenu={activeMobileSubmenu}
         mobileMenuRef={mobileMenuRef}
         onClose={() => setOpen(false)}

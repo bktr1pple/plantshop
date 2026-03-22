@@ -39,7 +39,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-let globalMountCount = 0;
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 // 🔑 ключ маркера авторизации в localStorage
 const AUTH_MARKER_KEY = 'ps_auth_marker';
@@ -73,8 +73,6 @@ const clearAuthMarker = () => {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const mountId = useRef(++globalMountCount);
-  const mountTime = useRef(Date.now());
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const hasCheckedAuth = useRef(false);
@@ -200,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -237,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+        `${API_URL}/auth/register`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -249,16 +247,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (data.status === 'ok') {
-        // регистрация успешна, считаем что пользователь авторизован
+        // сервер уже створив реальну auth-сесію та виставив cookies
         setAuthMarker();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await checkAuth();
 
-        if (data.user) {
-          setUser(data.user);
-          return { success: true };
-        } else {
-          const loginResult = await login(email, password, captchaToken);
-          return loginResult;
-        }
+        return { success: true };
       } else {
         return {
           success: false,
@@ -274,7 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });

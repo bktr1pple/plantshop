@@ -1,15 +1,21 @@
-import { Controller, Get, Post, Body, Param, Delete, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Delete,
+  Patch,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PlantsService } from './plants.service';
-import { CreatePlantDto } from './dto/create-plant.dto';
-import { UpdatePlantDto } from './dto/update-plant.dto';
 
 @Controller('plants')
 export class PlantController {
   constructor(private readonly plantService: PlantsService) {}
 
   @Post()
-  create(@Body() createPlantDto: CreatePlantDto) {
-    return this.plantService.create(createPlantDto);
+  create() {
+    throw new ForbiddenException('Plant write endpoints are disabled');
   }
 
   @Get()
@@ -23,12 +29,12 @@ export class PlantController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePlantDto: UpdatePlantDto) {
-    return this.plantService.update(+id, updatePlantDto);
+  update() {
+    throw new ForbiddenException('Plant write endpoints are disabled');
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.plantService.remove(+id);
+  remove() {
+    throw new ForbiddenException('Plant write endpoints are disabled');
   }
 }

@@ -2,7 +2,6 @@
 
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import { usePathname } from 'next/navigation';
 import Navbar from './components/Navbar';
 import Footer from "./components/Footer";
 import { ThemeProvider } from '@/components/ThemeContext';
@@ -18,9 +17,6 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export default function ClientWrapper({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isAdminPage = pathname?.includes('/admin-test');
-
   return (
     <ThemeProvider>
       <NotificationProvider>
@@ -30,13 +26,11 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
               <EnhancedThemeRipple />
               <PWAInstaller />
               <div className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col`}>
-                {!isAdminPage && (
-                  <Suspense fallback={null}>
-                    <Navbar />
-                  </Suspense>
-                )}
+                <Suspense fallback={null}>
+                  <Navbar />
+                </Suspense>
                 <main className="flex-1">{children}</main>
-                {!isAdminPage && <Footer />}
+                <Footer />
               </div>
               <ThemeScript />
             </WishlistProvider>

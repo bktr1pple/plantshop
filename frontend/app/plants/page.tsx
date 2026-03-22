@@ -5,7 +5,7 @@ import type { Plant } from '../types/plant';
 export const revalidate = 60; // ISR
 
 const API_BASE_URL =
-  process.env.INTERNAL_API_URL;
+  process.env.INTERNAL_API_URL ?? 'http://localhost:3001';
 
 export default async function PlantsPage() {
   let plants: Plant[] = [];
