@@ -41,18 +41,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-// 🔑 ключ маркера авторизации в localStorage
 const AUTH_MARKER_KEY = 'ps_auth_marker';
-
-// вспомогательные функции для работы с маркером
-const hasAuthMarker = () => {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(AUTH_MARKER_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
 
 const setAuthMarker = () => {
   if (typeof window === 'undefined') return;
@@ -76,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const hasCheckedAuth = useRef(false);
-  const checkAuthPromiseRef = useRef<Promise<boolean> | null>(null);
+  const checkAuthPromiseRef = useRef<Promise<'authenticated' | 'unauthorized' | 'unavailable'> | null>(null);
   const router = useRouter();
 
   const redirectToLogin = () => {
@@ -96,45 +85,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // ⚠️ если у нас вообще нет маркера авторизации,
-    // не дергаем /auth/me, сразу отправляем на логин
-    if (!hasAuthMarker()) {
-      redirectToLogin();
-      return;
-    }
-
     try {
-      const isAuthenticated = await checkAuth();
+      const authStatus = await checkAuthStatus();
 
-      if (isAuthenticated) {
+      if (authStatus === 'authenticated') {
         router.push(path);
         return;
+      }
+
+      if (authStatus === 'unauthorized') {
+        redirectToLogin();
       }
     } catch {
       clearAuthMarker();
       setUser(null);
+      redirectToLogin();
     }
-
-    redirectToLogin();
   };
 
   useEffect(() => {
-    // ✅ минимизация запросов: если маркера нет — не зовём checkAuth
     if (hasCheckedAuth.current) return;
     hasCheckedAuth.current = true;
 
-    if (!hasAuthMarker()) {
-      // пользователь явно не логинился в этом браузере
-      setUser(null);
-      setIsLoading(false);
-      return;
-    }
-
-    // если маркер есть — уже имеет смысл проверить /auth/me
-    checkAuth();
+    void checkAuthStatus();
   }, []);
 
-  const checkAuth = async () => {
+  const checkAuthStatus = async (): Promise<
+    'authenticated' | 'unauthorized' | 'unavailable'
+  > => {
     if (checkAuthPromiseRef.current) {
       return checkAuthPromiseRef.current;
     }
@@ -143,18 +121,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
 
       try {
-        const { res, unauthorized } = await fetchWithRefresh('/auth/me');
+        const { res, unauthorized, temporaryFailure } = await fetchWithRefresh(
+          '/auth/me',
+        );
 
         if (unauthorized) {
           clearAuthMarker();
           setUser(null);
-          return false;
+          return 'unauthorized' as const;
         }
 
-        if (!res) {
-          clearAuthMarker();
-          setUser(null);
-          return false;
+        if (temporaryFailure || !res) {
+          return 'unavailable' as const;
         }
 
         if (res.ok) {
@@ -162,21 +140,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (data.user) {
             setAuthMarker();
             setUser(data.user);
-            return true;
+            return 'authenticated' as const;
           }
 
           clearAuthMarker();
           setUser(null);
-          return false;
+          return 'unauthorized' as const;
         }
 
-        clearAuthMarker();
-        setUser(null);
-        return false;
+        return 'unavailable' as const;
       } catch {
-        clearAuthMarker();
-        setUser(null);
-        return false;
+        return 'unavailable' as const;
       } finally {
         setIsLoading(false);
         checkAuthPromiseRef.current = null;
@@ -185,6 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     checkAuthPromiseRef.current = authCheckPromise;
     return authCheckPromise;
+  };
+
+  const checkAuth = async () => {
+    const authStatus = await checkAuthStatus();
+    return authStatus === 'authenticated';
   };
 
   const login = async (
@@ -205,14 +184,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (data.status === 'ok') {
-        // сразу ставим маркер — мы знаем, что бэк выдал куки
-        setAuthMarker();
-
         // лёгкая пауза для установки/синка кук
         await new Promise((resolve) => setTimeout(resolve, 100));
-        const isAuthenticated = await checkAuth();
+        const authStatus = await checkAuthStatus();
 
-        if (!isAuthenticated) {
+        if (authStatus === 'authenticated') {
+          return { success: true };
+        }
+
+        if (authStatus === 'unauthorized') {
           clearAuthMarker();
           setUser(null);
           return {
@@ -221,7 +201,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
         }
 
-        return { success: true };
+        return {
+          success: false,
+          message: 'Не вдалося підтвердити сесію через тимчасову помилку мережі',
+        };
       } else {
         return { success: false, message: data.message || 'Login failed' };
       }
@@ -253,12 +236,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (data.status === 'ok') {
-        // сервер уже створив реальну auth-сесію та виставив cookies
-        setAuthMarker();
         await new Promise((resolve) => setTimeout(resolve, 100));
-        const isAuthenticated = await checkAuth();
+        const authStatus = await checkAuthStatus();
 
-        if (!isAuthenticated) {
+        if (authStatus === 'authenticated') {
+          return { success: true };
+        }
+
+        if (authStatus === 'unauthorized') {
           clearAuthMarker();
           setUser(null);
           return {
@@ -267,7 +252,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
         }
 
-        return { success: true };
+        return {
+          success: false,
+          message: 'Не вдалося підтвердити сесію через тимчасову помилку мережі',
+        };
       } else {
         return {
           success: false,

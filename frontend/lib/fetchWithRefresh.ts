@@ -4,6 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 export interface FetchResult {
   res: Response | null;
   unauthorized: boolean;
+  temporaryFailure: boolean;
 }
 
 export async function fetchWithRefresh(
@@ -19,13 +20,17 @@ export async function fetchWithRefresh(
     });
 
     if (res.status === 401 || res.status === 403) {
-      return { res, unauthorized: true };
+      return { res, unauthorized: true, temporaryFailure: false };
     }
 
-    return { res, unauthorized: false };
-  } catch (error) {
-    console.error("Fetch error:", error);
+    if (!res.ok) {
+      return { res, unauthorized: false, temporaryFailure: true };
+    }
 
-    return { res: null, unauthorized: true };
+    return { res, unauthorized: false, temporaryFailure: false };
+  } catch (error) {
+    console.error('Fetch error:', error);
+
+    return { res: null, unauthorized: false, temporaryFailure: true };
   }
 }
