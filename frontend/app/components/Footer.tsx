@@ -238,7 +238,7 @@ export default function Footer() {
                   className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/40 w-full sm:w-auto"
                 >
                   <MessageCircle className="h-5 w-5" />
-                  <span>Зв'язатися з нами</span>
+                  <span>Зв&apos;язатися з нами</span>
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <p className="mt-3 text-xs text-center sm:text-left text-gray-500 dark:text-gray-500">

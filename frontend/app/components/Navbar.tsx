@@ -1,7 +1,7 @@
 // components/layout/Navbar.tsx - UPDATED
 'use client';
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { LazyMotion, m, domAnimation } from "framer-motion";
 
 // Hooks
@@ -65,7 +65,7 @@ export default function Navbar() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const handleCloseAuth = () => {
+  const handleCloseAuth = useCallback(() => {
     setShowAuth(false);
 
     if (typeof window !== 'undefined') {
@@ -78,7 +78,7 @@ export default function Navbar() {
         router.replace(qs ? `${currentPath}?${qs}` : currentPath);
       }
     }
-  };
+  }, [router, setShowAuth]);
 
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export default function Navbar() {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open, showAuth, searchOpen, setOpen, setShowAuth, setSearchOpen]);
+  }, [open, showAuth, searchOpen, setOpen, setShowAuth, setSearchOpen, handleCloseAuth]);
 
   useEffect(() => {
     if (open || showAuth || searchOpen) {

@@ -31,7 +31,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const savedCart = localStorage.getItem('plantShop_cart');
     if (savedCart) {
       try {
-        setCartItems(JSON.parse(savedCart));
+        const parsedCart = JSON.parse(savedCart) as CartItem[];
+        const frame = window.requestAnimationFrame(() => {
+          setCartItems(parsedCart);
+        });
+
+        return () => window.cancelAnimationFrame(frame);
       } catch (error) {
         console.error('Error loading cart from localStorage:', error);
       }

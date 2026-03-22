@@ -8,6 +8,7 @@ import {
   cubicBezier,
   useMotionValue,
   useSpring,
+  MotionValue,
   Variants,
 } from "framer-motion";
 import React, {
@@ -35,7 +36,6 @@ import {
   Home,
   Building2,
   Gift,
-  MessageCircle,
 } from "lucide-react";
 
 // Types
@@ -420,7 +420,6 @@ export default function HomePage() {
           <main>
             <HeroSection
               current={current}
-              isAnimating={isAnimating}
               isMobile={isMobile}
               heroImages={heroImages}
               mouseX={springMouseX}
@@ -444,18 +443,16 @@ export default function HomePage() {
 
 interface HeroSectionProps {
   current: number;
-  isAnimating: boolean;
   isMobile: boolean;
   heroImages: HeroImage[];
-  mouseX: any;
-  mouseY: any;
+  mouseX: MotionValue<number>;
+  mouseY: MotionValue<number>;
   statsData: StatItem[];
   onDotClick: (index: number) => void;
 }
 
 const HeroSection = ({
   current,
-  isAnimating,
   isMobile,
   heroImages,
   mouseX,
@@ -706,7 +703,7 @@ const DirectionsSection: React.FC = () => (
           variants={staggerContainer}
           className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {directions.map((item, index) => (
+          {directions.map((item) => (
             <m.article
               key={item.title}
               variants={fadeInUp}
@@ -767,7 +764,7 @@ const BenefitsSection: React.FC = () => (
           variants={staggerContainer}
           className="grid gap-6 md:grid-cols-2"
         >
-          {benefits.map((item, index) => (
+          {benefits.map((item) => (
             <m.article
               key={item.title}
               variants={fadeInUp}

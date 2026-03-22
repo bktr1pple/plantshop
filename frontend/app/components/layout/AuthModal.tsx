@@ -29,7 +29,6 @@ export function AuthModal({
 }: AuthModalProps) {
   const { login, register } = useAuth();
   const captchaRef = useRef<ReCAPTCHA>(null);
-  const [isCaptchaReady, setIsCaptchaReady] = useState(false);
   const [localError, setLocalError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -56,20 +55,15 @@ export function AuthModal({
         rememberMe: false,
       });
       setCaptchaToken(null);
-      setIsCaptchaReady(false);
       
       // Reset CAPTCHA with a small delay to ensure DOM is ready
       const timer = setTimeout(() => {
         if (captchaRef.current) {
           captchaRef.current.reset();
-          setIsCaptchaReady(true);
         }
       }, 100);
       
       return () => clearTimeout(timer);
-    } else {
-      // Clean up when modal closes
-      setIsCaptchaReady(false);
     }
   }, [showAuth, activeTab]);
 
@@ -94,7 +88,6 @@ export function AuthModal({
 
   const handleCaptchaErrored = () => {
     console.error('reCAPTCHA failed to load');
-    setIsCaptchaReady(false);
   };
 
   const handleCaptchaExpired = () => {
@@ -104,7 +97,6 @@ export function AuthModal({
 
   const handleCaptchaLoaded = () => {
     console.log('reCAPTCHA successfully loaded');
-    setIsCaptchaReady(true);
   };
 
   // Validate form function
@@ -189,7 +181,7 @@ export function AuthModal({
           captchaRef.current.reset();
         }
       }
-    } catch (error) {
+    } catch {
       setLocalError('Сталася неочікувана помилка');
       setCaptchaToken(null);
       if (captchaRef.current) {
@@ -378,7 +370,7 @@ export function AuthModal({
                             onChange={(e) => handleInputChange('rememberMe', e.target.checked)}
                             className="accent-emerald-500 rounded focus:ring-2 focus:ring-emerald-200 w-4 h-4"
                           />
-                          <span className="text-sm">Запам'ятати мене</span>
+                          <span className="text-sm">Запам&apos;ятати мене</span>
                         </label>
                         <a
                           href="#"

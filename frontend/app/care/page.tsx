@@ -3,7 +3,6 @@
 import { easeOut, LazyMotion, m, useScroll, useTransform, domAnimation } from "framer-motion";
 import { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from 'next/navigation';
 import { 
   Sprout, 
   Droplets, 
@@ -18,7 +17,6 @@ import {
   Video,
   CheckCircle,
   ArrowRight,
-  Sparkles,
   Leaf,
   Zap,
   Heart
@@ -62,13 +60,11 @@ function useIntersectionObserver(
 function OptimizedSection({ 
   children, 
   delay = 0,
-  className = "",
-  stagger = false
+  className = ""
 }: { 
   children: React.ReactNode; 
   delay?: number;
   className?: string;
-  stagger?: boolean;
 }) {
   const [ref, isIntersecting] = useIntersectionObserver();
 
@@ -152,7 +148,6 @@ export default function PlantCarePage() {
   const [activeTab, setActiveTab] = useState("watering");
   const [activeSeason, setActiveSeason] = useState<Season>('spring');
   const [isMobile, setIsMobile] = useState(false);
-  const pathname = usePathname();
 
   // Detect mobile device for performance optimizations
   useEffect(() => {

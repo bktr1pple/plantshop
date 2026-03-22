@@ -4,27 +4,31 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Smartphone } from 'lucide-react';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 export default function PWAInstaller() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // Проверяем, установлено ли приложение
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsStandalone(true);
-    }
-
-    // Проверяем iOS
+    const standalone = window.matchMedia('(display-mode: standalone)').matches;
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
-    setIsIOS(isIos || isSafari);
+    const frame = window.requestAnimationFrame(() => {
+      setIsStandalone(standalone);
+      setIsIOS(isIos || isSafari);
+    });
 
     // Обработчик для установки PWA
     const handleBeforeInstallPrompt = (e: Event) => {
+      const installEvent = e as BeforeInstallPromptEvent;
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(installEvent);
       setIsVisible(true);
     };
 
@@ -38,6 +42,7 @@ export default function PWAInstaller() {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };

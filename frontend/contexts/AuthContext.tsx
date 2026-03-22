@@ -33,7 +33,7 @@ interface AuthContextType {
     captchaToken: string,
   ) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
-  checkAuth: () => Promise<void>;
+  checkAuth: () => Promise<boolean>;
   ensureAuthAndGo: (path: string) => Promise<void>;
 }
 
@@ -76,8 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const hasCheckedAuth = useRef(false);
-  const isCheckingAuth = useRef(false);
+  const checkAuthPromiseRef = useRef<Promise<boolean> | null>(null);
   const router = useRouter();
+
+  const redirectToLogin = () => {
+    if (typeof window !== 'undefined') {
+      const search = new URLSearchParams(window.location.search);
+      search.set('auth', 'login');
+      router.push('/?' + search.toString());
+    }
+  };
 
   const ensureAuthAndGo = async (path: string) => {
     // если уже на нужном пути и есть пользователь — лишний запрос/редирект не нужен
@@ -91,56 +99,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ⚠️ если у нас вообще нет маркера авторизации,
     // не дергаем /auth/me, сразу отправляем на логин
     if (!hasAuthMarker()) {
-      if (typeof window !== 'undefined') {
-        const search = new URLSearchParams(window.location.search);
-        search.set('auth', 'login');
-        router.push('/?' + search.toString());
-      }
+      redirectToLogin();
       return;
     }
 
     try {
-      const { res, unauthorized } = await fetchWithRefresh('/auth/me');
+      const isAuthenticated = await checkAuth();
 
-      if (unauthorized) {
-        clearAuthMarker();
-        setUser(null);
-
-        if (typeof window !== 'undefined') {
-          const search = new URLSearchParams(window.location.search);
-          search.set('auth', 'login');
-          router.push('/?' + search.toString());
-        }
-
+      if (isAuthenticated) {
+        router.push(path);
         return;
       }
-
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          setUser(data.user);
-          router.push(path);
-        } else {
-          clearAuthMarker();
-          setUser(null);
-
-          if (typeof window !== 'undefined') {
-            const search = new URLSearchParams(window.location.search);
-            search.set('auth', 'login');
-            router.push('/?' + search.toString());
-          }
-        }
-        return;
-      }
-    } catch (error) {
+    } catch {
       clearAuthMarker();
       setUser(null);
-      if (typeof window !== 'undefined') {
-        const search = new URLSearchParams(window.location.search);
-        search.set('auth', 'login');
-        router.push('/?' + search.toString());
-      }
     }
+
+    redirectToLogin();
   };
 
   useEffect(() => {
@@ -160,41 +135,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const checkAuth = async () => {
-    if (isCheckingAuth.current) return;
+    if (checkAuthPromiseRef.current) {
+      return checkAuthPromiseRef.current;
+    }
 
-    isCheckingAuth.current = true;
-    setIsLoading(true);
+    const authCheckPromise = (async () => {
+      setIsLoading(true);
 
-    try {
-      const { res, unauthorized } = await fetchWithRefresh('/auth/me');
+      try {
+        const { res, unauthorized } = await fetchWithRefresh('/auth/me');
 
-      if (unauthorized) {
+        if (unauthorized) {
+          clearAuthMarker();
+          setUser(null);
+          return false;
+        }
+
+        if (!res) {
+          clearAuthMarker();
+          setUser(null);
+          return false;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setAuthMarker();
+            setUser(data.user);
+            return true;
+          }
+
+          clearAuthMarker();
+          setUser(null);
+          return false;
+        }
+
         clearAuthMarker();
         setUser(null);
-        return;
-      }
-
-      if (!res) {
+        return false;
+      } catch {
+        clearAuthMarker();
         setUser(null);
-        return;
+        return false;
+      } finally {
+        setIsLoading(false);
+        checkAuthPromiseRef.current = null;
       }
+    })();
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          setUser(data.user);
-        } else {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-      isCheckingAuth.current = false;
-    }
+    checkAuthPromiseRef.current = authCheckPromise;
+    return authCheckPromise;
   };
 
   const login = async (
@@ -220,13 +210,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // лёгкая пауза для установки/синка кук
         await new Promise((resolve) => setTimeout(resolve, 100));
-        await checkAuth();
+        const isAuthenticated = await checkAuth();
+
+        if (!isAuthenticated) {
+          clearAuthMarker();
+          setUser(null);
+          return {
+            success: false,
+            message: 'Сесію не вдалося підтвердити після входу',
+          };
+        }
 
         return { success: true };
       } else {
         return { success: false, message: data.message || 'Login failed' };
       }
-    } catch (error) {
+    } catch {
       return { success: false, message: 'Network error' };
     } finally {
       setIsLoading(false);
@@ -257,7 +256,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // сервер уже створив реальну auth-сесію та виставив cookies
         setAuthMarker();
         await new Promise((resolve) => setTimeout(resolve, 100));
-        await checkAuth();
+        const isAuthenticated = await checkAuth();
+
+        if (!isAuthenticated) {
+          clearAuthMarker();
+          setUser(null);
+          return {
+            success: false,
+            message: 'Сесію не вдалося підтвердити після реєстрації',
+          };
+        }
 
         return { success: true };
       } else {
@@ -266,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           message: data.message || 'Registration failed',
         };
       }
-    } catch (error) {
+    } catch {
       return { success: false, message: 'Network error' };
     } finally {
       setIsLoading(false);

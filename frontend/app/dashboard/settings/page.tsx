@@ -3,14 +3,9 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils'
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { LazyMotion, m as motion, domAnimation, AnimatePresence } from 'framer-motion';
 import {
   User,
-  Mail,
-  Phone,
-  MapPin,
-  Lock,
   Bell,
   Shield,
   Download,
@@ -211,7 +206,6 @@ const ToggleRow: React.FC<{
 // ---- Основная страница ----
 
 export default function SettingsPage() {
-  const router = useRouter();
   const { user } = useAuth();
   const { addNotification } = useNotification();
 
@@ -225,11 +219,15 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    setProfile((prev) => ({
-      ...prev,
-      name: user?.name ?? prev.name,
-      email: user?.email ?? prev.email,
-    }));
+    const frame = window.requestAnimationFrame(() => {
+      setProfile((prev) => ({
+        ...prev,
+        name: user?.name ?? prev.name,
+        email: user?.email ?? prev.email,
+      }));
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [user]);
 
   // Настройки

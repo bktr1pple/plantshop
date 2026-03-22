@@ -28,7 +28,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     const savedWishlist = localStorage.getItem('plantShop_wishlist');
     if (savedWishlist) {
       try {
-        setWishlistItems(JSON.parse(savedWishlist));
+        const parsedWishlist = JSON.parse(savedWishlist) as WishlistItem[];
+        const frame = window.requestAnimationFrame(() => {
+          setWishlistItems(parsedWishlist);
+        });
+
+        return () => window.cancelAnimationFrame(frame);
       } catch (error) {
         console.error('Error loading wishlist from localStorage:', error);
       }

@@ -29,11 +29,6 @@ interface Notification {
   image?: string;
 }
 
-interface NotificationPosition {
-  vertical: 'top' | 'bottom';
-  horizontal: 'left' | 'right' | 'center';
-}
-
 // Notification context for global access
 const NotificationContext = React.createContext<{
   notifications: Notification[];

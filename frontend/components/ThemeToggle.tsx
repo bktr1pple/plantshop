@@ -16,7 +16,7 @@ export function ThemeToggle() {
     const y = event.clientY - rect.top;
     
     setRipple({ x, y });
-    toggleTheme(event);
+    toggleTheme();
     
     setTimeout(() => setRipple(null), 1000);
   };

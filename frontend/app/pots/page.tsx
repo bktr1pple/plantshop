@@ -3,9 +3,7 @@
 import { LazyMotion, m, domAnimation, useScroll, useTransform, spring } from "framer-motion";
 import { useState, useRef, useMemo } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { 
-  Sparkles,
   Filter,
   Search,
   ShoppingBag,
@@ -21,10 +19,38 @@ import {
   Droplets,
   Leaf,
   Zap,
-  Award,
-  Clock,
-  ChevronDown
 } from "lucide-react";
+
+interface Pot {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  originalPrice: number;
+  size: string;
+  color: string;
+  material: string;
+  drainage: boolean;
+  rating: number;
+  reviews: number;
+  image: string;
+  featured?: boolean;
+  description: string;
+  features: string[];
+}
+
+function PlaceholderImage({ className = "h-64" }: { className?: string }) {
+  return (
+    <div className={`${className} bg-gradient-to-br from-emerald-100 to-green-200 dark:from-emerald-900/30 dark:to-green-800/30 flex items-center justify-center`}>
+      <div className="text-center">
+        <div className="w-20 h-20 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+          <span className="text-2xl">🏺</span>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Зображення горщика</p>
+      </div>
+    </div>
+  );
+}
 
 // Stagger animations for better performance
 const containerVariants = {
@@ -56,53 +82,9 @@ const itemVariants = {
   }
 };
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: spring,
-      stiffness: 100,
-      damping: 15
-    }
-  }
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      type: "spring",
-      stiffness: 100,
-      damping: 12
-    }
-  }
-};
-
 export default function PotsPage() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("popular");
-
-  interface Pot {
-    id: number;
-    name: string;
-    category: string;
-    price: number;
-    originalPrice: number;
-    size: string;
-    color: string;
-    material: string;
-    drainage: boolean;
-    rating: number;
-    reviews: number;
-    image: string;
-    featured: boolean;
-    description: string;
-    features: string[];
-  }
 
   const [selectedPot, setSelectedPot] = useState<Pot | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -295,18 +277,6 @@ export default function PotsPage() {
     [pots]
   );
 
-  // Optimized placeholder image component
-  const PlaceholderImage = ({ className = "h-64" }: { className?: string }) => (
-    <div className={`${className} bg-gradient-to-br from-emerald-100 to-green-200 dark:from-emerald-900/30 dark:to-green-800/30 flex items-center justify-center`}>
-      <div className="text-center">
-        <div className="w-20 h-20 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-2xl">🏺</span>
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Зображення горщика</p>
-      </div>
-    </div>
-  );
-
   return (
     <LazyMotion features={domAnimation}>
       <div className="content-with-navbar flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -349,7 +319,7 @@ export default function PotsPage() {
               className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-8 leading-relaxed"
             >
               Виберіть унікальні горщики та кашпо, що підкреслять красу ваших рослин 
-              та створять гармонію в інтер'єрі
+              та створять гармонію в інтер&apos;єрі
             </m.p>
 
             <m.div
@@ -390,7 +360,7 @@ export default function PotsPage() {
                 Чому обирають наші <span className="text-emerald-600 dark:text-emerald-400">горщики</span>
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Ми дбаємо про якість, дизайн та здоров'я ваших рослин
+                Ми дбаємо про якість, дизайн та здоров&apos;я ваших рослин
               </p>
             </m.div>
 
@@ -454,7 +424,7 @@ export default function PotsPage() {
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16"
               style={{ willChange: 'transform, opacity' }}
             >
-              {featuredPots.map((pot, index) => (
+              {featuredPots.map((pot) => (
                 <m.div
                   key={pot.id}
                   variants={itemVariants}
@@ -513,7 +483,7 @@ export default function PotsPage() {
                     </div>
 
                     <button 
-                      onClick={() => setSelectedPot(pot as Pot)}
+                      onClick={() => setSelectedPot(pot)}
                       className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-3 rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105"
                     >
                       Додати в кошик
@@ -656,7 +626,7 @@ export default function PotsPage() {
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
                   style={{ willChange: 'transform, opacity' }}
                 >
-                  {filteredPots.map((pot, index) => (
+                  {filteredPots.map((pot) => (
                     <m.div
                       key={pot.id}
                       variants={itemVariants}
@@ -708,7 +678,7 @@ export default function PotsPage() {
 
                         <div className="flex gap-2">
                           <button 
-                            onClick={() => setSelectedPot(pot as Pot)}
+                            onClick={() => setSelectedPot(pot)}
                             className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-2 rounded-xl hover:shadow-lg transition-all duration-300 text-sm"
                           >
                             В кошик

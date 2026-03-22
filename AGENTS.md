@@ -97,3 +97,9 @@ When asked to analyze, review, or implement changes in the project, provide:
 8. risky changes that require careful handling
 9. open questions requiring manual verification
 10. exact list of changed files after edits
+
+## Verification rules
+- After meaningful code changes, run the relevant verification commands before considering the task complete.
+- Frontend verification should include lint and build.
+- Backend verification should include build and tests when available.
+- If verification fails, prefer a narrow repair pass before starting the next major implementation pass.

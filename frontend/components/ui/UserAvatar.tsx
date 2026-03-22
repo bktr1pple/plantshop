@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { User } from '@/app/types/dashboard';
 
 interface UserAvatarProps {
@@ -27,6 +28,7 @@ export function UserAvatar({ user, size = 'md' }: UserAvatarProps) {
     <motion.div
       className={`
         ${sizeClasses[size]} 
+        relative overflow-hidden
         bg-gradient-to-r from-emerald-500 to-green-600 
         rounded-full flex items-center justify-center 
         text-white font-black shadow-lg
@@ -35,10 +37,12 @@ export function UserAvatar({ user, size = 'md' }: UserAvatarProps) {
       transition={{ type: 'spring', stiffness: 400, damping: 17 }}
     >
       {user.avatar ? (
-        <img
+        <Image
           src={user.avatar}
           alt={user.name}
-          className="w-full h-full rounded-full object-cover"
+          fill
+          sizes={size === 'lg' ? '64px' : size === 'md' ? '48px' : '32px'}
+          className="rounded-full object-cover"
         />
       ) : (
         getInitials(user.name)

@@ -4,7 +4,6 @@ import React, { useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { m as motion, LazyMotion, domAnimation } from 'framer-motion';
 import {
-  User,
   Settings,
   LogOut,
   ShoppingBag,
@@ -169,15 +168,6 @@ export default function DashboardPage() {
     ],
     []
   );
-
-  const handleEditProfile = useCallback(() => {
-    addNotification({
-      type: 'info',
-      title: 'Редагування профілю',
-      message: 'Форма редагування профілю ще в розробці.',
-      duration: 3500,
-    });
-  }, [addNotification]);
 
   const handleGoToOrders = useCallback(() => {
       router.push('/dashboard/orders');

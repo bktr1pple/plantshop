@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { LazyMotion, m, AnimatePresence, domAnimation } from 'framer-motion';
 import { ShoppingCart, X, ChevronLeft, ChevronRight, Heart, Share2, Star, Truck, Shield, Zap, Sun, Droplets, Maximize2 } from 'lucide-react';
 import Image from 'next/image';
@@ -15,6 +15,11 @@ const MotionArticle = m.article;
 const MotionButton = m.button;
 
 type Props = { plants: Plant[] };
+type OptimizedImageProps = Omit<React.ComponentProps<typeof Image>, 'src' | 'alt'> & {
+  src: string;
+  alt: string;
+  priority?: boolean;
+};
 
 const productFeatures = [
   { icon: Truck, text: 'Free shipping over $50' },
@@ -28,7 +33,7 @@ const careFeatures = [
 ];
 
 // Optimized image component with error handling
-const OptimizedImage = ({ src, alt, priority = false, ...props }: any) => {
+const OptimizedImage = ({ src, alt, priority = false, ...props }: OptimizedImageProps) => {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   
@@ -73,7 +78,6 @@ export default function PlantsList({ plants }: Props) {
 
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
@@ -83,14 +87,13 @@ export default function PlantsList({ plants }: Props) {
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  // Memoized images array with error handling
-  const images = useMemo(() => {
+  const images = (() => {
     if (!selectedPlant?.images?.length) return ['/images/placeholder.jpg'];
     
     return selectedPlant.images.map((img, index) => 
       imageLoadErrors.has(index) ? '/images/placeholder.jpg' : img
     );
-  }, [selectedPlant?.images, imageLoadErrors]);
+  })();
 
   const currentImage = images[currentIndex];
 
@@ -311,7 +314,7 @@ export default function PlantsList({ plants }: Props) {
   }, [images, currentIndex]);
 
   // Fullscreen image viewer for mobile
-  const MobileFullscreenViewer = () => (
+  const renderMobileFullscreenViewer = () => (
     <MotionDiv
       className="fixed inset-0 z-60 bg-black flex flex-col"
       initial={{ opacity: 0 }}
@@ -500,7 +503,7 @@ export default function PlantsList({ plants }: Props) {
           {isModalOpen && selectedPlant && (
             <>
               {/* Fullscreen Viewer */}
-              {isFullscreen && <MobileFullscreenViewer />}
+              {isFullscreen && renderMobileFullscreenViewer()}
               
               {/* Main Modal */}
               <MotionDiv

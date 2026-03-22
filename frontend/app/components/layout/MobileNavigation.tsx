@@ -2,7 +2,7 @@
 'use client';
 
 import Link from "next/link";
-import { X, Search, ShoppingBag, Heart, ChevronRight, Sun, Moon, Sparkles, User, LogOut, Settings, Package } from "lucide-react";
+import { X, Search, ShoppingBag, Heart, ChevronRight, Sparkles, User, LogOut, Settings, Package } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
 import { NavLink } from '@/app/types/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +20,7 @@ interface MobileNavigationProps {
   activeMobileSubmenu: string | null;
   mobileMenuRef: React.RefObject<HTMLDivElement>;
   onClose: () => void;
-  onThemeToggle: (event: React.MouseEvent) => void;
+  onThemeToggle: () => void;
   onAuthOpen: () => void;
   onSearchOpen: () => void;
   onCartOpen: () => void;

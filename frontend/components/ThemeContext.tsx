@@ -7,7 +7,7 @@ type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
-  toggleTheme: (event: React.MouseEvent) => void;
+  toggleTheme: () => void;
   isAnimating: boolean;
   isLoaded: boolean;
 }
@@ -28,17 +28,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       : 'light';
 
     const initialTheme = savedTheme || systemTheme;
-    setTheme(initialTheme);
-    setIsLoaded(true);
+    const frame = window.requestAnimationFrame(() => {
+      setTheme(initialTheme);
+      setIsLoaded(true);
+    });
 
     if (initialTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  const toggleTheme = (event: React.MouseEvent) => {
+  const toggleTheme = () => {
     if (isAnimating || !isLoaded) return;
 
     setIsAnimating(true);

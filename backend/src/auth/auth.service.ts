@@ -9,14 +9,20 @@ import { addSeconds } from 'date-fns';
 import { JwtService } from '@nestjs/jwt';
 
 type StringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
+type AccessTokenPayload = { sub: number; email: string };
+type RefreshTokenPayload = { sub: number };
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private jwtService: JwtService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
 
   async register(email: string, password: string, name?: string) {
     const exists = await this.prisma.user.findUnique({ where: { email } });
-    if (exists) throw new BadRequestException('Обліковий запис з таким email вже існує');
+    if (exists)
+      throw new BadRequestException('Обліковий запис з таким email вже існує');
 
     const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
     const hashed = await bcrypt.hash(password, saltRounds);
@@ -48,21 +54,23 @@ export class AuthService {
   async login(userId: number, email: string) {
     const payload = { sub: userId, email };
 
-    const accessToken = this.jwtService.sign<{ sub: number; email: string }>(
-      payload,
-      {
-        secret: process.env.JWT_ACCESS_SECRET ?? '',
-        expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ??
-          '15m') as StringValue | number,
-      },
-    );
+    const accessToken = this.jwtService.sign<AccessTokenPayload>(payload, {
+      secret: process.env.JWT_ACCESS_SECRET ?? '',
+      expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ?? '15m') as
+        | StringValue
+        | number,
+    });
 
     const refreshPayload = { sub: userId };
-    const refreshToken = this.jwtService.sign<{ sub: number }>(refreshPayload, {
-      secret: process.env.JWT_REFRESH_SECRET ?? '',
-      expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ??
-        '7d') as StringValue | number,
-    });
+    const refreshToken = this.jwtService.sign<RefreshTokenPayload>(
+      refreshPayload,
+      {
+        secret: process.env.JWT_REFRESH_SECRET ?? '',
+        expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ?? '7d') as
+          | StringValue
+          | number,
+      },
+    );
 
     const tokenHash = await bcrypt.hash(refreshToken, 10);
     const seconds = this._parseDurationSeconds(
@@ -80,12 +88,17 @@ export class AuthService {
   // auth.service.ts
   async refresh(refreshToken: string) {
     try {
-      const payload: any = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET ?? '',
-      });
+      const payload = this.jwtService.verify<RefreshTokenPayload>(
+        refreshToken,
+        {
+          secret: process.env.JWT_REFRESH_SECRET ?? '',
+        },
+      );
 
       const userId = payload.sub;
-      const tokens = await this.prisma.refreshToken.findMany({ where: { userId } });
+      const tokens = await this.prisma.refreshToken.findMany({
+        where: { userId },
+      });
 
       for (const t of tokens) {
         const match = await bcrypt.compare(refreshToken, t.tokenHash);
@@ -94,10 +107,17 @@ export class AuthService {
             throw new UnauthorizedException('Refresh token expired');
           }
 
-          const { accessToken, refreshToken: newRefreshToken } = await this.login(
-            userId,
-            payload.email ?? '',
-          );
+          const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true },
+          });
+
+          if (!user) {
+            throw new UnauthorizedException('User not found');
+          }
+
+          const { accessToken, refreshToken: newRefreshToken } =
+            await this.login(userId, user.email);
 
           return { accessToken, refreshToken: newRefreshToken };
         }
@@ -108,7 +128,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
-
 
   async revokeRefreshToken(token: string) {
     const all = await this.prisma.refreshToken.findMany();

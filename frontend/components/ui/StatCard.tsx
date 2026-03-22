@@ -19,7 +19,11 @@ export function StatCard({ title, value, icon, color, delay = 0 }: StatCardProps
   const isInView = useInView(ref, { once: true, margin: '-50px' });
 
   useEffect(() => {
-    setIsClient(true);
+    const frame = window.requestAnimationFrame(() => {
+      setIsClient(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const colorClasses = {

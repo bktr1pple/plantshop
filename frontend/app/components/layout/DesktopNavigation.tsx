@@ -16,7 +16,7 @@ interface DesktopNavigationProps {
   isAnimating: boolean;
   totalItems: number;
   wishlistItems: number;
-  onThemeToggle: (event: React.MouseEvent) => void;
+  onThemeToggle: () => void;
   onAuthOpen: () => void;
   onCartOpen: () => void;
   onWishlistOpen: () => void;
@@ -39,7 +39,7 @@ export function DesktopNavigation({
   onMenuOpen,
   isThemeLoaded,
 }: DesktopNavigationProps) {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
 
   return (
     <div className="flex justify-between items-center">

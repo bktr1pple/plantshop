@@ -17,11 +17,12 @@ export function ThemeRipple() {
 
   useEffect(() => {
     if (isAnimating && !ripple) {
-      // This would be set by the toggle button click
-      // In a real implementation, you'd pass the click coordinates
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
-      setRipple({ x: centerX, y: centerY, theme });
+      const frame = window.requestAnimationFrame(() => {
+        setRipple({ x: centerX, y: centerY, theme });
+      });
+      return () => window.cancelAnimationFrame(frame);
     } else if (!isAnimating && ripple) {
       const timer = setTimeout(() => setRipple(null), 300);
       return () => clearTimeout(timer);

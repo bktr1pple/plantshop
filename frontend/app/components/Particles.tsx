@@ -7,7 +7,11 @@ export default function Particles() {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    const frame = window.requestAnimationFrame(() => {
+      setIsClient(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const particlePositions = [

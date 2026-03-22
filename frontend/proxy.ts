@@ -12,9 +12,47 @@ const PROTECTED_PATHS = {
   },
 } as const;
 
+type AuthCheckResult = {
+  user: unknown | null;
+  setCookies: string[];
+};
+
 function buildApiUrl() {
   const base = INTERNAL_API_URL.replace(/\/+$/, "");
   return base + AUTH_CHECK_PATH;
+}
+
+function splitSetCookieHeader(headerValue: string): string[] {
+  return headerValue
+    .split(/,(?=\s*[^;,=\s]+=[^;,]+)/)
+    .map((cookie) => cookie.trim())
+    .filter(Boolean);
+}
+
+function extractSetCookies(response: Response): string[] {
+  const headers = response.headers as Headers & {
+    getSetCookie?: () => string[];
+  };
+
+  if (typeof headers.getSetCookie === "function") {
+    return headers.getSetCookie();
+  }
+
+  const setCookie = response.headers.get("set-cookie");
+  if (!setCookie) {
+    return [];
+  }
+
+  return splitSetCookieHeader(setCookie);
+}
+
+function appendSetCookies(
+  response: NextResponse,
+  setCookies: string[],
+) {
+  for (const cookie of setCookies) {
+    response.headers.append("set-cookie", cookie);
+  }
 }
 
 async function checkAuth(request: NextRequest) {
@@ -35,18 +73,23 @@ async function checkAuth(request: NextRequest) {
       cache: "no-store",
     });
 
+    const setCookies = extractSetCookies(res);
+
     if (!res.ok) {
-      return null;
+      return { user: null, setCookies };
     }
 
     try {
       const data = await res.json();
-      return data;
+      return {
+        user: data?.user ?? null,
+        setCookies,
+      } satisfies AuthCheckResult;
     } catch {
-      return null;
+      return { user: null, setCookies };
     }
   } catch {
-    return null;
+    return { user: null, setCookies: [] };
   }
 }
 
@@ -70,15 +113,19 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const authData = await checkAuth(request);
+  const authResult = await checkAuth(request);
 
-  if (!authData?.user) {
+  if (!authResult.user) {
     const loginUrl = new URL("/", request.url);
     loginUrl.searchParams.set("auth", "login");
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    appendSetCookies(response, authResult.setCookies);
+    return response;
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  appendSetCookies(response, authResult.setCookies);
+  return response;
 }
 
 export const config = {

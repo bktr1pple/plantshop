@@ -12,7 +12,11 @@ export function useSafeScroll() {
   const defaultYProgress = useMotionValue(0);
 
   useEffect(() => {
-    setIsReady(true);
+    const frame = window.requestAnimationFrame(() => {
+      setIsReady(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const scrollInfo = useScroll({

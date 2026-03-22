@@ -17,6 +17,4 @@ export interface User {
   email: string;
 }
 
-export interface AnimationVariants {
-  [key: string]: any;
-}
+export type AnimationVariants = Record<string, Record<string, unknown>>;

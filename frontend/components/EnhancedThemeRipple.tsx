@@ -17,10 +17,16 @@ export function EnhancedThemeRipple() {
 
   useEffect(() => {
     if (isAnimating && !ripple) {
-      // In a real app, you'd get these from the button click
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
-      setRipple({ x: centerX, y: centerY, theme: theme === 'light' ? 'dark' : 'light' });
+      const frame = window.requestAnimationFrame(() => {
+        setRipple({
+          x: centerX,
+          y: centerY,
+          theme: theme === 'light' ? 'dark' : 'light',
+        });
+      });
+      return () => window.cancelAnimationFrame(frame);
     } else if (!isAnimating && ripple) {
       const timer = setTimeout(() => setRipple(null), 500);
       return () => clearTimeout(timer);

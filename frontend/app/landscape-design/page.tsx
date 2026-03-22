@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useMemo } from 'react';
-import { LazyMotion, m, domAnimation, useInView, useScroll, useTransform } from 'framer-motion';
+import { LazyMotion, m, domAnimation, useInView } from 'framer-motion';
 import Image from 'next/image';
 import { 
   Leaf, 
@@ -429,7 +429,7 @@ const ReviewCard = ({ review, index }: { review: Review; index: number }) => {
         </div>
       </div>
       <p className="text-gray-600 dark:text-gray-300 italic mb-4">
-        "{review.text}"
+        &ldquo;{review.text}&rdquo;
       </p>
       <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
         <p className="font-semibold text-gray-800 dark:text-white">
@@ -652,10 +652,10 @@ export default function LandscapeDesignPage() {
               
               {/* Filter Buttons */}
               <div className="flex flex-wrap justify-center gap-4 mb-12">
-                {['all', 'homesteads', 'commercial', 'parks'].map((filter) => (
+                {(['all', 'homesteads', 'commercial', 'parks'] as const).map((filter) => (
                   <button
                     key={filter}
-                    onClick={() => setActiveFilter(filter as any)}
+                    onClick={() => setActiveFilter(filter)}
                     className={`px-6 py-3 rounded-full font-medium transition-all duration-300 ${
                       activeFilter === filter
                         ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg'
@@ -669,7 +669,7 @@ export default function LandscapeDesignPage() {
             </div>
 
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {filteredProjects.map((project, index) => (
+              {filteredProjects.map((project) => (
                 <StaggerItem key={project.id}>
                   <ProjectCard project={project} />
                 </StaggerItem>

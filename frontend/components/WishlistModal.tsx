@@ -36,7 +36,7 @@ export function WishlistModal({ isOpen, onClose }: WishlistModalProps) {
     };
   }, [isOpen, onClose]);
 
-  const handleAddToCart = (item: any) => {
+  const handleAddToCart = (item: Parameters<typeof addToCart>[0]) => {
     addToCart(item);
     removeFromWishlist(item.id);
   };

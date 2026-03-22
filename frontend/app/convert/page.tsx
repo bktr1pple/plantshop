@@ -74,6 +74,12 @@ interface FilterPreset {
   };
 }
 
+type CropTransformKey =
+  | "cropTop"
+  | "cropBottom"
+  | "cropLeft"
+  | "cropRight";
+
 // ОДИН КАНОНИЧЕСКИЙ РАЗМЕР A4 ДЛЯ ВСЕГО (превью + экспорт)
 const A4_WIDTH_PX = 2480;
 const A4_HEIGHT_PX = 3508;
@@ -214,14 +220,19 @@ export default function ConvertPage() {
   // При смене страницы — авто-select первого слоя
   useEffect(() => {
     if (!currentPage) {
-      setSelectedLayerId(null);
-      return;
+      const frame = window.requestAnimationFrame(() => {
+        setSelectedLayerId(null);
+      });
+      return () => window.cancelAnimationFrame(frame);
     }
     if (
       !selectedLayerId ||
       !currentPage.layers.some((l) => l.id === selectedLayerId)
     ) {
-      setSelectedLayerId(currentPage.layers[0]?.id ?? null);
+      const frame = window.requestAnimationFrame(() => {
+        setSelectedLayerId(currentPage.layers[0]?.id ?? null);
+      });
+      return () => window.cancelAnimationFrame(frame);
     }
   }, [currentPage, selectedLayerId]);
 
@@ -232,7 +243,10 @@ export default function ConvertPage() {
       const raw = localStorage.getItem("scanFilterPresets");
       if (!raw) return;
       const parsed = JSON.parse(raw) as FilterPreset[];
-      setCustomPresets(parsed);
+      const frame = window.requestAnimationFrame(() => {
+        setCustomPresets(parsed);
+      });
+      return () => window.cancelAnimationFrame(frame);
     } catch {
       // ignore
     }
@@ -542,7 +556,10 @@ export default function ConvertPage() {
 
   useEffect(() => {
     if (!currentPage) return;
-    renderPreview();
+    const frame = window.requestAnimationFrame(() => {
+      renderPreview();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [
     currentPage,
     pages,
@@ -1407,7 +1424,7 @@ export default function ConvertPage() {
                       left: "Зліва",
                       right: "Справа",
                     };
-                    const key =
+                    const key: CropTransformKey =
                       side === "top"
                         ? "cropTop"
                         : side === "bottom"
@@ -1415,8 +1432,7 @@ export default function ConvertPage() {
                         : side === "left"
                         ? "cropLeft"
                         : "cropRight";
-                    const value =
-                      (selectedLayer?.transform as any)?.[key] ?? 0;
+                    const value = selectedLayer?.transform[key] ?? 0;
                     return (
                       <div
                         key={side}
@@ -1436,7 +1452,7 @@ export default function ConvertPage() {
                             updateSelectedLayerTransform({
                               [key]:
                                 Number(e.target.value) / 100,
-                            } as any)
+                            } as Pick<LayerTransform, CropTransformKey>)
                           }
                           className="h-1 w-full cursor-pointer rounded-full bg-gray-200 accent-emerald-500 dark:bg-gray-700"
                         />
