@@ -178,12 +178,10 @@ export class AuthController {
   @HttpCode(200)
   @Post('login')
   async login(
-    @Body() body: LoginDto & { captchaToken: string },
+    @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { captchaToken, ...dto } = body;
-
-    const captchaValid = await verifyCaptcha(captchaToken);
+    const captchaValid = await verifyCaptcha(dto.captchaToken);
     if (!captchaValid) {
       return {
         status: 'error',

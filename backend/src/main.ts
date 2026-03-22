@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParserModule from 'cookie-parser';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import type { RequestHandler } from 'express';
 import {
   getAllowedOriginsFromEnv,
@@ -25,6 +25,16 @@ async function bootstrap() {
 
   // Middleware для работы с куки
   app.use(cookieParser());
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   // Enable CORS with credentials
   const allowedOrigins = getAllowedOriginsFromEnv();

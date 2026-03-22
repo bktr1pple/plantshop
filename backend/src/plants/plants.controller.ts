@@ -7,6 +7,7 @@ import {
   Patch,
   ForbiddenException,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { PlantsService } from './plants.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -29,8 +30,8 @@ export class PlantController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.plantService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.plantService.findOne(id);
   }
 
   @UseGuards(JwtAuthGuard)
