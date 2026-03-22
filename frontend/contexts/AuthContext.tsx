@@ -119,12 +119,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
+          router.push(path);
         } else {
+          clearAuthMarker();
           setUser(null);
-        }
-      }
 
-      router.push(path);
+          if (typeof window !== 'undefined') {
+            const search = new URLSearchParams(window.location.search);
+            search.set('auth', 'login');
+            router.push('/?' + search.toString());
+          }
+        }
+        return;
+      }
     } catch (error) {
       clearAuthMarker();
       setUser(null);

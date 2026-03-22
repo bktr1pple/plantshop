@@ -255,35 +255,36 @@ const NotificationItem: React.FC<{
             </motion.button>
           </div>
 
+          <motion.p
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className={`mt-2 text-sm leading-relaxed ${config.text}`}
+          >
+            {notification.message}
+          </motion.p>
+
           {/* Action Button */}
           {notification.action && (
             <motion.div
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
+              className="mt-3"
             >
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={notification.action.onClick}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r ${config.gradient} text-white shadow-md hover:shadow-lg transition-all duration-200`}
-                  >
-                    {notification.action.label}
-                  </motion.button>
-                </motion.div>
-              )}
-
-              <motion.p
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className={`mt-2 text-sm leading-relaxed ${config.text}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r ${config.gradient} text-white shadow-md hover:shadow-lg transition-all duration-200`}
               >
-                {notification.message}
-              </motion.p>
-            </div>
-          </div>
-        </motion.div>
+                {notification.action.label}
+              </motion.button>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 };
 
