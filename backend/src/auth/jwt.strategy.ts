@@ -10,9 +10,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromExtractors([
         (req) => {
           console.log('🔐 JWT Strategy - All cookies:', req?.cookies);
-          console.log('🔐 JWT Strategy - Access token:', req?.cookies?.access_token);
+          console.log(
+            '🔐 JWT Strategy - Access token:',
+            req?.cookies?.access_token,
+          );
           return req?.cookies?.access_token;
-        }
+        },
       ]),
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_ACCESS_SECRET,
@@ -21,15 +24,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     console.log('🔐 JWT Strategy - Payload received:', payload);
-    
+
     if (!payload || !payload.sub) {
       console.log('🔐 JWT Strategy - Invalid payload');
       throw new UnauthorizedException('Invalid token payload');
     }
-    
-    return { 
-      userId: payload.sub, 
-      email: payload.email 
+
+    return {
+      userId: payload.sub,
+      email: payload.email,
     };
   }
 }

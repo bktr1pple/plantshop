@@ -178,10 +178,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const rt = req.cookies['refresh_token'];
     if (rt) {
       await this.authService.revokeRefreshToken(rt);
@@ -193,11 +190,7 @@ export class AuthController {
   }
 
   @Get('me')
-  async me(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-
+  async me(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const accessToken = req.cookies?.['access_token'];
     const refreshToken = req.cookies?.['refresh_token'];
 

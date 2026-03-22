@@ -19,4 +19,3 @@ describe('PlantController', () => {
     expect(controller).toBeDefined();
   });
 });
-
