@@ -7,12 +7,22 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { addSeconds } from 'date-fns';
 import { JwtService } from '@nestjs/jwt';
+import {
+  getJwtAccessExpiresIn,
+  getJwtRefreshExpiresIn,
+  getRequiredEnv,
+} from '../config/env';
 
 type StringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
 type AccessTokenPayload = { sub: number; email: string };
 type RefreshTokenPayload = { sub: number };
 
 export type VerifiedAccessTokenPayload = AccessTokenPayload;
+
+const jwtAccessSecret = getRequiredEnv('JWT_ACCESS_SECRET');
+const jwtRefreshSecret = getRequiredEnv('JWT_REFRESH_SECRET');
+const jwtAccessExpiresIn = getJwtAccessExpiresIn();
+const jwtRefreshExpiresIn = getJwtRefreshExpiresIn();
 
 @Injectable()
 export class AuthService {
@@ -57,27 +67,21 @@ export class AuthService {
     const payload = { sub: userId, email };
 
     const accessToken = this.jwtService.sign<AccessTokenPayload>(payload, {
-      secret: process.env.JWT_ACCESS_SECRET ?? '',
-      expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ?? '15m') as
-        | StringValue
-        | number,
+      secret: jwtAccessSecret,
+      expiresIn: jwtAccessExpiresIn as StringValue | number,
     });
 
     const refreshPayload = { sub: userId };
     const refreshToken = this.jwtService.sign<RefreshTokenPayload>(
       refreshPayload,
       {
-        secret: process.env.JWT_REFRESH_SECRET ?? '',
-        expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ?? '7d') as
-          | StringValue
-          | number,
+        secret: jwtRefreshSecret,
+        expiresIn: jwtRefreshExpiresIn as StringValue | number,
       },
     );
 
     const tokenHash = await bcrypt.hash(refreshToken, 10);
-    const seconds = this._parseDurationSeconds(
-      process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-    );
+    const seconds = this._parseDurationSeconds(jwtRefreshExpiresIn);
     const expiresAt = addSeconds(new Date(), seconds);
 
     await this.prisma.refreshToken.create({
@@ -93,7 +97,7 @@ export class AuthService {
       const payload = this.jwtService.verify<RefreshTokenPayload>(
         refreshToken,
         {
-          secret: process.env.JWT_REFRESH_SECRET ?? '',
+          secret: jwtRefreshSecret,
         },
       );
 
@@ -144,7 +148,7 @@ export class AuthService {
 
   verifyAccessToken(token: string): VerifiedAccessTokenPayload {
     return this.jwtService.verify<VerifiedAccessTokenPayload>(token, {
-      secret: process.env.JWT_ACCESS_SECRET ?? '',
+      secret: jwtAccessSecret,
     });
   }
 

@@ -5,11 +5,13 @@ import type { Request } from 'express';
 import { Strategy } from 'passport-jwt';
 import type { StrategyOptionsWithoutRequest } from 'passport-jwt';
 import type { VerifiedAccessTokenPayload } from './auth.service';
+import { getRequiredEnv } from '../config/env';
 
 type RequestCookies = Partial<Record<'access_token', string>>;
 type PassportStrategyCtor = new (...args: [StrategyOptionsWithoutRequest]) => {
   validate(payload: VerifiedAccessTokenPayload): unknown;
 };
+const jwtAccessSecret = getRequiredEnv('JWT_ACCESS_SECRET');
 
 function extractAccessToken(req?: Request): string | null {
   const cookies = (req?.cookies ?? {}) as RequestCookies;
@@ -24,7 +26,7 @@ export class JwtStrategy extends JwtPassportStrategy {
     super({
       jwtFromRequest: extractAccessToken,
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_ACCESS_SECRET,
+      secretOrKey: jwtAccessSecret,
     });
   }
 

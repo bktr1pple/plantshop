@@ -202,14 +202,7 @@ export class AuthController {
 
     const tokens = await this.authService.login(user.id, user.email);
 
-    console.log('🔐 Tokens generated:', {
-      accessToken: tokens.accessToken ? 'PRESENT' : 'MISSING',
-      refreshToken: tokens.refreshToken ? 'PRESENT' : 'MISSING',
-    });
-
     this.setAuthCookies(res, tokens);
-
-    console.log('🔐 Cookies set successfully');
     return { status: 'ok' };
   }
 

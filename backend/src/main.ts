@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import cookieParserModule from 'cookie-parser';
 import { Logger } from '@nestjs/common';
 import type { RequestHandler } from 'express';
+import { getAllowedOriginsFromEnv, getPort } from './config/env';
 
 const cookieParser = cookieParserModule as unknown as () => RequestHandler;
 const logger = new Logger('Bootstrap');
@@ -12,14 +13,6 @@ function normalizeOrigin(origin: string): string {
   return origin.replace(/\/+$/, '');
 }
 
-function getAllowedOrigins(): string[] {
-  const rawOrigins = process.env.FRONTEND_URL?.split(',') ?? [];
-  return rawOrigins
-    .map((origin) => origin.trim())
-    .filter(Boolean)
-    .map(normalizeOrigin);
-}
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -27,7 +20,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Enable CORS with credentials
-  const allowedOrigins = getAllowedOrigins();
+  const allowedOrigins = getAllowedOriginsFromEnv();
   const corsOrigin = (
     origin: string | undefined,
     callback: CorsOriginCallback,
@@ -54,7 +47,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  const port = process.env.PORT ? Number(process.env.PORT) : 3001;
+  const port = getPort();
   await app.listen(port);
   console.log(`🚀 Backend is running on port ${port}`);
 }

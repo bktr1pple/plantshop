@@ -5,15 +5,21 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtStrategy } from './jwt.strategy';
+import { getJwtAccessExpiresIn, getRequiredEnv } from '../config/env';
+
+type JwtStringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
+
+const jwtAccessSecret = getRequiredEnv('JWT_ACCESS_SECRET');
+const jwtAccessExpiresIn = getJwtAccessExpiresIn() as JwtStringValue | number;
 
 // backend/src/auth/auth.module.ts
 @Module({
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_ACCESS_SECRET,
+      secret: jwtAccessSecret,
       signOptions: {
-        expiresIn: Number(process.env.JWT_ACCESS_EXPIRES_IN),
+        expiresIn: jwtAccessExpiresIn,
       },
     }),
   ],

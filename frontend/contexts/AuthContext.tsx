@@ -7,8 +7,10 @@ import React, {
   useEffect,
   ReactNode,
   useRef,
+  useCallback,
 } from 'react';
 
+import { useNotification } from '@/app/components/NotificationSystem';
 import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
 import { useRouter } from 'next/navigation';
 
@@ -41,42 +43,88 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-const AUTH_MARKER_KEY = 'ps_auth_marker';
-
-const setAuthMarker = () => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(AUTH_MARKER_KEY, '1');
-  } catch {
-    // ignore
-  }
-};
-
-const clearAuthMarker = () => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(AUTH_MARKER_KEY);
-  } catch {
-    // ignore
-  }
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const hasCheckedAuth = useRef(false);
   const checkAuthPromiseRef = useRef<Promise<'authenticated' | 'unauthorized' | 'unavailable'> | null>(null);
+  const lastUnavailableNoticeRef = useRef(0);
   const router = useRouter();
+  const { addNotification } = useNotification();
 
-  const redirectToLogin = () => {
+  const redirectToLogin = useCallback(() => {
     if (typeof window !== 'undefined') {
       const search = new URLSearchParams(window.location.search);
       search.set('auth', 'login');
       router.push('/?' + search.toString());
     }
-  };
+  }, [router]);
 
-  const ensureAuthAndGo = async (path: string) => {
+  const notifyAuthUnavailable = useCallback(() => {
+    const now = Date.now();
+    if (now - lastUnavailableNoticeRef.current < 4000) {
+      return;
+    }
+
+    lastUnavailableNoticeRef.current = now;
+    addNotification({
+      type: 'warning',
+      title: 'Сервер авторизації тимчасово недоступний',
+      message:
+        'Не вдалося перевірити сесію. Спробуйте ще раз за кілька секунд.',
+      duration: 5000,
+    });
+  }, [addNotification]);
+
+  const checkAuthStatus = useCallback(async (): Promise<
+    'authenticated' | 'unauthorized' | 'unavailable'
+  > => {
+    if (checkAuthPromiseRef.current) {
+      return checkAuthPromiseRef.current;
+    }
+
+    const authCheckPromise = (async () => {
+      setIsLoading(true);
+
+      try {
+        const { res, unauthorized, temporaryFailure } = await fetchWithRefresh(
+          '/auth/me',
+        );
+
+        if (unauthorized) {
+          setUser(null);
+          return 'unauthorized' as const;
+        }
+
+        if (temporaryFailure || !res) {
+          return 'unavailable' as const;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
+            return 'authenticated' as const;
+          }
+
+          setUser(null);
+          return 'unauthorized' as const;
+        }
+
+        return 'unavailable' as const;
+      } catch {
+        return 'unavailable' as const;
+      } finally {
+        setIsLoading(false);
+        checkAuthPromiseRef.current = null;
+      }
+    })();
+
+    checkAuthPromiseRef.current = authCheckPromise;
+    return authCheckPromise;
+  }, []);
+
+  const ensureAuthAndGo = useCallback(async (path: string) => {
     // если уже на нужном пути и есть пользователь — лишний запрос/редирект не нужен
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
@@ -95,76 +143,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (authStatus === 'unauthorized') {
         redirectToLogin();
+        return;
       }
+
+      notifyAuthUnavailable();
     } catch {
-      clearAuthMarker();
       setUser(null);
-      redirectToLogin();
+      notifyAuthUnavailable();
     }
-  };
+  }, [user, checkAuthStatus, notifyAuthUnavailable, redirectToLogin, router]);
 
   useEffect(() => {
     if (hasCheckedAuth.current) return;
     hasCheckedAuth.current = true;
 
     void checkAuthStatus();
-  }, []);
+  }, [checkAuthStatus]);
 
-  const checkAuthStatus = async (): Promise<
-    'authenticated' | 'unauthorized' | 'unavailable'
-  > => {
-    if (checkAuthPromiseRef.current) {
-      return checkAuthPromiseRef.current;
-    }
-
-    const authCheckPromise = (async () => {
-      setIsLoading(true);
-
-      try {
-        const { res, unauthorized, temporaryFailure } = await fetchWithRefresh(
-          '/auth/me',
-        );
-
-        if (unauthorized) {
-          clearAuthMarker();
-          setUser(null);
-          return 'unauthorized' as const;
-        }
-
-        if (temporaryFailure || !res) {
-          return 'unavailable' as const;
-        }
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setAuthMarker();
-            setUser(data.user);
-            return 'authenticated' as const;
-          }
-
-          clearAuthMarker();
-          setUser(null);
-          return 'unauthorized' as const;
-        }
-
-        return 'unavailable' as const;
-      } catch {
-        return 'unavailable' as const;
-      } finally {
-        setIsLoading(false);
-        checkAuthPromiseRef.current = null;
-      }
-    })();
-
-    checkAuthPromiseRef.current = authCheckPromise;
-    return authCheckPromise;
-  };
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     const authStatus = await checkAuthStatus();
     return authStatus === 'authenticated';
-  };
+  }, [checkAuthStatus]);
 
   const login = async (
     email: string,
@@ -193,7 +192,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (authStatus === 'unauthorized') {
-          clearAuthMarker();
           setUser(null);
           return {
             success: false,
@@ -244,7 +242,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (authStatus === 'unauthorized') {
-          clearAuthMarker();
           setUser(null);
           return {
             success: false,
@@ -278,7 +275,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('🔐 Logout error:', error);
     } finally {
-      clearAuthMarker();
       setUser(null);
     }
   };
