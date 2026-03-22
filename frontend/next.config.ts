@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
     optimizeCss: true,
     scrollRestoration: true,
   },
+  images: {
+    qualities: [75, 85],
+  },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },

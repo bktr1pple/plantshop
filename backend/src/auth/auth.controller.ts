@@ -16,10 +16,33 @@ import { LoginDto } from './dto/login.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 type CaptchaToken = string;
+type RequestCookies = Partial<Record<'access_token' | 'refresh_token', string>>;
+type VerifiedAuthPayload = {
+  sub?: number;
+  userId?: number;
+  email?: string;
+};
 
 interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+}
+
+interface RecaptchaVerifyResponse {
+  success?: boolean;
+}
+
+function isLocalhostHost(value?: string): boolean {
+  return value === 'localhost' || value === '127.0.0.1';
+}
+
+function isTokenExpiredError(error: unknown): error is { name: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'TokenExpiredError'
+  );
 }
 
 async function verifyCaptcha(token: CaptchaToken): Promise<boolean> {
@@ -51,8 +74,8 @@ async function verifyCaptcha(token: CaptchaToken): Promise<boolean> {
       return false;
     }
 
-    const data = await response.json();
-    return !!data.success;
+    const data = (await response.json()) as RecaptchaVerifyResponse;
+    return data.success === true;
   } catch (err) {
     console.error('Error while verifying reCAPTCHA:', err);
     return false;
@@ -66,15 +89,25 @@ export class AuthController {
     private readonly prisma: PrismaService,
   ) {}
 
+  private getCookieDomainValue(): string | undefined {
+    const domain = process.env.DOMAIN_COOKIE?.trim();
+    return domain || undefined;
+  }
+
   private getCookieDomain(): string | undefined {
-    const domain = process.env.DOMAIN_COOKIE;
+    const domain = this.getCookieDomainValue();
     if (!domain) {
       console.warn(
         '⚠️ DOMAIN_COOKIE is not set. Cookies will be set without domain.',
       );
       return undefined;
     }
-    return '.' + domain;
+
+    if (isLocalhostHost(domain)) {
+      return undefined;
+    }
+
+    return domain.startsWith('.') ? domain : '.' + domain;
   }
 
   private getCommonCookieOptions(): {
@@ -84,7 +117,10 @@ export class AuthController {
     domain?: string;
     path: string;
   } {
-    const secure = process.env.NODE_ENV === 'production';
+    const cookieDomainValue = this.getCookieDomainValue();
+    const secure =
+      process.env.NODE_ENV === 'production' &&
+      !isLocalhostHost(cookieDomainValue);
     const domain = this.getCookieDomain();
 
     return {
@@ -179,7 +215,8 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const rt = req.cookies['refresh_token'];
+    const cookies = (req.cookies ?? {}) as RequestCookies;
+    const rt = cookies.refresh_token;
     if (rt) {
       await this.authService.revokeRefreshToken(rt);
     }
@@ -191,29 +228,28 @@ export class AuthController {
 
   @Get('me')
   async me(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const accessToken = req.cookies?.['access_token'];
-    const refreshToken = req.cookies?.['refresh_token'];
+    const cookies = (req.cookies ?? {}) as RequestCookies;
+    const accessToken = cookies.access_token;
+    const refreshToken = cookies.refresh_token;
 
     if (!accessToken && !refreshToken) {
       throw new UnauthorizedException('Not authenticated');
     }
 
-    let payload: any = null;
+    let payload: VerifiedAuthPayload | null = null;
 
     if (accessToken) {
       try {
-        payload = await this.authService.verifyAccessToken(accessToken);
-      } catch (err: any) {
-        if (err?.name === 'TokenExpiredError' && refreshToken) {
+        payload = this.authService.verifyAccessToken(accessToken);
+      } catch (err: unknown) {
+        if (isTokenExpiredError(err) && refreshToken) {
           try {
             const newTokens = await this.authService.refresh(refreshToken);
 
             this.setAuthCookies(res, newTokens);
 
-            payload = await this.authService.verifyAccessToken(
-              newTokens.accessToken,
-            );
-          } catch (refreshError) {
+            payload = this.authService.verifyAccessToken(newTokens.accessToken);
+          } catch {
             this.clearAuthCookies(res);
             throw new UnauthorizedException('Invalid refresh token');
           }
@@ -226,10 +262,8 @@ export class AuthController {
       try {
         const newTokens = await this.authService.refresh(refreshToken);
         this.setAuthCookies(res, newTokens);
-        payload = await this.authService.verifyAccessToken(
-          newTokens.accessToken,
-        );
-      } catch (refreshError) {
+        payload = this.authService.verifyAccessToken(newTokens.accessToken);
+      } catch {
         this.clearAuthCookies(res);
         throw new UnauthorizedException('Invalid refresh token');
       }

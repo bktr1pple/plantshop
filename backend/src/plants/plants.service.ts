@@ -3,6 +3,17 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePlantDto } from './dto/create-plant.dto';
 import { UpdatePlantDto } from './dto/update-plant.dto';
 
+function parseImages(images: string | null): string[] {
+  if (!images) {
+    return [];
+  }
+
+  const parsed = JSON.parse(images) as unknown;
+  return Array.isArray(parsed)
+    ? parsed.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
 @Injectable()
 export class PlantsService {
   constructor(private prisma: PrismaService) {}
@@ -29,7 +40,7 @@ export class PlantsService {
     // Парсимо JSON щоб повернути масив у відповідь
     return plants.map((plant) => ({
       ...plant,
-      images: plant.images ? JSON.parse(plant.images) : [],
+      images: parseImages(plant.images),
     }));
   }
 
@@ -39,7 +50,7 @@ export class PlantsService {
 
     return {
       ...plant,
-      images: plant.images ? JSON.parse(plant.images) : [],
+      images: parseImages(plant.images),
     };
   }
 

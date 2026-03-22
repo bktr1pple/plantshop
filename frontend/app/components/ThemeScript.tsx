@@ -1,11 +1,10 @@
 // components/ThemeScript.tsx
-"use client";
+import Script from 'next/script';
 
 export function ThemeScript() {
   return (
-    <script
-      dangerouslySetInnerHTML={{
-        __html: `
+    <Script id="theme-script" strategy="beforeInteractive">
+      {`
           (function() {
             try {
               var savedTheme = localStorage.getItem('theme');
@@ -18,8 +17,7 @@ export function ThemeScript() {
               document.documentElement.style.setProperty('--initial-theme', theme);
             } catch (e) {}
           })();
-        `,
-      }}
-    />
+        `}
+    </Script>
   );
 }

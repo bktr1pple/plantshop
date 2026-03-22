@@ -12,6 +12,8 @@ type StringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
 type AccessTokenPayload = { sub: number; email: string };
 type RefreshTokenPayload = { sub: number };
 
+export type VerifiedAccessTokenPayload = AccessTokenPayload;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -140,8 +142,8 @@ export class AuthService {
     return false;
   }
 
-  async verifyAccessToken(token: string) {
-    return this.jwtService.verify(token, {
+  verifyAccessToken(token: string): VerifiedAccessTokenPayload {
+    return this.jwtService.verify<VerifiedAccessTokenPayload>(token, {
       secret: process.env.JWT_ACCESS_SECRET ?? '',
     });
   }

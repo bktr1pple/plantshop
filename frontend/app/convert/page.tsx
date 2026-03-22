@@ -1,5 +1,6 @@
 "use client";
 
+import NextImage from "next/image";
 import React, {
   useCallback,
   useEffect,
@@ -286,7 +287,7 @@ export default function ConvertPage() {
             const reader = new FileReader();
             reader.onload = () => {
               const src = reader.result as string;
-              const img = new Image();
+              const img = new window.Image();
               img.onload = () => {
                 const id = createId();
                 imageElementsRef.current[id] = img;
@@ -1882,9 +1883,12 @@ export default function ConvertPage() {
                       ref={perspectiveWrapperRef}
                       className="relative mx-auto inline-block max-h-[70vh] max-w-full"
                     >
-                      <img
+                      <NextImage
                         src={selectedLayer.src}
                         alt="Perspective crop"
+                        width={selectedLayer.width}
+                        height={selectedLayer.height}
+                        unoptimized
                         className="max-h-[70vh] max-w-full rounded-lg shadow-xl shadow-black/50"
                       />
                       {perspectiveQuad && (
