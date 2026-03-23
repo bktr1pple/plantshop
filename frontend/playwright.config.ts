@@ -1,9 +1,12 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
 const FRONTEND_PORT = 3200;
 const MOCK_BACKEND_PORT = 3201;
 const FRONTEND_ORIGIN = `http://127.0.0.1:${FRONTEND_PORT}`;
 const MOCK_BACKEND_ORIGIN = `http://127.0.0.1:${MOCK_BACKEND_PORT}`;
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: './e2e',
@@ -25,7 +28,7 @@ export default defineConfig({
     {
       command: 'node ./e2e/mock-backend.mjs',
       url: `${MOCK_BACKEND_ORIGIN}/__e2e/health`,
-      cwd: __dirname,
+      cwd: projectRoot,
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
@@ -36,7 +39,7 @@ export default defineConfig({
     {
       command: `npx next dev -p ${FRONTEND_PORT}`,
       url: FRONTEND_ORIGIN,
-      cwd: __dirname,
+      cwd: projectRoot,
       reuseExistingServer: false,
       timeout: 180_000,
       env: {

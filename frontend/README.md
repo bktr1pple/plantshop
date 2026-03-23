@@ -1,3 +1,5 @@
+This frontend expects **Node.js 24.14.0** for local development.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

@@ -25,6 +25,10 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Runtime requirement
+
+This backend expects **Node.js 24.14.0** for local development.
+
 ## Project setup
 
 ```bash
