@@ -8,6 +8,7 @@ export default defineConfig({
     css: false,
     pool: 'threads',
     globals: true,
+    exclude: ['e2e/**', 'node_modules/**'],
   },
   resolve: {
     alias: {
