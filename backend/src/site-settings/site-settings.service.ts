@@ -31,6 +31,14 @@ const defaultSettings = {
   instagramUrl: 'https://instagram.com',
 };
 
+function omitUndefinedFields(
+  dto: UpdateSiteSettingsDto,
+): Partial<UpdateSiteSettingsDto> {
+  return Object.fromEntries(
+    Object.entries(dto).filter(([, value]) => value !== undefined),
+  ) as Partial<UpdateSiteSettingsDto>;
+}
+
 @Injectable()
 export class SiteSettingsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -51,13 +59,15 @@ export class SiteSettingsService {
   }
 
   async updateSettings(dto: UpdateSiteSettingsDto) {
+    const definedDto = omitUndefinedFields(dto);
+
     return this.prisma.siteSettings.upsert({
       where: { id: SETTINGS_ID },
-      update: dto,
+      update: definedDto,
       create: {
         id: SETTINGS_ID,
         ...defaultSettings,
-        ...dto,
+        ...definedDto,
       },
     });
   }

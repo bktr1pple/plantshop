@@ -98,4 +98,40 @@ describe('SiteSettingsService', () => {
       footerCtaHref: '/contact',
     });
   });
+
+  it('updateSettings не затирає default create fields значеннями undefined', async () => {
+    prismaMock.siteSettings.upsert.mockResolvedValue({
+      id: 1,
+      siteName: 'Admin PlantShop',
+    });
+
+    await service.updateSettings({
+      siteName: 'Admin PlantShop',
+      heroSubtitle: undefined,
+    });
+
+    const [call] = prismaMock.siteSettings.upsert.mock.calls as Array<
+      [
+        {
+          update: Record<string, unknown>;
+          create: Record<string, unknown>;
+        },
+      ]
+    >;
+    const args = call?.[0] as {
+      update: Record<string, unknown>;
+      create: Record<string, unknown>;
+    };
+
+    expect(args.update).toEqual({
+      siteName: 'Admin PlantShop',
+    });
+    expect(args.create).toMatchObject({
+      id: 1,
+      siteName: 'Admin PlantShop',
+    });
+    expect(args.create.heroSubtitle).toBe(
+      'Ексклюзивні рослини, професійний догляд та авторські рішення для створення ідеального простору',
+    );
+  });
 });
