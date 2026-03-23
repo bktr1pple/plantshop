@@ -71,7 +71,7 @@ function buildStorageEngine(): NonNullable<MulterOptions['storage']> {
   });
 }
 
-function createMulterOptions(): MulterOptions {
+export function createMulterOptions(): MulterOptions {
   ensureUploadDirectories();
   return {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
