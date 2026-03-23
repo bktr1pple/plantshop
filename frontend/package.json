@@ -7,12 +7,12 @@
     "node": ">=24.14.0 <25"
   },
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start",
-    "dev:vinext": "vite dev --port 3000",
-    "build:vinext": "vite build",
-    "start:vinext": "vinext start",
+    "dev": "vite dev --port 3000",
+    "build": "vite build",
+    "start": "vinext start",
+    "dev:next": "next dev -p 3000",
+    "build:next": "next build",
+    "start:next": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest"

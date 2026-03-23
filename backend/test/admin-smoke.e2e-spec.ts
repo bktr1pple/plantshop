@@ -33,6 +33,26 @@ type AuthMeResponse = {
 type SiteSettingsResponse = {
   siteName: string;
 };
+type OrderSummaryResponse = {
+  id: number;
+  status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  totalAmount: number;
+  itemCount: number;
+};
+type OrderDetailResponse = OrderSummaryResponse & {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  note: string | null;
+  items: Array<{
+    plantId: number | null;
+    plantName: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+  }>;
+};
 
 function isRecaptchaRequest(input: unknown): boolean {
   if (typeof input === 'string') {
@@ -57,6 +77,7 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
   let prisma: PrismaService;
   let adminEmail: string;
   let userEmail: string;
+  let plantId: number;
   const password = 'SmokePass123!';
   let hadSiteSettingsInitially = false;
   let originalSiteName = 'Plant Shop';
@@ -162,6 +183,16 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
         role: 'USER',
       },
     });
+
+    const plant = await prisma.plant.create({
+      data: {
+        name: 'Smoke Monstera',
+        description: 'Smoke order plant',
+        price: 149.5,
+        images: '["http://localhost:3001/uploads/plants/smoke-monstera.png"]',
+      },
+    });
+    plantId = plant.id;
   });
 
   afterAll(async () => {
@@ -187,6 +218,12 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
           email: { in: [adminEmail, userEmail] },
         },
       });
+
+      if (plantId) {
+        await prisma.plant.deleteMany({
+          where: { id: plantId },
+        });
+      }
     } finally {
       jest.restoreAllMocks();
 
@@ -218,6 +255,24 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
     expect(
       setCookie.some((cookie) => cookie.startsWith('refresh_token=')),
     ).toBe(true);
+  }
+
+  async function createOrderAs(agent: Agent) {
+    const res = await agent.post('/orders').send({
+      customerName: 'Smoke User',
+      customerPhone: '+380501112233',
+      deliveryAddress: 'Львів, відділення 3',
+      note: 'Подзвоніть перед доставкою',
+      items: [
+        {
+          plantId,
+          quantity: 2,
+        },
+      ],
+    });
+
+    expect([200, 201]).toContain(res.status);
+    return res.body as OrderDetailResponse;
   }
 
   it('ADMIN може увійти, пройти /auth/me і оновити site settings через реальні cookies', async () => {
@@ -389,5 +444,117 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
       dataSharing: true,
       personalizedAds: true,
     });
+  });
+
+  it('USER може створити реальне замовлення та побачити його у власній історії', async () => {
+    const agent = request.agent(httpServer);
+    await loginAs(agent, userEmail, password);
+
+    const createdOrder = await createOrderAs(agent);
+    expect(createdOrder).toMatchObject({
+      customerEmail: userEmail,
+      customerName: 'Smoke User',
+      customerPhone: '+380501112233',
+      deliveryAddress: 'Львів, відділення 3',
+      totalAmount: 299,
+      itemCount: 1,
+      status: 'PENDING',
+      items: [
+        expect.objectContaining({
+          plantId,
+          plantName: 'Smoke Monstera',
+          quantity: 2,
+          unitPrice: 149.5,
+          lineTotal: 299,
+        }),
+      ],
+    });
+
+    const listRes = await agent.get('/orders');
+    expect(listRes.status).toBe(200);
+    const listBody = listRes.body as OrderSummaryResponse[];
+    expect(listBody.some((order) => order.id === createdOrder.id)).toBe(true);
+
+    const detailRes = await agent.get(`/orders/${createdOrder.id}`);
+    expect(detailRes.status).toBe(200);
+    const detailBody = detailRes.body as OrderDetailResponse;
+    expect(detailBody).toMatchObject({
+      id: createdOrder.id,
+      customerEmail: userEmail,
+      totalAmount: 299,
+    });
+
+    const persistedOrder = await prisma.order.findUnique({
+      where: { id: createdOrder.id },
+      select: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+        totalAmount: true,
+        items: {
+          select: {
+            plantId: true,
+            quantity: true,
+            lineTotal: true,
+          },
+        },
+      },
+    });
+
+    expect(persistedOrder).toMatchObject({
+      user: {
+        email: userEmail,
+      },
+      totalAmount: 299,
+      items: [
+        {
+          plantId,
+          quantity: 2,
+          lineTotal: 299,
+        },
+      ],
+    });
+  });
+
+  it('ADMIN може переглядати замовлення та оновлювати їхній статус', async () => {
+    const userAgent = request.agent(httpServer);
+    await loginAs(userAgent, userEmail, password);
+    const createdOrder = await createOrderAs(userAgent);
+
+    const adminAgent = request.agent(httpServer);
+    await loginAs(adminAgent, adminEmail, password);
+
+    const adminListRes = await adminAgent.get('/admin/orders');
+    expect(adminListRes.status).toBe(200);
+    const adminList = adminListRes.body as OrderSummaryResponse[];
+    expect(adminList.some((order) => order.id === createdOrder.id)).toBe(true);
+
+    const adminDetailRes = await adminAgent.get(
+      `/admin/orders/${createdOrder.id}`,
+    );
+    expect(adminDetailRes.status).toBe(200);
+    const adminDetail = adminDetailRes.body as OrderDetailResponse;
+    expect(adminDetail).toMatchObject({
+      id: createdOrder.id,
+      customerEmail: userEmail,
+      status: 'PENDING',
+    });
+
+    const updateRes = await adminAgent
+      .patch(`/admin/orders/${createdOrder.id}/status`)
+      .send({
+        status: 'SHIPPED',
+      });
+    expect(updateRes.status).toBe(200);
+    const updatedBody = updateRes.body as OrderDetailResponse;
+    expect(updatedBody.status).toBe('SHIPPED');
+
+    const persistedOrder = await prisma.order.findUnique({
+      where: { id: createdOrder.id },
+      select: { status: true },
+    });
+    expect(persistedOrder?.status).toBe('SHIPPED');
   });
 });

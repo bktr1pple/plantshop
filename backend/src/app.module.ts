@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PlantsModule } from './plants/plants.module';
 import { MediaModule } from './media/media.module';
 import { SiteSettingsModule } from './site-settings/site-settings.module';
+import { OrdersModule } from './orders/orders.module';
 import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
 
 @Module({
@@ -24,6 +25,7 @@ import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
     PlantsModule,
     MediaModule,
     SiteSettingsModule,
+    OrdersModule,
   ],
   providers: [
     {

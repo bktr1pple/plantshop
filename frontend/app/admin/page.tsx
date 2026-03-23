@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Images, Settings2, Sprout, TrendingUp } from 'lucide-react';
+import { ArrowRight, Images, Package, Settings2, Sprout, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -73,7 +73,7 @@ export default async function AdminPage() {
               Основні сценарії керування сайтом в одному місці.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Link href="/admin/plants">
               <div className="group rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
                 <Sprout className="mb-3 h-8 w-8 text-emerald-600" />
@@ -108,6 +108,20 @@ export default async function AdminPage() {
                 <h3 className="font-semibold">Налаштування сайту</h3>
                 <p className="mt-2 text-sm text-slate-500">
                   Hero, footer, контакти та соціальні посилання без редагування коду.
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-emerald-600">
+                  Відкрити
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/admin/orders">
+              <div className="group rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                <Package className="mb-3 h-8 w-8 text-emerald-600" />
+                <h3 className="font-semibold">Замовлення</h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Перегляд історії покупок, деталей замовлень і оновлення статусів.
                 </p>
                 <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-emerald-600">
                   Відкрити

@@ -10,6 +10,11 @@ import { PlantsService } from '../plants/plants.service';
 import { SiteSettingsController } from '../site-settings/site-settings.controller';
 import { UpdateSiteSettingsDto } from '../site-settings/dto/update-site-settings.dto';
 import { SiteSettingsService } from '../site-settings/site-settings.service';
+import { AdminOrdersController } from '../orders/admin-orders.controller';
+import { OrdersService } from '../orders/orders.service';
+import { CreateOrderDto } from '../orders/dto/create-order.dto';
+import { UpdateOrderStatusDto } from '../orders/dto/update-order-status.dto';
+import { OrderStatus } from '@prisma/client';
 
 type AuthenticatedUser = {
   userId: number;
@@ -49,6 +54,7 @@ describe('Admin contracts', () => {
   let plantController: PlantController;
   let mediaController: MediaController;
   let siteSettingsController: SiteSettingsController;
+  let adminOrdersController: AdminOrdersController;
   let plantsServiceMock: {
     create: jest.Mock;
     findAll: jest.Mock;
@@ -65,6 +71,14 @@ describe('Admin contracts', () => {
     getPublicSettings: jest.Mock;
     getSettings: jest.Mock;
     updateSettings: jest.Mock;
+  };
+  let ordersServiceMock: {
+    createForUser: jest.Mock;
+    listForUser: jest.Mock;
+    getForUser: jest.Mock;
+    listForAdmin: jest.Mock;
+    getForAdmin: jest.Mock;
+    updateStatus: jest.Mock;
   };
   let validationPipe: ValidationPipe;
 
@@ -92,8 +106,22 @@ describe('Admin contracts', () => {
       updateSettings: jest.fn(),
     };
 
+    ordersServiceMock = {
+      createForUser: jest.fn(),
+      listForUser: jest.fn(),
+      getForUser: jest.fn(),
+      listForAdmin: jest.fn(),
+      getForAdmin: jest.fn(),
+      updateStatus: jest.fn(),
+    };
+
     const moduleRef = await Test.createTestingModule({
-      controllers: [PlantController, MediaController, SiteSettingsController],
+      controllers: [
+        PlantController,
+        MediaController,
+        SiteSettingsController,
+        AdminOrdersController,
+      ],
       providers: [
         Reflector,
         RolesGuard,
@@ -109,6 +137,10 @@ describe('Admin contracts', () => {
           provide: SiteSettingsService,
           useValue: siteSettingsServiceMock,
         },
+        {
+          provide: OrdersService,
+          useValue: ordersServiceMock,
+        },
       ],
     }).compile();
 
@@ -116,6 +148,7 @@ describe('Admin contracts', () => {
     plantController = moduleRef.get(PlantController);
     mediaController = moduleRef.get(MediaController);
     siteSettingsController = moduleRef.get(SiteSettingsController);
+    adminOrdersController = moduleRef.get(AdminOrdersController);
 
     validationPipe = new ValidationPipe({
       whitelist: true,
@@ -291,6 +324,78 @@ describe('Admin contracts', () => {
           updatedAt: '2026-03-23T12:00:00.000Z',
         },
       ],
+    });
+  });
+
+  it('не-адмін не може переглядати admin orders', () => {
+    const context = createExecutionContext(adminOrdersController, 'findAll', {
+      userId: 1,
+      email: 'user@example.com',
+      role: 'USER',
+    });
+
+    expect(() => rolesGuard.canActivate(context as never)).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('адмін може оновити статус замовлення, а whitelist прибирає зайві поля', async () => {
+    const context = createExecutionContext(
+      adminOrdersController,
+      'updateStatus',
+      {
+        userId: 1,
+        email: 'admin@example.com',
+        role: 'ADMIN',
+      },
+    );
+
+    expect(rolesGuard.canActivate(context as never)).toBe(true);
+
+    const dto = (await validationPipe.transform(
+      {
+        status: 'SHIPPED',
+        extraField: 'remove-me',
+      },
+      {
+        type: 'body',
+        metatype: UpdateOrderStatusDto,
+      },
+    )) as UpdateOrderStatusDto;
+
+    expect(dto).toEqual({
+      status: OrderStatus.SHIPPED,
+    });
+  });
+
+  it('CreateOrderDto whitelist-перетворення залишає лише підтримувані поля замовлення', async () => {
+    const dto = (await validationPipe.transform(
+      {
+        customerName: 'User',
+        customerPhone: '+380671234567',
+        deliveryAddress: 'Kyiv',
+        note: 'door code 123',
+        items: [
+          {
+            plantId: '7',
+            quantity: '2',
+            extra: 'remove-me',
+          },
+        ],
+        extraField: 'remove-me',
+      },
+      {
+        type: 'body',
+        metatype: CreateOrderDto,
+      },
+    )) as CreateOrderDto;
+
+    expect(dto).toEqual({
+      customerName: 'User',
+      customerPhone: '+380671234567',
+      deliveryAddress: 'Kyiv',
+      note: 'door code 123',
+      items: [{ plantId: 7, quantity: 2 }],
     });
   });
 });

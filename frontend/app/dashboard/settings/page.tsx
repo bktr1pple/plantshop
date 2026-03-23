@@ -42,6 +42,13 @@ interface PrivacySettings {
   personalizedAds: boolean;
 }
 
+interface SettingsValidationErrors {
+  name?: string;
+  phone?: string;
+  address?: string;
+  bio?: string;
+}
+
 function createProfileState(user: AuthUser | null): ProfileState {
   return {
     name: user?.name ?? '',
@@ -240,7 +247,7 @@ const ToggleRow: React.FC<{
 // ---- Основная страница ----
 
 export default function SettingsPage() {
-  const { user, checkAuth } = useAuth();
+  const { user, checkAuth, isLoading } = useAuth();
   const { addNotification } = useNotification();
 
   const [profile, setProfile] = useState<ProfileState>(() =>
@@ -266,6 +273,42 @@ export default function SettingsPage() {
 
   const [activeSection, setActiveSection] = useState<SectionId>('profile');
   const accountSettingsBackendConnected = true;
+  const controlsDisabled = isLoading || isSaving;
+
+  const savedProfile = useMemo(() => createProfileState(user), [user]);
+  const savedNotifications = useMemo(() => createNotificationState(user), [user]);
+  const savedPrivacy = useMemo(() => createPrivacyState(user), [user]);
+
+  const validationErrors = useMemo<SettingsValidationErrors>(() => {
+    const errors: SettingsValidationErrors = {};
+
+    if (profile.name.length > 120) {
+      errors.name = 'Імʼя не може бути довшим за 120 символів.';
+    }
+
+    if (profile.phone.length > 50) {
+      errors.phone = 'Телефон не може бути довшим за 50 символів.';
+    }
+
+    if (profile.address.length > 191) {
+      errors.address = 'Адреса не може бути довшою за 191 символ.';
+    }
+
+    if (profile.bio.length > 1000) {
+      errors.bio = 'Опис не може бути довшим за 1000 символів.';
+    }
+
+    return errors;
+  }, [profile]);
+
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
+  const hasChanges = useMemo(
+    () =>
+      JSON.stringify(profile) !== JSON.stringify(savedProfile) ||
+      JSON.stringify(notifications) !== JSON.stringify(savedNotifications) ||
+      JSON.stringify(privacy) !== JSON.stringify(savedPrivacy),
+    [notifications, privacy, profile, savedNotifications, savedPrivacy, savedProfile],
+  );
 
   const sidebarItems: { id: SectionId; label: string; icon: React.ReactNode }[] = useMemo(
     () => [
@@ -279,6 +322,10 @@ export default function SettingsPage() {
 
   const handleSave = useCallback(() => {
     void (async () => {
+      if (!hasChanges || hasValidationErrors || controlsDisabled) {
+        return;
+      }
+
       try {
         setIsSaving(true);
 
@@ -314,7 +361,7 @@ export default function SettingsPage() {
           return;
         }
 
-        if (temporaryFailure || !res) {
+        if (!res) {
           addNotification({
             type: 'error',
             title: 'Не вдалося зберегти налаштування',
@@ -324,8 +371,36 @@ export default function SettingsPage() {
           return;
         }
 
-        const data = (await res.json()) as { user?: AuthUser };
-        if (!res.ok || !data.user) {
+        let responseBody: { user?: AuthUser; message?: string | string[] } | null = null;
+        try {
+          responseBody = (await res.json()) as {
+            user?: AuthUser;
+            message?: string | string[];
+          };
+        } catch {
+          responseBody = null;
+        }
+
+        if (!res.ok) {
+          const rawMessage = responseBody?.message;
+          const message = Array.isArray(rawMessage)
+            ? rawMessage[0]
+            : rawMessage;
+
+          addNotification({
+            type: 'error',
+            title: 'Не вдалося зберегти налаштування',
+            message:
+              message ||
+              (temporaryFailure
+                ? 'Сервер тимчасово не зміг обробити запит. Спробуйте ще раз.'
+                : 'Сервер не підтвердив збереження даних.'),
+            duration: 3500,
+          });
+          return;
+        }
+
+        if (!responseBody?.user) {
           addNotification({
             type: 'error',
             title: 'Не вдалося зберегти налаштування',
@@ -335,9 +410,9 @@ export default function SettingsPage() {
           return;
         }
 
-        setProfile(createProfileState(data.user));
-        setNotifications(createNotificationState(data.user));
-        setPrivacy(createPrivacyState(data.user));
+        setProfile(createProfileState(responseBody.user));
+        setNotifications(createNotificationState(responseBody.user));
+        setPrivacy(createPrivacyState(responseBody.user));
         await checkAuth();
 
         addNotification({
@@ -351,7 +426,16 @@ export default function SettingsPage() {
         setIsSaving(false);
       }
     })();
-  }, [addNotification, checkAuth, notifications, privacy, profile]);
+  }, [
+    addNotification,
+    checkAuth,
+    controlsDisabled,
+    hasChanges,
+    hasValidationErrors,
+    notifications,
+    privacy,
+    profile,
+  ]);
 
   const handleReset = useCallback(() => {
     setProfile(createProfileState(user));
@@ -401,7 +485,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleReset}
-                disabled={isSaving}
+                disabled={controlsDisabled || !hasChanges}
                 className="rounded-xl border border-gray-200 bg-white/80 px-3.5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-900"
               >
                 Скинути
@@ -409,10 +493,19 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!accountSettingsBackendConnected || isSaving}
+                disabled={
+                  !accountSettingsBackendConnected ||
+                  controlsDisabled ||
+                  !hasChanges ||
+                  hasValidationErrors
+                }
                 className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4.5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400/60"
               >
-                {isSaving ? 'Збереження...' : 'Зберегти зміни'}
+                {isSaving
+                  ? 'Збереження...'
+                  : isLoading
+                    ? 'Завантаження...'
+                    : 'Зберегти зміни'}
               </button>
             </div>
           </motion.header>
@@ -451,6 +544,18 @@ export default function SettingsPage() {
 
             {/* Основной контент */}
             <div className="space-y-6">
+              <Card className="p-4 sm:p-5">
+                <div className="rounded-xl border border-gray-200/80 bg-gray-50/80 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900/70 dark:text-gray-300">
+                  {isLoading
+                    ? 'Завантажуємо поточні налаштування акаунта...'
+                    : hasValidationErrors
+                      ? 'Щоб зберегти зміни, спочатку виправте поля з помилками.'
+                      : hasChanges
+                        ? 'Є незбережені зміни. Після збереження форма синхронізується з поточним акаунтом.'
+                        : 'Форма синхронізована з поточними даними акаунта.'}
+                </div>
+              </Card>
+
               <AnimatePresence mode="wait">
                 {activeSection === 'profile' && (
                   <motion.div
@@ -476,7 +581,13 @@ export default function SettingsPage() {
                             setProfile((prev) => ({ ...prev, name: value }))
                           }
                           placeholder="Ваше ім’я"
+                          disabled={controlsDisabled}
                         />
+                        {validationErrors.name && (
+                          <p className="sm:col-span-2 -mt-2 text-sm text-red-600 dark:text-red-400">
+                            {validationErrors.name}
+                          </p>
+                        )}
                         <Input
                           label="Email"
                           type="email"
@@ -493,6 +604,7 @@ export default function SettingsPage() {
                             setProfile((prev) => ({ ...prev, phone: value }))
                           }
                           placeholder="+380..."
+                          disabled={controlsDisabled}
                         />
                         <Input
                           label="Адреса доставки"
@@ -501,8 +613,23 @@ export default function SettingsPage() {
                             setProfile((prev) => ({ ...prev, address: value }))
                           }
                           placeholder="Місто, вулиця, відділення пошти"
+                          disabled={controlsDisabled}
                         />
                       </div>
+                      {(validationErrors.phone || validationErrors.address) && (
+                        <div className="mt-3 space-y-1">
+                          {validationErrors.phone && (
+                            <p className="text-sm text-red-600 dark:text-red-400">
+                              {validationErrors.phone}
+                            </p>
+                          )}
+                          {validationErrors.address && (
+                            <p className="text-sm text-red-600 dark:text-red-400">
+                              {validationErrors.address}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       <div className="mt-4">
                         <Textarea
@@ -512,7 +639,13 @@ export default function SettingsPage() {
                             setProfile((prev) => ({ ...prev, bio: value }))
                           }
                           placeholder="Наприклад: люблю монстери та світлі інтер’єри..."
+                          disabled={controlsDisabled}
                         />
+                        {validationErrors.bio && (
+                          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                            {validationErrors.bio}
+                          </p>
+                        )}
                       </div>
                     </SectionShell>
                   </motion.div>
@@ -545,6 +678,7 @@ export default function SettingsPage() {
                               emailNotifications: value,
                             }))
                           }
+                          disabled={controlsDisabled}
                         />
                         <ToggleRow
                           label="Оновлення замовлень"
@@ -556,6 +690,7 @@ export default function SettingsPage() {
                               orderUpdates: value,
                             }))
                           }
+                          disabled={controlsDisabled}
                         />
                         <ToggleRow
                           label="Нагадування по догляду"
@@ -567,6 +702,7 @@ export default function SettingsPage() {
                               careReminders: value,
                             }))
                           }
+                          disabled={controlsDisabled}
                         />
                         <ToggleRow
                           label="Акції та спецпропозиції"
@@ -577,6 +713,7 @@ export default function SettingsPage() {
                               promotional: value,
                             }))
                           }
+                          disabled={controlsDisabled}
                         />
                       </div>
                     </SectionShell>
@@ -631,8 +768,9 @@ export default function SettingsPage() {
                                     profileVisibility: opt.id,
                                   }))
                                 }
+                                disabled={controlsDisabled}
                                 className={
-                                  'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left text-xs transition ' +
+                                  'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-70 ' +
                                   (privacy.profileVisibility === opt.id
                                     ? 'border-emerald-500 bg-emerald-50/80 text-gray-900 dark:border-emerald-500 dark:bg-emerald-900/20 dark:text-gray-50'
                                     : 'border-gray-200 bg-white/70 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-200 dark:hover:border-emerald-600')
@@ -661,6 +799,7 @@ export default function SettingsPage() {
                                 dataSharing: value,
                               }))
                             }
+                            disabled={controlsDisabled}
                           />
                           <ToggleRow
                             label="Персоналізовані рекомендації"
@@ -672,6 +811,7 @@ export default function SettingsPage() {
                                 personalizedAds: value,
                               }))
                             }
+                            disabled={controlsDisabled}
                           />
                         </div>
 

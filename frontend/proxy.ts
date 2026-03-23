@@ -24,6 +24,7 @@ type AuthUser = {
 };
 
 type AuthCheckResult = {
+  status: "authenticated" | "unauthorized" | "unavailable";
   user: AuthUser | null;
   setCookies: string[];
 };
@@ -90,21 +91,44 @@ async function checkAuth(request: NextRequest) {
 
     const setCookies = extractSetCookies(res);
 
+    if (res.status === 401 || res.status === 403) {
+      return {
+        status: "unauthorized",
+        user: null,
+        setCookies,
+      } satisfies AuthCheckResult;
+    }
+
     if (!res.ok) {
-      return { user: null, setCookies };
+      return {
+        status: "unavailable",
+        user: null,
+        setCookies,
+      } satisfies AuthCheckResult;
     }
 
     try {
       const data = await res.json();
+      const user = isAuthUser(data?.user) ? data.user : null;
+
       return {
-        user: isAuthUser(data?.user) ? data.user : null,
+        status: user ? "authenticated" : "unavailable",
+        user,
         setCookies,
       } satisfies AuthCheckResult;
     } catch {
-      return { user: null, setCookies };
+      return {
+        status: "unavailable",
+        user: null,
+        setCookies,
+      } satisfies AuthCheckResult;
     }
   } catch {
-    return { user: null, setCookies: [] };
+    return {
+      status: "unavailable",
+      user: null,
+      setCookies: [],
+    } satisfies AuthCheckResult;
   }
 }
 
@@ -130,10 +154,32 @@ export async function proxy(request: NextRequest) {
 
   const authResult = await checkAuth(request);
 
-  if (!authResult.user) {
+  if (authResult.status === "unauthorized") {
     const loginUrl = new URL("/", request.url);
     loginUrl.searchParams.set("auth", "login");
     const response = NextResponse.redirect(loginUrl);
+    appendSetCookies(response, authResult.setCookies);
+    return response;
+  }
+
+  if (authResult.status === "unavailable") {
+    const unavailableUrl = new URL("/auth-unavailable", request.url);
+    unavailableUrl.searchParams.set(
+      "next",
+      request.nextUrl.pathname + request.nextUrl.search,
+    );
+    const response = NextResponse.redirect(unavailableUrl);
+    appendSetCookies(response, authResult.setCookies);
+    return response;
+  }
+
+  if (!authResult.user) {
+    const unavailableUrl = new URL("/auth-unavailable", request.url);
+    unavailableUrl.searchParams.set(
+      "next",
+      request.nextUrl.pathname + request.nextUrl.search,
+    );
+    const response = NextResponse.redirect(unavailableUrl);
     appendSetCookies(response, authResult.setCookies);
     return response;
   }

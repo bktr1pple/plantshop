@@ -6,6 +6,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard,
   Sprout,
+  Package,
   Images,
   Settings2,
   Menu,
@@ -29,6 +30,11 @@ const adminNavItems = [
     href: '/admin/plants',
     label: 'Рослини',
     icon: Sprout,
+  },
+  {
+    href: '/admin/orders',
+    label: 'Замовлення',
+    icon: Package,
   },
   {
     href: '/admin/media',

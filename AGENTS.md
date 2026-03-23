@@ -11,6 +11,7 @@ The repository is no longer a starter/demo state. It already contains:
 - protected admin-only backend write operations
 - a real `/admin` subsystem
 - real current-user profile/account settings persistence
+- a real persisted orders subsystem for current users and admins
 - media upload/storage and cleanup logic
 - backend-backed site settings/content management
 - a small real backend HTTP smoke suite for critical auth/admin paths
@@ -30,6 +31,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Public storefront routes include `/`, `/plants`, `/about`, `/contact`, `/care`, `/pots`, `/landscape-design`, `/convert`, `/dashboard`, `/dashboard/orders`, `/dashboard/settings`, `/signin`, `/register`, `/logout`.
 - Admin routes live under `frontend/app/admin`:
   - `/admin`
+  - `/admin/orders`
   - `/admin/plants`
   - `/admin/media`
   - `/admin/settings`
@@ -44,7 +46,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `frontend/contexts/WishlistContext.tsx`
 - Current authenticated dashboard reality:
   - `/dashboard/settings` is real and persists current-user profile/preferences through `PATCH /auth/me`
-  - `/dashboard/orders` is intentionally truthful-but-unavailable; there is still no real orders backend contract in the repository
+  - `/dashboard/orders` is real and loads persisted current-user order history/details from the backend
   - dashboard overview must not show fake metrics or fake order history
 
 ### Backend
@@ -52,12 +54,40 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Root module: `backend/src/app.module.ts`
 - Main runtime modules:
   - `backend/src/auth`
+  - `backend/src/orders`
   - `backend/src/plants`
   - `backend/src/media`
   - `backend/src/site-settings`
   - `backend/src/prisma`
 - Prisma schema: `backend/prisma/schema.prisma`
 - Upload storage root: `backend/uploads`
+
+### Orders domain
+- Prisma-backed orders now exist through:
+  - `Order`
+  - `OrderItem`
+  - `OrderStatus`
+- Current-user orders endpoints:
+  - `POST /orders`
+  - `GET /orders`
+  - `GET /orders/:id`
+- Admin orders endpoints:
+  - `GET /admin/orders`
+  - `GET /admin/orders/:id`
+  - `PATCH /admin/orders/:id/status`
+- Order items snapshot:
+  - plant name
+  - plant cover image
+  - unit price
+  - quantity
+  - line total
+- Ownership rules:
+  - current-user endpoints must return only the authenticated user's orders
+  - admin endpoints remain `ADMIN`-only
+- Checkout/order creation reality:
+  - storefront checkout currently happens through the existing cart modal flow
+  - order creation requires an authenticated current user
+  - customer email is taken from the authenticated account, not from an arbitrary checkout field
 
 ### Auth/session architecture
 - Registration auto-logs in the user through the backend, not through frontend fake state.
@@ -83,8 +113,10 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - server-side in `frontend/proxy.ts`
   - backend-side on protected endpoints
 - Current server-side proxy reality:
-  - `frontend/proxy.ts` currently redirects protected routes to login when `/auth/me` confirms unauthorized
-  - `frontend/proxy.ts` is still sensitive around temporary backend verification failure and must be changed only in a narrowly scoped auth-policy pass
+  - `frontend/proxy.ts` uses a tri-state protected-route policy: `authenticated` / `unauthorized` / `unavailable`
+  - confirmed unauthorized state redirects to login
+  - temporary auth verification failure redirects to a neutral `/auth-unavailable` entrypoint instead of being treated as confirmed logout
+  - `frontend/proxy.ts` remains security-sensitive and must still be changed only in a narrowly scoped auth-policy pass
 
 ### Role/admin model
 - Role model is already implemented in the database and auth payloads.
@@ -139,16 +171,16 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 
 ### Vinext experiment
 - `frontend` now supports two parallel frontend modes:
-  - canonical Next.js flow
-  - experimental Vinext/Vite flow
-- Next.js scripts remain the default/canonical path:
+  - default Vite/Vinext-oriented flow
+  - preserved Next.js compatibility flow
+- Default frontend scripts currently use the Vite/Vinext path:
   - `npm run dev`
   - `npm run build`
   - `npm run start`
-- Vinext scripts are separate and must be treated as experimental:
-  - `npm run dev:vinext`
-  - `npm run build:vinext`
-  - `npm run start:vinext`
+- Next.js scripts remain available as separate compatibility commands:
+  - `npm run dev:next`
+  - `npm run build:next`
+  - `npm run start:next`
 - `vinext` is currently compatible enough to build, but still has partial limitations around `next/image` local optimization.
 - Do not assume a Vinext issue implies a Next.js issue, or vice versa.
 
@@ -157,7 +189,9 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Frontend must not fake authenticated state after registration.
 - `/dashboard` and `/admin` must not remain accessible if auth verification fails.
 - Current-user dashboard settings are real and use the authenticated `/auth/me` read/update contract.
-- Orders history is still not backend-backed and must remain explicitly unavailable rather than mocked.
+- Authenticated users can create real orders through the persisted current-user `/orders` contract.
+- `/dashboard/orders` is real and must reflect persisted current-user order history/details rather than mocked or unavailable state.
+- `/admin/orders` is a real admin area for order inspection and status updates.
 - `/admin` is a real subsystem now, not a draft.
 - `admin-test` is not a production admin area and should not be reintroduced as if it were one.
 - `/plants` read endpoints stay public.
@@ -302,6 +336,7 @@ When auditing or reviewing this repository, prioritize:
 - Current backend suite covers:
   - auth service/controller/DTOs
   - current-user `/auth/me` profile/settings update
+  - orders service/controller/DTOs
   - roles guard
   - admin contract
   - plants service/controller
@@ -314,6 +349,8 @@ When auditing or reviewing this repository, prioritize:
   - real admin-only `PATCH /site-settings`
   - real logout invalidation
   - real current-user `PATCH /auth/me`
+  - real current-user order creation/list/detail
+  - real admin order list/detail/status update
 - The real-stack smoke suite is DB-backed and intentionally opt-in via `RUN_REAL_STACK_SMOKE=1`.
 
 ### Current frontend test stack
@@ -322,6 +359,9 @@ When auditing or reviewing this repository, prioritize:
 - Frontend tests currently cover:
   - admin shell
   - `AuthContext` auth/logout semantics
+  - cart-to-order creation wiring
+  - dashboard orders list/detail states
+  - admin orders manager
   - plants admin manager
   - media uploader
   - dashboard settings current-user persistence
@@ -386,7 +426,11 @@ When auditing or reviewing this repository, prioritize:
 - `frontend/proxy.ts` still requires special care because protected-route behavior under temporary backend verification failure is security-sensitive and easy to get wrong.
 - Refresh-token hygiene is improved, but lookup is still user-scoped `findMany + bcrypt.compare`, not a schema-level O(1) token identifier design.
 - Site settings currently cover text/links/contact content, not a full CMS or full media-backed theme system.
-- Current-user dashboard settings are real, but orders history is still intentionally unavailable until a real backend contract exists.
+- Orders are now a real minimal subsystem, but advanced commerce features are still absent:
+  - payment gateway integration
+  - invoices/receipts
+  - shipment provider integration
+  - reorder/export flows
 - Browser E2E coverage is a smoke baseline, not exhaustive coverage.
 - Backend DB-backed real integration coverage now exists as a small opt-in smoke layer, but it is still limited compared with the unit/integration-style suite.
 - `backend/.env.example` should be reviewed carefully in future passes if it drifts from safe/local defaults.

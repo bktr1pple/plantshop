@@ -77,6 +77,9 @@ describe('Dashboard settings page', () => {
   it('зберігає current-user settings через реальний PATCH /auth/me contract', async () => {
     render(<SettingsPage />);
 
+    const saveButton = screen.getByRole('button', { name: 'Зберегти зміни' });
+    expect(saveButton).toBeDisabled();
+
     const nameInput = screen.getByDisplayValue('Користувач');
     const phoneInput = screen.getByDisplayValue('+380671234567');
     const emailInput = screen.getByDisplayValue('user@example.com');
@@ -89,6 +92,8 @@ describe('Dashboard settings page', () => {
     fireEvent.change(phoneInput, {
       target: { value: '+380501112233' },
     });
+
+    expect(saveButton).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Сповіщення' }));
     let orderUpdatesToggle: HTMLButtonElement | undefined;
@@ -114,7 +119,7 @@ describe('Dashboard settings page', () => {
     });
     fireEvent.click(profilePrivateButton!);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Зберегти зміни' }));
+    fireEvent.click(saveButton);
 
     await waitFor(() =>
       expect(mockFetchWithRefresh).toHaveBeenCalledWith(
@@ -141,5 +146,50 @@ describe('Dashboard settings page', () => {
         title: 'Налаштування збережено',
       }),
     );
+    await waitFor(() => expect(saveButton).toBeDisabled());
+  });
+
+  it('показує повідомлення бекенда, якщо PATCH /auth/me повернув validation error', async () => {
+    mockFetchWithRefresh.mockResolvedValueOnce({
+      unauthorized: false,
+      temporaryFailure: true,
+      res: {
+        ok: false,
+        status: 400,
+        json: async () => ({
+          message: ['bio must be shorter than or equal to 1000 characters'],
+        }),
+      },
+    });
+
+    render(<SettingsPage />);
+
+    fireEvent.change(screen.getByDisplayValue('Люблю рослини'), {
+      target: { value: 'Оновлений опис' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Зберегти зміни' }));
+
+    await waitFor(() =>
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'error',
+          title: 'Не вдалося зберегти налаштування',
+          message: 'bio must be shorter than or equal to 1000 characters',
+        }),
+      ),
+    );
+    expect(mockCheckAuth).not.toHaveBeenCalled();
+  });
+
+  it('не відправляє PATCH без змін у формі', () => {
+    render(<SettingsPage />);
+
+    const saveButton = screen.getByRole('button', { name: 'Зберегти зміни' });
+    const resetButton = screen.getByRole('button', { name: 'Скинути' });
+
+    expect(saveButton).toBeDisabled();
+    expect(resetButton).toBeDisabled();
+    expect(mockFetchWithRefresh).not.toHaveBeenCalled();
   });
 });

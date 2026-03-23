@@ -16,27 +16,29 @@ model Plant {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   images      String?
+  orderItems  OrderItem[]
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String         @unique
-  password      String
-  name          String?
-  phone         String?
-  address       String?
-  bio           String?        @db.Text
-  emailNotifications Boolean   @default(true)
-  orderUpdates  Boolean        @default(true)
-  careReminders Boolean        @default(true)
-  promotional   Boolean        @default(false)
-  profileVisibility String     @default("friends")
-  dataSharing   Boolean        @default(false)
-  personalizedAds Boolean      @default(false)
-  role          UserRole       @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  refreshTokens RefreshToken[]
+  id                Int            @id @default(autoincrement())
+  email             String         @unique
+  password          String
+  name              String?
+  phone             String?
+  address           String?
+  bio               String?        @db.Text
+  emailNotifications Boolean       @default(true)
+  orderUpdates      Boolean        @default(true)
+  careReminders     Boolean        @default(true)
+  promotional       Boolean        @default(false)
+  profileVisibility String         @default("friends")
+  dataSharing       Boolean        @default(false)
+  personalizedAds   Boolean        @default(false)
+  role              UserRole       @default(USER)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  refreshTokens     RefreshToken[]
+  orders            Order[]
 }
 
 enum UserRole {
@@ -78,4 +80,48 @@ model SiteSettings {
   instagramUrl        String   @default("https://instagram.com")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  userId          Int
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          OrderStatus @default(PENDING)
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  deliveryAddress String      @db.Text
+  note            String?     @db.Text
+  totalAmount     Float
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  items           OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  plantId    Int?
+  plant      Plant?   @relation(fields: [plantId], references: [id], onDelete: SetNull)
+  plantName  String
+  plantImage String?  @db.Text
+  unitPrice  Float
+  quantity   Int
+  lineTotal  Float
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+  @@index([plantId])
 }
