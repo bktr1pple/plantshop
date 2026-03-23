@@ -76,6 +76,7 @@ describe('AuthService', () => {
       id: 1,
       email: 'user@example.com',
       name: 'User',
+      role: 'USER',
       createdAt: new Date(),
     });
     jest.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
@@ -91,15 +92,21 @@ describe('AuthService', () => {
         email: 'user@example.com',
         password: 'hashed-password',
         name: 'User',
+        role: 'USER',
       },
-      select: { id: true, email: true, name: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
     });
-    expect(result).toEqual({
-      id: 1,
-      email: 'user@example.com',
-      name: 'User',
-      createdAt: expect.any(Date),
-    });
+    expect(result.id).toBe(1);
+    expect(result.email).toBe('user@example.com');
+    expect(result.name).toBe('User');
+    expect(result.role).toBe('USER');
+    expect(result.createdAt).toBeInstanceOf(Date);
   });
 
   it('register кидає BadRequestException для дубльованого email', async () => {
@@ -134,19 +141,49 @@ describe('AuthService', () => {
     jest.mocked(bcrypt.hash).mockResolvedValue('hashed-refresh' as never);
     prismaMock.refreshToken.create.mockResolvedValue({ id: 1 });
 
-    const result = await service.login(7, 'user@example.com');
+    const result = await service.login(7, 'user@example.com', 'ADMIN');
+    const createCalls = prismaMock.refreshToken.create.mock.calls as Array<
+      [
+        {
+          data: {
+            tokenHash: string;
+            userId: number;
+            expiresAt: Date;
+          };
+        },
+      ]
+    >;
+    const createCall = createCalls[0]?.[0] as
+      | {
+          data: {
+            tokenHash: string;
+            userId: number;
+            expiresAt: Date;
+          };
+        }
+      | undefined;
+
+    expect(createCall).toBeDefined();
+    const createPayload = createCall as {
+      data: {
+        tokenHash: string;
+        userId: number;
+        expiresAt: Date;
+      };
+    };
 
     expect(result).toEqual({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
     });
-    expect(prismaMock.refreshToken.create).toHaveBeenCalledWith({
-      data: {
-        tokenHash: 'hashed-refresh',
-        userId: 7,
-        expiresAt: expect.any(Date),
-      },
-    });
+    expect(jwtServiceMock.sign).toHaveBeenNthCalledWith(
+      1,
+      { sub: 7, email: 'user@example.com', role: 'ADMIN' },
+      expect.any(Object),
+    );
+    expect(createPayload.data.tokenHash).toBe('hashed-refresh');
+    expect(createPayload.data.userId).toBe(7);
+    expect(createPayload.data.expiresAt).toBeInstanceOf(Date);
   });
 
   it('refresh повертає нові токени для валідного refresh token', async () => {
@@ -159,9 +196,12 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 60_000),
       },
     ]);
-    prismaMock.user.findUnique.mockResolvedValue({ email: 'user@example.com' });
+    prismaMock.user.findUnique.mockResolvedValue({
+      email: 'user@example.com',
+      role: 'ADMIN',
+    });
     jest.mocked(bcrypt.compare).mockResolvedValue(true as never);
-    jest.spyOn(service, 'login').mockResolvedValue({
+    const loginSpy = jest.spyOn(service, 'login').mockResolvedValue({
       accessToken: 'new-access',
       refreshToken: 'new-refresh',
     });
@@ -170,7 +210,7 @@ describe('AuthService', () => {
       accessToken: 'new-access',
       refreshToken: 'new-refresh',
     });
-    expect(service.login).toHaveBeenCalledWith(5, 'user@example.com');
+    expect(loginSpy).toHaveBeenCalledWith(5, 'user@example.com', 'ADMIN');
   });
 
   it('refresh кидає UnauthorizedException для невалідного refresh token', async () => {

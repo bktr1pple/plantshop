@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import type { VerifiedAccessTokenPayload } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,10 +18,8 @@ import { getRequiredEnv } from '../config/env';
 
 type CaptchaToken = string;
 type RequestCookies = Partial<Record<'access_token' | 'refresh_token', string>>;
-type VerifiedAuthPayload = {
-  sub?: number;
+type VerifiedAuthPayload = Partial<VerifiedAccessTokenPayload> & {
   userId?: number;
-  email?: string;
 };
 
 interface AuthTokens {
@@ -169,7 +168,7 @@ export class AuthController {
       dto.name,
     );
 
-    const tokens = await this.authService.login(user.id, user.email);
+    const tokens = await this.authService.login(user.id, user.email, user.role);
     this.setAuthCookies(res, tokens);
 
     return { status: 'ok', user };
@@ -194,7 +193,7 @@ export class AuthController {
       return { status: 'error', message: 'Невірний email або пароль' };
     }
 
-    const tokens = await this.authService.login(user.id, user.email);
+    const tokens = await this.authService.login(user.id, user.email, user.role);
 
     this.setAuthCookies(res, tokens);
     return { status: 'ok' };
@@ -265,7 +264,7 @@ export class AuthController {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, role: true },
     });
 
     if (!user) {

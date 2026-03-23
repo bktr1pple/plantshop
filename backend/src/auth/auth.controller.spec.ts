@@ -68,7 +68,7 @@ describe('AuthController', () => {
   it('register повертає error при невалідній reCAPTCHA', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ success: false }),
+      json: () => Promise.resolve({ success: false }),
     }) as typeof fetch;
 
     await expect(
@@ -91,12 +91,13 @@ describe('AuthController', () => {
   it('register створює сесію через backend і ставить cookies', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ success: true }),
+      json: () => Promise.resolve({ success: true }),
     }) as typeof fetch;
     authServiceMock.register.mockResolvedValue({
       id: 1,
       email: 'user@example.com',
       name: 'User',
+      role: 'USER',
     });
     authServiceMock.login.mockResolvedValue({
       accessToken: 'access-token',
@@ -120,6 +121,7 @@ describe('AuthController', () => {
         id: 1,
         email: 'user@example.com',
         name: 'User',
+        role: 'USER',
       },
     });
     expect(authServiceMock.register).toHaveBeenCalledWith(
@@ -127,14 +129,18 @@ describe('AuthController', () => {
       'password123',
       'User',
     );
-    expect(authServiceMock.login).toHaveBeenCalledWith(1, 'user@example.com');
+    expect(authServiceMock.login).toHaveBeenCalledWith(
+      1,
+      'user@example.com',
+      'USER',
+    );
     expect(res.cookie).toHaveBeenCalledTimes(2);
   });
 
   it('login повертає error для невалідних облікових даних', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ success: true }),
+      json: () => Promise.resolve({ success: true }),
     }) as typeof fetch;
     authServiceMock.validateUser.mockResolvedValue(null);
 
@@ -174,7 +180,10 @@ describe('AuthController', () => {
 
   it('me кидає UnauthorizedException без access і refresh token', async () => {
     await expect(
-      controller.me({ cookies: {} } as Request, createResponseMock() as Response),
+      controller.me(
+        { cookies: {} } as Request,
+        createResponseMock() as Response,
+      ),
     ).rejects.toThrow(UnauthorizedException);
   });
 
@@ -188,6 +197,7 @@ describe('AuthController', () => {
       id: 7,
       email: 'user@example.com',
       name: 'User',
+      role: 'ADMIN',
     });
     const res = createResponseMock();
 
@@ -203,11 +213,14 @@ describe('AuthController', () => {
         id: 7,
         email: 'user@example.com',
         name: 'User',
+        role: 'ADMIN',
       },
     });
 
     expect(authServiceMock.refresh).toHaveBeenCalledWith('refresh-token');
-    expect(authServiceMock.verifyAccessToken).toHaveBeenCalledWith('new-access');
+    expect(authServiceMock.verifyAccessToken).toHaveBeenCalledWith(
+      'new-access',
+    );
     expect(res.cookie).toHaveBeenCalledTimes(2);
   });
 });

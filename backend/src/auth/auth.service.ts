@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   Injectable,
 } from '@nestjs/common';
+import type { UserRole } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { addSeconds } from 'date-fns';
@@ -14,7 +15,7 @@ import {
 } from '../config/env';
 
 type StringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
-type AccessTokenPayload = { sub: number; email: string };
+type AccessTokenPayload = { sub: number; email: string; role: UserRole };
 type RefreshTokenPayload = { sub: number };
 
 export type VerifiedAccessTokenPayload = AccessTokenPayload;
@@ -40,8 +41,14 @@ export class AuthService {
     const hashed = await bcrypt.hash(password, saltRounds);
 
     return this.prisma.user.create({
-      data: { email, password: hashed, name },
-      select: { id: true, email: true, name: true, createdAt: true },
+      data: { email, password: hashed, name, role: 'USER' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
     });
   }
 
@@ -63,8 +70,8 @@ export class AuthService {
     return Number(duration);
   }
 
-  async login(userId: number, email: string) {
-    const payload = { sub: userId, email };
+  async login(userId: number, email: string, role: UserRole) {
+    const payload = { sub: userId, email, role };
 
     const accessToken = this.jwtService.sign<AccessTokenPayload>(payload, {
       secret: jwtAccessSecret,
@@ -115,7 +122,7 @@ export class AuthService {
 
           const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            select: { email: true },
+            select: { email: true, role: true },
           });
 
           if (!user) {
@@ -123,7 +130,7 @@ export class AuthService {
           }
 
           const { accessToken, refreshToken: newRefreshToken } =
-            await this.login(userId, user.email);
+            await this.login(userId, user.email, user.role);
 
           return { accessToken, refreshToken: newRefreshToken };
         }

@@ -12,7 +12,9 @@ describe('Auth DTO validation', () => {
 
     const errors = await validate(dto);
 
-    expect(errors.some((error) => error.property === 'captchaToken')).toBe(true);
+    expect(errors.some((error) => error.property === 'captchaToken')).toBe(
+      true,
+    );
   });
 
   it('RegisterDto вимагає пароль довжиною не менше 6 символів', async () => {

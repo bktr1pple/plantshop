@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtStrategy } from './jwt.strategy';
+import { RolesGuard } from './roles.guard';
 import { getJwtAccessExpiresIn, getRequiredEnv } from '../config/env';
 
 type JwtStringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
@@ -24,7 +25,7 @@ const jwtAccessExpiresIn = getJwtAccessExpiresIn() as JwtStringValue | number;
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PrismaService, JwtStrategy],
-  exports: [AuthService],
+  providers: [AuthService, PrismaService, JwtStrategy, RolesGuard],
+  exports: [AuthService, RolesGuard],
 })
 export class AuthModule {}

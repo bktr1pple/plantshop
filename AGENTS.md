@@ -109,3 +109,11 @@ When asked to analyze, review, or implement changes in the project, provide:
 - Do not keep starter tests that no longer match the real architecture.
 - Do not invent tests for features that are not actually implemented.
 - When updating tests, align them with the current real application behavior and dependencies.
+
+## Role model decisions
+- Introduce the smallest coherent real role model only if needed by the current repository.
+- Prefer a minimal `USER` / `ADMIN` model over a broader permission system.
+- New users should default to `USER`.
+- Protected write operations for `/plants` should require `ADMIN`.
+- Do not build a broad admin UI in the same pass unless it is strictly required for minimal coherence.
+- If admin assignment is needed, prefer a simple developer/operator workflow over a large in-app role management system.
