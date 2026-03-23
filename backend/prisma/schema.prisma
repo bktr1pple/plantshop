@@ -23,6 +23,16 @@ model User {
   email         String         @unique
   password      String
   name          String?
+  phone         String?
+  address       String?
+  bio           String?        @db.Text
+  emailNotifications Boolean   @default(true)
+  orderUpdates  Boolean        @default(true)
+  careReminders Boolean        @default(true)
+  promotional   Boolean        @default(false)
+  profileVisibility String     @default("friends")
+  dataSharing   Boolean        @default(false)
+  personalizedAds Boolean      @default(false)
   role          UserRole       @default(USER)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

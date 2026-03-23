@@ -25,6 +25,15 @@ const jwtRefreshSecret = getRequiredEnv('JWT_REFRESH_SECRET');
 const jwtAccessExpiresIn = getJwtAccessExpiresIn();
 const jwtRefreshExpiresIn = getJwtRefreshExpiresIn();
 
+function isTokenExpiredError(error: unknown): error is { name: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'TokenExpiredError'
+  );
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -70,6 +79,50 @@ export class AuthService {
     return Number(duration);
   }
 
+  private async deleteExpiredRefreshTokens(userId: number) {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+  }
+
+  private extractRefreshTokenUserId(
+    token: string,
+    { allowExpired }: { allowExpired: boolean },
+  ): number | null {
+    try {
+      const payload = this.jwtService.verify<RefreshTokenPayload>(token, {
+        secret: jwtRefreshSecret,
+      });
+
+      return Number(payload.sub);
+    } catch (error) {
+      if (!allowExpired || !isTokenExpiredError(error)) {
+        return null;
+      }
+
+      const decoded = this.jwtService.decode<unknown>(token);
+
+      if (!decoded || typeof decoded !== 'object' || !('sub' in decoded)) {
+        return null;
+      }
+
+      const sub = (decoded as { sub?: unknown }).sub;
+      const parsed =
+        typeof sub === 'number'
+          ? sub
+          : typeof sub === 'string'
+            ? Number(sub)
+            : NaN;
+
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+  }
+
   async login(userId: number, email: string, role: UserRole) {
     const payload = { sub: userId, email, role };
 
@@ -91,6 +144,8 @@ export class AuthService {
     const seconds = this._parseDurationSeconds(jwtRefreshExpiresIn);
     const expiresAt = addSeconds(new Date(), seconds);
 
+    await this.deleteExpiredRefreshTokens(userId);
+
     await this.prisma.refreshToken.create({
       data: { tokenHash, userId, expiresAt },
     });
@@ -101,14 +156,14 @@ export class AuthService {
   // auth.service.ts
   async refresh(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify<RefreshTokenPayload>(
-        refreshToken,
-        {
-          secret: jwtRefreshSecret,
-        },
-      );
+      const userId = this.extractRefreshTokenUserId(refreshToken, {
+        allowExpired: false,
+      });
+      if (userId === null) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
 
-      const userId = payload.sub;
+      await this.deleteExpiredRefreshTokens(userId);
       const tokens = await this.prisma.refreshToken.findMany({
         where: { userId },
       });
@@ -116,10 +171,6 @@ export class AuthService {
       for (const t of tokens) {
         const match = await bcrypt.compare(refreshToken, t.tokenHash);
         if (match) {
-          if (new Date(t.expiresAt) < new Date()) {
-            throw new UnauthorizedException('Refresh token expired');
-          }
-
           const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: { email: true, role: true },
@@ -132,21 +183,39 @@ export class AuthService {
           const { accessToken, refreshToken: newRefreshToken } =
             await this.login(userId, user.email, user.role);
 
+          await this.prisma.refreshToken
+            .deleteMany({
+              where: { id: t.id },
+            })
+            .catch(() => undefined);
+
           return { accessToken, refreshToken: newRefreshToken };
         }
       }
 
       throw new UnauthorizedException('Invalid refresh token');
     } catch {
+      await this.revokeRefreshToken(refreshToken).catch(() => false);
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
   async revokeRefreshToken(token: string) {
-    const all = await this.prisma.refreshToken.findMany();
-    for (const t of all) {
+    const userId = this.extractRefreshTokenUserId(token, {
+      allowExpired: true,
+    });
+    if (userId === null) {
+      return false;
+    }
+
+    await this.deleteExpiredRefreshTokens(userId);
+    const storedTokens = await this.prisma.refreshToken.findMany({
+      where: { userId },
+    });
+
+    for (const t of storedTokens) {
       if (await bcrypt.compare(token, t.tokenHash)) {
-        await this.prisma.refreshToken.delete({ where: { id: t.id } });
+        await this.prisma.refreshToken.deleteMany({ where: { id: t.id } });
         return true;
       }
     }

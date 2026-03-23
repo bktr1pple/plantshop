@@ -45,7 +45,11 @@ export function MobileNavigation({
   const { user, logout, isLoading, ensureAuthAndGo } = useAuth();
 
   const handleLogout = async () => {
-    await logout();
+    const loggedOut = await logout();
+    if (!loggedOut) {
+      return;
+    }
+
     onClose();
   };
 

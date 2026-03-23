@@ -64,7 +64,11 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
   };
 
   const handleLogout = async () => {
-    await logout();
+    const loggedOut = await logout();
+    if (!loggedOut) {
+      return;
+    }
+
     closeDropdown();
   };
 

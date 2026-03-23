@@ -17,6 +17,17 @@ type AuthMeResponse = {
   user: {
     email: string;
     role: 'ADMIN' | 'USER';
+    name?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    bio?: string | null;
+    emailNotifications?: boolean;
+    orderUpdates?: boolean;
+    careReminders?: boolean;
+    promotional?: boolean;
+    profileVisibility?: 'public' | 'friends' | 'private';
+    dataSharing?: boolean;
+    personalizedAds?: boolean;
   };
 };
 type SiteSettingsResponse = {
@@ -252,5 +263,131 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
     });
 
     expect(patchRes.status).toBe(403);
+  });
+
+  it('logout відкликає реальну сесію: після logout /auth/me більше недоступний', async () => {
+    const agent = request.agent(httpServer);
+    await loginAs(agent, userEmail, password);
+
+    const beforeLogoutMe = await agent.get('/auth/me');
+    expect(beforeLogoutMe.status).toBe(200);
+
+    const persistedBeforeLogout = await prisma.refreshToken.count({
+      where: {
+        user: {
+          email: userEmail,
+        },
+      },
+    });
+    expect(persistedBeforeLogout).toBeGreaterThan(0);
+
+    const logoutRes = await agent.post('/auth/logout');
+    expect([200, 201]).toContain(logoutRes.status);
+    expect(logoutRes.body).toEqual({ status: 'ok' });
+
+    const setCookieHeader = logoutRes.headers['set-cookie'];
+    const setCookie: string[] = Array.isArray(setCookieHeader)
+      ? setCookieHeader.filter(
+          (cookie): cookie is string => typeof cookie === 'string',
+        )
+      : [];
+    expect(setCookie.some((cookie) => cookie.startsWith('access_token='))).toBe(
+      true,
+    );
+    expect(
+      setCookie.some((cookie) => cookie.startsWith('refresh_token=')),
+    ).toBe(true);
+
+    const afterLogoutMe = await agent.get('/auth/me');
+    expect(afterLogoutMe.status).toBe(401);
+
+    const persistedAfterLogout = await prisma.refreshToken.count({
+      where: {
+        user: {
+          email: userEmail,
+        },
+      },
+    });
+    expect(persistedAfterLogout).toBe(0);
+  });
+
+  it('USER може оновити власні account settings через /auth/me і бачить persisted дані', async () => {
+    const agent = request.agent(httpServer);
+    await loginAs(agent, userEmail, password);
+
+    const patchRes = await agent.patch('/auth/me').send({
+      name: 'Updated Smoke User',
+      phone: '+380501112233',
+      address: 'Львів',
+      bio: 'Люблю фікуси',
+      emailNotifications: true,
+      orderUpdates: false,
+      careReminders: true,
+      promotional: true,
+      profileVisibility: 'private',
+      dataSharing: true,
+      personalizedAds: true,
+    });
+
+    expect(patchRes.status).toBe(200);
+    const patchBody = patchRes.body as AuthMeResponse;
+    expect(patchBody.user).toMatchObject({
+      email: userEmail,
+      role: 'USER',
+      name: 'Updated Smoke User',
+      phone: '+380501112233',
+      address: 'Львів',
+      bio: 'Люблю фікуси',
+      emailNotifications: true,
+      orderUpdates: false,
+      careReminders: true,
+      promotional: true,
+      profileVisibility: 'private',
+      dataSharing: true,
+      personalizedAds: true,
+    });
+
+    const meRes = await agent.get('/auth/me');
+    expect(meRes.status).toBe(200);
+    const meBody = meRes.body as AuthMeResponse;
+    expect(meBody.user).toMatchObject({
+      email: userEmail,
+      name: 'Updated Smoke User',
+      phone: '+380501112233',
+      orderUpdates: false,
+      profileVisibility: 'private',
+      personalizedAds: true,
+    });
+
+    const persistedUser = await prisma.user.findUnique({
+      where: { email: userEmail },
+      select: {
+        name: true,
+        phone: true,
+        address: true,
+        bio: true,
+        emailNotifications: true,
+        orderUpdates: true,
+        careReminders: true,
+        promotional: true,
+        profileVisibility: true,
+        dataSharing: true,
+        personalizedAds: true,
+      },
+    });
+
+    expect(persistedUser).toMatchObject({
+      name: 'Updated Smoke User',
+      phone: '+380501112233',
+      address: 'Львів',
+      bio: 'Люблю фікуси',
+      emailNotifications: true,
+      orderUpdates: false,
+      careReminders: true,
+      promotional: true,
+      profileVisibility: 'private',
+      dataSharing: true,
+      personalizedAds: true,
+    });
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { LazyMotion, m as motion, domAnimation, AnimatePresence } from 'framer-motion';
 import {
@@ -13,8 +13,9 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, type User as AuthUser } from '@/contexts/AuthContext';
 import { useNotification } from '@/app/components/NotificationSystem';
+import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
 
 // ---- Типы ----
 
@@ -39,6 +40,33 @@ interface PrivacySettings {
   profileVisibility: 'public' | 'private' | 'friends';
   dataSharing: boolean;
   personalizedAds: boolean;
+}
+
+function createProfileState(user: AuthUser | null): ProfileState {
+  return {
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    phone: user?.phone ?? '',
+    address: user?.address ?? '',
+    bio: user?.bio ?? '',
+  };
+}
+
+function createNotificationState(user: AuthUser | null): NotificationSettings {
+  return {
+    emailNotifications: user?.emailNotifications ?? true,
+    orderUpdates: user?.orderUpdates ?? true,
+    careReminders: user?.careReminders ?? true,
+    promotional: user?.promotional ?? false,
+  };
+}
+
+function createPrivacyState(user: AuthUser | null): PrivacySettings {
+  return {
+    profileVisibility: user?.profileVisibility ?? 'friends',
+    dataSharing: user?.dataSharing ?? false,
+    personalizedAds: user?.personalizedAds ?? false,
+  };
 }
 
 interface NavigationProps {
@@ -212,46 +240,32 @@ const ToggleRow: React.FC<{
 // ---- Основная страница ----
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const { addNotification } = useNotification();
 
-  // Профиль
-  const [profile, setProfile] = useState<ProfileState>({
-    name: user?.name ?? '',
-    email: user?.email ?? '',
-    phone: '',
-    address: '',
-    bio: '',
-  });
+  const [profile, setProfile] = useState<ProfileState>(() =>
+    createProfileState(user),
+  );
+  const [notifications, setNotifications] = useState<NotificationSettings>(() =>
+    createNotificationState(user),
+  );
+  const [privacy, setPrivacy] = useState<PrivacySettings>(() =>
+    createPrivacyState(user),
+  );
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      setProfile((prev) => ({
-        ...prev,
-        name: user?.name ?? prev.name,
-        email: user?.email ?? prev.email,
-      }));
+      setProfile(createProfileState(user));
+      setNotifications(createNotificationState(user));
+      setPrivacy(createPrivacyState(user));
     });
 
     return () => window.cancelAnimationFrame(frame);
   }, [user]);
 
-  // Настройки
-  const [notifications] = useState<NotificationSettings>({
-    emailNotifications: true,
-    orderUpdates: true,
-    careReminders: true,
-    promotional: false,
-  });
-
-  const [privacy] = useState<PrivacySettings>({
-    profileVisibility: 'friends',
-    dataSharing: false,
-    personalizedAds: false,
-  });
-
   const [activeSection, setActiveSection] = useState<SectionId>('profile');
-  const settingsBackendConnected = false;
+  const accountSettingsBackendConnected = true;
 
   const sidebarItems: { id: SectionId; label: string; icon: React.ReactNode }[] = useMemo(
     () => [
@@ -264,33 +278,92 @@ export default function SettingsPage() {
   );
 
   const handleSave = useCallback(() => {
-    addNotification({
-      type: 'info',
-      title: 'Налаштування акаунта ще не підключені',
-      message:
-        'Профіль, сповіщення та параметри конфіденційності поки доступні лише для перегляду.',
-      duration: 3000,
-    });
-  }, [addNotification]);
+    void (async () => {
+      try {
+        setIsSaving(true);
+
+        const { res, unauthorized, temporaryFailure } = await fetchWithRefresh(
+          '/auth/me',
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: profile.name,
+              phone: profile.phone,
+              address: profile.address,
+              bio: profile.bio,
+              emailNotifications: notifications.emailNotifications,
+              orderUpdates: notifications.orderUpdates,
+              careReminders: notifications.careReminders,
+              promotional: notifications.promotional,
+              profileVisibility: privacy.profileVisibility,
+              dataSharing: privacy.dataSharing,
+              personalizedAds: privacy.personalizedAds,
+            }),
+          },
+        );
+
+        if (unauthorized) {
+          addNotification({
+            type: 'error',
+            title: 'Сесію не підтверджено',
+            message:
+              'Не вдалося зберегти налаштування без активної авторизації.',
+            duration: 3500,
+          });
+          return;
+        }
+
+        if (temporaryFailure || !res) {
+          addNotification({
+            type: 'error',
+            title: 'Не вдалося зберегти налаштування',
+            message: 'Спробуйте ще раз пізніше.',
+            duration: 3500,
+          });
+          return;
+        }
+
+        const data = (await res.json()) as { user?: AuthUser };
+        if (!res.ok || !data.user) {
+          addNotification({
+            type: 'error',
+            title: 'Не вдалося зберегти налаштування',
+            message: 'Сервер не підтвердив збереження даних.',
+            duration: 3500,
+          });
+          return;
+        }
+
+        setProfile(createProfileState(data.user));
+        setNotifications(createNotificationState(data.user));
+        setPrivacy(createPrivacyState(data.user));
+        await checkAuth();
+
+        addNotification({
+          type: 'success',
+          title: 'Налаштування збережено',
+          message:
+            'Профіль, сповіщення та параметри конфіденційності оновлено.',
+          duration: 3000,
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    })();
+  }, [addNotification, checkAuth, notifications, privacy, profile]);
 
   const handleReset = useCallback(() => {
+    setProfile(createProfileState(user));
+    setNotifications(createNotificationState(user));
+    setPrivacy(createPrivacyState(user));
     addNotification({
       type: 'info',
-      title: 'Редагування недоступне',
-      message:
-        'Скидання теж недоступне, поки backend для налаштувань акаунта не підключений.',
+      title: 'Форму скинуто',
+      message: 'Повернули останні збережені значення акаунта.',
       duration: 2500,
     });
-  }, [addNotification]);
-
-  const handleDeleteAccount = useCallback(() => {
-    addNotification({
-      type: 'error',
-      title: 'Видалення акаунта',
-      message: 'Функція видалення акаунта буде доступна пізніше.',
-      duration: 3500,
-    });
-  }, [addNotification]);
+  }, [addNotification, user]);
 
   return (
     <LazyMotion features={domAnimation}>
@@ -316,30 +389,30 @@ export default function SettingsPage() {
                   Налаштування профілю
                 </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                  Керуйте особистими даними, сповіщеннями та конфіденційністю.
+                  Керуйте особистими даними, сповіщеннями та параметрами конфіденційності для поточного акаунта.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 ring-1 ring-sky-100 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-800/50">
-                Налаштування доступні лише для перегляду
+                Профіль і налаштування акаунта зберігаються на backend
               </span>
               <button
                 type="button"
                 onClick={handleReset}
-                disabled
-                className="rounded-xl border border-gray-200 bg-white/80 px-3.5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-900"
+                disabled={isSaving}
+                className="rounded-xl border border-gray-200 bg-white/80 px-3.5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-900"
               >
                 Скинути
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!settingsBackendConnected}
+                disabled={!accountSettingsBackendConnected || isSaving}
                 className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4.5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400/60"
               >
-                Збереження недоступне
+                {isSaving ? 'Збереження...' : 'Зберегти зміни'}
               </button>
             </div>
           </motion.header>
@@ -393,15 +466,16 @@ export default function SettingsPage() {
                       description="Ім’я та контакти будуть використовуватися для оформлення замовлень та сповіщень."
                     >
                       <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                        Редагування профілю ще не підключене до backend. Дані нижче зараз доступні лише для перегляду.
+                        Ім&apos;я, телефон, адреса та короткий опис зберігаються для поточного акаунта. Email поки лишається доступним лише для перегляду.
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Input
                           label="Ім’я"
                           value={profile.name}
-                          onChange={() => {}}
+                          onChange={(value) =>
+                            setProfile((prev) => ({ ...prev, name: value }))
+                          }
                           placeholder="Ваше ім’я"
-                          disabled
                         />
                         <Input
                           label="Email"
@@ -415,16 +489,18 @@ export default function SettingsPage() {
                           label="Телефон"
                           type="tel"
                           value={profile.phone}
-                          onChange={() => {}}
+                          onChange={(value) =>
+                            setProfile((prev) => ({ ...prev, phone: value }))
+                          }
                           placeholder="+380..."
-                          disabled
                         />
                         <Input
                           label="Адреса доставки"
                           value={profile.address}
-                          onChange={() => {}}
+                          onChange={(value) =>
+                            setProfile((prev) => ({ ...prev, address: value }))
+                          }
                           placeholder="Місто, вулиця, відділення пошти"
-                          disabled
                         />
                       </div>
 
@@ -432,9 +508,10 @@ export default function SettingsPage() {
                         <Textarea
                           label="Коротко про вас і ваші рослини"
                           value={profile.bio}
-                          onChange={() => {}}
+                          onChange={(value) =>
+                            setProfile((prev) => ({ ...prev, bio: value }))
+                          }
                           placeholder="Наприклад: люблю монстери та світлі інтер’єри..."
-                          disabled
                         />
                       </div>
                     </SectionShell>
@@ -455,35 +532,51 @@ export default function SettingsPage() {
                       description="Оберіть, які повідомлення ви хочете отримувати від PlantShop."
                     >
                       <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                        Налаштування сповіщень ще не зберігаються на сервері, тому перемикачі тимчасово недоступні.
+                        Ці налаштування зберігаються для поточного акаунта й застосовуються як налаштування сповіщень.
                       </div>
                       <div className="space-y-3">
                         <ToggleRow
                           label="Email-сповіщення"
                           description="Основні оновлення по акаунту та замовленнях."
                           checked={notifications.emailNotifications}
-                          onChange={() => {}}
-                          disabled
+                          onChange={(value) =>
+                            setNotifications((prev) => ({
+                              ...prev,
+                              emailNotifications: value,
+                            }))
+                          }
                         />
                         <ToggleRow
                           label="Оновлення замовлень"
                           description="Статус замовлення, відправлення, доставка."
                           checked={notifications.orderUpdates}
-                          onChange={() => {}}
-                          disabled
+                          onChange={(value) =>
+                            setNotifications((prev) => ({
+                              ...prev,
+                              orderUpdates: value,
+                            }))
+                          }
                         />
                         <ToggleRow
                           label="Нагадування по догляду"
                           description="Полив, підживлення та інші корисні поради."
                           checked={notifications.careReminders}
-                          onChange={() => {}}
-                          disabled
+                          onChange={(value) =>
+                            setNotifications((prev) => ({
+                              ...prev,
+                              careReminders: value,
+                            }))
+                          }
                         />
                         <ToggleRow
                           label="Акції та спецпропозиції"
                           checked={notifications.promotional}
-                          onChange={() => {}}
-                          disabled
+                          onChange={(value) =>
+                            setNotifications((prev) => ({
+                              ...prev,
+                              promotional: value,
+                            }))
+                          }
                         />
                       </div>
                     </SectionShell>
@@ -504,7 +597,7 @@ export default function SettingsPage() {
                       description="Керуйте тим, хто бачить інформацію про вас, та налаштуйте безпеку входу."
                     >
                       <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                        Параметри конфіденційності ще не підключені до акаунтного backend і зараз не застосовуються.
+                        Параметри конфіденційності нижче зберігаються для поточного акаунта. Зміна пароля ще лишається недоступною.
                       </div>
                       <div className="space-y-6">
                         <div className="space-y-3">
@@ -532,9 +625,14 @@ export default function SettingsPage() {
                               <button
                                 key={opt.id}
                                 type="button"
-                                disabled
+                                onClick={() =>
+                                  setPrivacy((prev) => ({
+                                    ...prev,
+                                    profileVisibility: opt.id,
+                                  }))
+                                }
                                 className={
-                                  'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-70 ' +
+                                  'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left text-xs transition ' +
                                   (privacy.profileVisibility === opt.id
                                     ? 'border-emerald-500 bg-emerald-50/80 text-gray-900 dark:border-emerald-500 dark:bg-emerald-900/20 dark:text-gray-50'
                                     : 'border-gray-200 bg-white/70 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-200 dark:hover:border-emerald-600')
@@ -557,15 +655,23 @@ export default function SettingsPage() {
                             label="Анонімна аналітика"
                             description="Допомагає нам покращувати PlantShop. Без персональних даних."
                             checked={privacy.dataSharing}
-                            onChange={() => {}}
-                            disabled
+                            onChange={(value) =>
+                              setPrivacy((prev) => ({
+                                ...prev,
+                                dataSharing: value,
+                              }))
+                            }
                           />
                           <ToggleRow
                             label="Персоналізовані рекомендації"
                             description="Підбір рослин з урахуванням ваших замовлень та переглядів."
                             checked={privacy.personalizedAds}
-                            onChange={() => {}}
-                            disabled
+                            onChange={(value) =>
+                              setPrivacy((prev) => ({
+                                ...prev,
+                                personalizedAds: value,
+                              }))
+                            }
                           />
                         </div>
 
@@ -621,6 +727,9 @@ export default function SettingsPage() {
                       title="Дані та акаунт"
                       description="Експортуйте свої дані або керуйте акаунтом."
                     >
+                      <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
+                        Експорт даних і видалення акаунта ще не підключені до backend, тому ці дії лишаються недоступними.
+                      </div>
                       <div className="space-y-6">
                         <div className="space-y-3">
                           <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
@@ -629,19 +738,11 @@ export default function SettingsPage() {
                           <div className="flex flex-wrap gap-3">
                             <button
                               type="button"
-                              onClick={() =>
-                                addNotification({
-                                  type: 'info',
-                                  title: 'Експорт даних',
-                                  message:
-                                    'Функція експорту даних буде реалізована пізніше.',
-                                  duration: 3000,
-                                })
-                              }
-                              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white/80 px-4 py-2 text-xs font-medium text-gray-800 shadow-sm transition hover:border-emerald-400 hover:text-emerald-700 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-100 dark:hover:border-emerald-500"
+                              disabled
+                              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white/80 px-4 py-2 text-xs font-medium text-gray-800 shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-100"
                             >
                               <Download className="h-4 w-4" />
-                              Завантажити копію даних
+                              Експорт недоступний
                             </button>
                           </div>
                         </div>
@@ -660,11 +761,11 @@ export default function SettingsPage() {
                             </p>
                             <button
                               type="button"
-                              onClick={handleDeleteAccount}
-                              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                              disabled
+                              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70"
                             >
                               <Trash2 className="h-4 w-4" />
-                              Видалити акаунт
+                              Видалення недоступне
                             </button>
                           </div>
                         </div>

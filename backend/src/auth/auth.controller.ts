@@ -6,13 +6,16 @@ import {
   Req,
   Res,
   Get,
+  Patch,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import { AuthService } from './auth.service';
 import type { VerifiedAccessTokenPayload } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequiredEnv } from '../config/env';
 
@@ -32,6 +35,26 @@ interface RecaptchaVerifyResponse {
 }
 
 const recaptchaSecret = getRequiredEnv('RECAPTCHA_SECRET_KEY');
+const currentUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  phone: true,
+  address: true,
+  bio: true,
+  emailNotifications: true,
+  orderUpdates: true,
+  careReminders: true,
+  promotional: true,
+  profileVisibility: true,
+  dataSharing: true,
+  personalizedAds: true,
+  role: true,
+} satisfies Prisma.UserSelect;
+
+type CurrentUserPayload = Prisma.UserGetPayload<{
+  select: typeof currentUserSelect;
+}>;
 
 function isLocalhostHost(value?: string): boolean {
   return value === 'localhost' || value === '127.0.0.1';
@@ -75,6 +98,69 @@ async function verifyCaptcha(token: CaptchaToken): Promise<boolean> {
     console.error('Error while verifying reCAPTCHA:', err);
     return false;
   }
+}
+
+function normalizeOptionalString(value?: string): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function buildCurrentUserUpdateData(dto: UpdateMeDto): Prisma.UserUpdateInput {
+  const data: Prisma.UserUpdateInput = {};
+
+  const normalizedName = normalizeOptionalString(dto.name);
+  if (normalizedName !== undefined) {
+    data.name = normalizedName;
+  }
+
+  const normalizedPhone = normalizeOptionalString(dto.phone);
+  if (normalizedPhone !== undefined) {
+    data.phone = normalizedPhone;
+  }
+
+  const normalizedAddress = normalizeOptionalString(dto.address);
+  if (normalizedAddress !== undefined) {
+    data.address = normalizedAddress;
+  }
+
+  const normalizedBio = normalizeOptionalString(dto.bio);
+  if (normalizedBio !== undefined) {
+    data.bio = normalizedBio;
+  }
+
+  if (dto.emailNotifications !== undefined) {
+    data.emailNotifications = dto.emailNotifications;
+  }
+
+  if (dto.orderUpdates !== undefined) {
+    data.orderUpdates = dto.orderUpdates;
+  }
+
+  if (dto.careReminders !== undefined) {
+    data.careReminders = dto.careReminders;
+  }
+
+  if (dto.promotional !== undefined) {
+    data.promotional = dto.promotional;
+  }
+
+  if (dto.profileVisibility !== undefined) {
+    data.profileVisibility = dto.profileVisibility;
+  }
+
+  if (dto.dataSharing !== undefined) {
+    data.dataSharing = dto.dataSharing;
+  }
+
+  if (dto.personalizedAds !== undefined) {
+    data.personalizedAds = dto.personalizedAds;
+  }
+
+  return data;
 }
 
 @Controller('auth')
@@ -149,6 +235,71 @@ export class AuthController {
     res.clearCookie('refresh_token', opts);
   }
 
+  private async resolveCurrentUser(
+    req: Request,
+    res: Response,
+  ): Promise<CurrentUserPayload> {
+    const cookies = (req.cookies ?? {}) as RequestCookies;
+    const accessToken = cookies.access_token;
+    const refreshToken = cookies.refresh_token;
+
+    if (!accessToken && !refreshToken) {
+      throw new UnauthorizedException('Not authenticated');
+    }
+
+    let payload: VerifiedAuthPayload | null = null;
+
+    if (accessToken) {
+      try {
+        payload = this.authService.verifyAccessToken(accessToken);
+      } catch (err: unknown) {
+        if (isTokenExpiredError(err) && refreshToken) {
+          try {
+            const newTokens = await this.authService.refresh(refreshToken);
+
+            this.setAuthCookies(res, newTokens);
+
+            payload = this.authService.verifyAccessToken(newTokens.accessToken);
+          } catch {
+            this.clearAuthCookies(res);
+            throw new UnauthorizedException('Invalid refresh token');
+          }
+        } else {
+          this.clearAuthCookies(res);
+          throw new UnauthorizedException('Invalid access token');
+        }
+      }
+    } else if (refreshToken) {
+      try {
+        const newTokens = await this.authService.refresh(refreshToken);
+        this.setAuthCookies(res, newTokens);
+        payload = this.authService.verifyAccessToken(newTokens.accessToken);
+      } catch {
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+    }
+
+    if (!payload?.sub && !payload?.userId) {
+      this.clearAuthCookies(res);
+      throw new UnauthorizedException('User not found in token');
+    }
+
+    const userId = Number(payload.sub ?? payload.userId);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: currentUserSelect,
+    });
+
+    if (!user) {
+      this.clearAuthCookies(res);
+      throw new UnauthorizedException('User not found');
+    }
+
+    return user;
+  }
+
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -214,63 +365,28 @@ export class AuthController {
 
   @Get('me')
   async me(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const cookies = (req.cookies ?? {}) as RequestCookies;
-    const accessToken = cookies.access_token;
-    const refreshToken = cookies.refresh_token;
+    const user = await this.resolveCurrentUser(req, res);
+    return { user };
+  }
 
-    if (!accessToken && !refreshToken) {
-      throw new UnauthorizedException('Not authenticated');
+  @Patch('me')
+  async updateMe(
+    @Body() dto: UpdateMeDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const currentUser = await this.resolveCurrentUser(req, res);
+    const data = buildCurrentUserUpdateData(dto);
+
+    if (Object.keys(data).length === 0) {
+      return { user: currentUser };
     }
 
-    let payload: VerifiedAuthPayload | null = null;
-
-    if (accessToken) {
-      try {
-        payload = this.authService.verifyAccessToken(accessToken);
-      } catch (err: unknown) {
-        if (isTokenExpiredError(err) && refreshToken) {
-          try {
-            const newTokens = await this.authService.refresh(refreshToken);
-
-            this.setAuthCookies(res, newTokens);
-
-            payload = this.authService.verifyAccessToken(newTokens.accessToken);
-          } catch {
-            this.clearAuthCookies(res);
-            throw new UnauthorizedException('Invalid refresh token');
-          }
-        } else {
-          this.clearAuthCookies(res);
-          throw new UnauthorizedException('Invalid access token');
-        }
-      }
-    } else if (refreshToken) {
-      try {
-        const newTokens = await this.authService.refresh(refreshToken);
-        this.setAuthCookies(res, newTokens);
-        payload = this.authService.verifyAccessToken(newTokens.accessToken);
-      } catch {
-        this.clearAuthCookies(res);
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-    }
-
-    if (!payload?.sub && !payload?.userId) {
-      this.clearAuthCookies(res);
-      throw new UnauthorizedException('User not found in token');
-    }
-
-    const userId = Number(payload.sub ?? payload.userId);
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, name: true, role: true },
+    const user = await this.prisma.user.update({
+      where: { id: currentUser.id },
+      data,
+      select: currentUserSelect,
     });
-
-    if (!user) {
-      this.clearAuthCookies(res);
-      throw new UnauthorizedException('User not found');
-    }
 
     return { user };
   }

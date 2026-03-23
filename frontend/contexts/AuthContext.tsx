@@ -15,11 +15,22 @@ import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
 import { useRouter } from 'next/navigation';
 
 export type UserRole = 'USER' | 'ADMIN';
+export type ProfileVisibility = 'public' | 'friends' | 'private';
 
 export interface User {
   id: number;
   email: string;
   name: string;
+  phone?: string | null;
+  address?: string | null;
+  bio?: string | null;
+  emailNotifications?: boolean;
+  orderUpdates?: boolean;
+  careReminders?: boolean;
+  promotional?: boolean;
+  profileVisibility?: ProfileVisibility;
+  dataSharing?: boolean;
+  personalizedAds?: boolean;
   role: UserRole;
 }
 
@@ -37,7 +48,7 @@ interface AuthContextType {
     name: string,
     captchaToken: string,
   ) => Promise<{ success: boolean; message?: string }>;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
   checkAuth: () => Promise<boolean>;
   ensureAuthAndGo: (path: string) => Promise<void>;
 }
@@ -151,7 +162,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       notifyAuthUnavailable();
     } catch {
-      setUser(null);
       notifyAuthUnavailable();
     }
   }, [user, checkAuthStatus, notifyAuthUnavailable, redirectToLogin, router]);
@@ -269,17 +279,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<boolean> => {
     try {
-      await fetch(`${API_URL}/auth/logout`, {
+      const res = await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });
+
+      if (res.ok) {
+        setUser(null);
+        router.refresh();
+        return true;
+      }
     } catch (error) {
       console.error('🔐 Logout error:', error);
-    } finally {
-      setUser(null);
     }
+
+    const authStatus = await checkAuthStatus();
+
+    if (authStatus === 'unauthorized') {
+      setUser(null);
+      router.refresh();
+      return true;
+    }
+
+    if (authStatus === 'unavailable') {
+      notifyAuthUnavailable();
+      return false;
+    }
+
+    addNotification({
+      type: 'error',
+      title: 'Не вдалося завершити сеанс',
+      message:
+        'Сервер не підтвердив вихід. Ви все ще залишаєтесь в акаунті.',
+      duration: 5000,
+    });
+
+    return false;
   };
 
   return (

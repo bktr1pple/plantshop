@@ -1,33 +1,35 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LogoutPage() {
   const router = useRouter();
+  const { logout } = useAuth();
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const logout = async () => {
-      try {
-        await fetch(`${API_URL}/auth/logout`, {
-          method: "POST",
-          credentials: "include",
-        });
-        router.push("/");
-      } catch (error) {
-        console.error("Logout error:", error);
-        router.push("/");
+    const performLogout = async () => {
+      const loggedOut = await logout();
+      if (loggedOut) {
+        router.replace("/");
+        return;
       }
+
+      setFailed(true);
     };
 
-    logout();
-  }, [router]);
+    void performLogout();
+  }, [logout, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-lg text-gray-600">Вихід із системи...</p>
+      <p className="text-center text-lg text-gray-600">
+        {failed
+          ? "Не вдалося завершити сеанс. Перевірте з'єднання і спробуйте ще раз."
+          : "Вихід із системи..."}
+      </p>
     </div>
   );
 }

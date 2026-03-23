@@ -59,7 +59,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pageTitle = getPageTitle(pathname);
 
   const handleLogout = async () => {
-    await logout();
+    const loggedOut = await logout();
+    if (!loggedOut) {
+      return;
+    }
+
     window.location.href = '/';
   };
 

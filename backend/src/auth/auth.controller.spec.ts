@@ -25,6 +25,7 @@ describe('AuthController', () => {
   let prismaMock: {
     user: {
       findUnique: jest.Mock;
+      update: jest.Mock;
     };
   };
 
@@ -41,6 +42,7 @@ describe('AuthController', () => {
     prismaMock = {
       user: {
         findUnique: jest.fn(),
+        update: jest.fn(),
       },
     };
 
@@ -178,6 +180,22 @@ describe('AuthController', () => {
     expect(res.clearCookie).toHaveBeenCalledTimes(2);
   });
 
+  it('logout без refresh token все одно чистить cookies і завершується успішно', async () => {
+    const res = createResponseMock();
+
+    await expect(
+      controller.logout(
+        {
+          cookies: {},
+        } as Request,
+        res as Response,
+      ),
+    ).resolves.toEqual({ status: 'ok' });
+
+    expect(authServiceMock.revokeRefreshToken).not.toHaveBeenCalled();
+    expect(res.clearCookie).toHaveBeenCalledTimes(2);
+  });
+
   it('me кидає UnauthorizedException без access і refresh token', async () => {
     await expect(
       controller.me(
@@ -197,6 +215,16 @@ describe('AuthController', () => {
       id: 7,
       email: 'user@example.com',
       name: 'User',
+      phone: null,
+      address: null,
+      bio: null,
+      emailNotifications: true,
+      orderUpdates: true,
+      careReminders: true,
+      promotional: false,
+      profileVisibility: 'friends',
+      dataSharing: false,
+      personalizedAds: false,
       role: 'ADMIN',
     });
     const res = createResponseMock();
@@ -213,6 +241,16 @@ describe('AuthController', () => {
         id: 7,
         email: 'user@example.com',
         name: 'User',
+        phone: null,
+        address: null,
+        bio: null,
+        emailNotifications: true,
+        orderUpdates: true,
+        careReminders: true,
+        promotional: false,
+        profileVisibility: 'friends',
+        dataSharing: false,
+        personalizedAds: false,
         role: 'ADMIN',
       },
     });
@@ -222,5 +260,112 @@ describe('AuthController', () => {
       'new-access',
     );
     expect(res.cookie).toHaveBeenCalledTimes(2);
+  });
+
+  it('updateMe оновлює current-user profile та preferences', async () => {
+    authServiceMock.verifyAccessToken.mockReturnValue({ sub: 7 });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 7,
+      email: 'user@example.com',
+      name: 'User',
+      phone: null,
+      address: null,
+      bio: null,
+      emailNotifications: true,
+      orderUpdates: true,
+      careReminders: true,
+      promotional: false,
+      profileVisibility: 'friends',
+      dataSharing: false,
+      personalizedAds: false,
+      role: 'USER',
+    });
+    prismaMock.user.update.mockResolvedValue({
+      id: 7,
+      email: 'user@example.com',
+      name: 'Updated User',
+      phone: '+380671234567',
+      address: 'Київ',
+      bio: 'Люблю рослини',
+      emailNotifications: true,
+      orderUpdates: false,
+      careReminders: true,
+      promotional: true,
+      profileVisibility: 'private',
+      dataSharing: false,
+      personalizedAds: true,
+      role: 'USER',
+    });
+
+    await expect(
+      controller.updateMe(
+        {
+          name: 'Updated User',
+          phone: '+380671234567',
+          address: 'Київ',
+          bio: 'Люблю рослини',
+          orderUpdates: false,
+          promotional: true,
+          profileVisibility: 'private',
+          personalizedAds: true,
+        },
+        {
+          cookies: { access_token: 'access-token' },
+        } as Request,
+        createResponseMock() as Response,
+      ),
+    ).resolves.toEqual({
+      user: {
+        id: 7,
+        email: 'user@example.com',
+        name: 'Updated User',
+        phone: '+380671234567',
+        address: 'Київ',
+        bio: 'Люблю рослини',
+        emailNotifications: true,
+        orderUpdates: false,
+        careReminders: true,
+        promotional: true,
+        profileVisibility: 'private',
+        dataSharing: false,
+        personalizedAds: true,
+        role: 'USER',
+      },
+    });
+
+    const updateCalls = (
+      prismaMock.user.update.mock as {
+        calls: Array<
+          [
+            {
+              where: { id: number };
+              data: Record<string, unknown>;
+              select: Record<string, boolean>;
+            },
+          ]
+        >;
+      }
+    ).calls;
+    const updateCall = updateCalls[0]?.[0];
+
+    expect(updateCall).toBeDefined();
+    expect(updateCall?.where).toEqual({ id: 7 });
+    expect(updateCall?.data).toEqual({
+      name: 'Updated User',
+      phone: '+380671234567',
+      address: 'Київ',
+      bio: 'Люблю рослини',
+      orderUpdates: false,
+      promotional: true,
+      profileVisibility: 'private',
+      personalizedAds: true,
+    });
+    expect(updateCall?.select).toEqual(
+      expect.objectContaining({
+        id: true,
+        email: true,
+        role: true,
+      }),
+    );
   });
 });

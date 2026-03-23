@@ -48,18 +48,18 @@ export default function DashboardPage() {
   }, [router]);
 
   const handleLogout = useCallback(async () => {
+    const loggedOut = await logout();
+    if (!loggedOut) {
+      return;
+    }
+
     addNotification({
       type: 'success',
       title: 'Вихід з акаунта',
       message: 'Ви успішно вийшли з акаунта.',
-      action: {
-        label: 'Ви успішно вийшли з акаунта.',
-        onClick: () => console.log('test'),
-      },
       duration: 3000,
     });
     router.push('/');
-    await logout();
   }, [logout, router, addNotification]);
 
   return (
@@ -80,9 +80,10 @@ export default function DashboardPage() {
                 Вітаємо, {displayName}
               </h1>
               <p className="max-w-xl text-base text-gray-600 dark:text-gray-400">
-                Тут показано тільки те, що реально підключено. Історія покупок,
-                показники та розширені account-дані ще не мають backend-backed
-                реалізації, тому не імітуються.
+                Тут показано тільки те, що реально підключено. Налаштування
+                профілю, сповіщень і конфіденційності вже зберігаються на
+                backend, а історія покупок і метрики кабінету все ще лишаються
+                недоступними.
               </p>
             </div>
 
@@ -111,7 +112,7 @@ export default function DashboardPage() {
                   Статус кабінету
                 </h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  Реальні дані ще не підключені
+                  Частково підключено до backend
                 </span>
               </div>
 
@@ -121,11 +122,12 @@ export default function DashboardPage() {
                     <ShoppingBag className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <p className="font-semibold">Замовлення та показники недоступні</p>
+                    <p className="font-semibold">Налаштування працюють, orders ще ні</p>
                     <p className="text-sky-700/90 dark:text-sky-100/90">
-                      Ми не показуємо фейкові метрики, списки покупок або
-                      псевдо-історію замовлень. Коли backend буде готовий,
-                      розділ можна буде підключити без змін auth/session.
+                      Профіль і налаштування акаунта вже зберігаються для
+                      поточного користувача. Ми все ще не показуємо фейкові
+                      метрики або псевдо-історію замовлень, доки для них немає
+                      реального backend contract.
                     </p>
                   </div>
                 </div>
@@ -158,8 +160,8 @@ export default function DashboardPage() {
                     Що доступно зараз
                   </h2>
                   <p className="text-base text-gray-600 dark:text-gray-400">
-                    Можна керувати профілем у read-only режимі через налаштування,
-                    переглядати каталог і виходити з акаунта.
+                    Можна оновлювати профіль, сповіщення і параметри
+                    конфіденційності, переглядати каталог і виходити з акаунта.
                   </p>
                 </div>
               </div>
