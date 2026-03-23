@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { User, LogOut, Settings, Package } from 'lucide-react';
+import { User, LogOut, Settings, Package, ShieldCheck } from 'lucide-react';
 import { m, AnimatePresence, easeOut } from 'framer-motion';
+import type { User as AuthUser } from '@/contexts/AuthContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 const MotionDiv = m.div;
@@ -35,10 +36,7 @@ const dropdownVariants = {
 };
 
 interface UserDropdownProps {
-  user: {
-    name: string;
-    email: string;
-  };
+  user: AuthUser;
   onClose?: () => void;
 }
 
@@ -78,6 +76,11 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
   const handleOrdersClick = async () => {
     closeDropdown();
     await ensureAuthAndGo('/dashboard/orders');
+  };
+
+  const handleAdminClick = async () => {
+    closeDropdown();
+    await ensureAuthAndGo('/admin');
   };
 
   return (
@@ -125,6 +128,16 @@ export function UserDropdown({ user, onClose }: UserDropdownProps) {
                   <Package className="w-4 h-4 mr-3" />
                   Мої замовлення
                 </button>
+
+                {user.role === 'ADMIN' && (
+                  <button
+                    onClick={handleAdminClick}
+                    className="w-full flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 font-medium"
+                  >
+                    <ShieldCheck className="w-4 h-4 mr-3" />
+                    Адмін панель
+                  </button>
+                )}
               </div>
               
               {/* Logout */}

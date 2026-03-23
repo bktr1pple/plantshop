@@ -4,12 +4,18 @@
 import { m, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, Plus, Minus, Trash2 } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
-import Image from 'next/image';
+import Image, { type ImageLoader } from 'next/image';
 import { useEffect, useRef } from 'react';
 
 interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+const remoteImageLoader: ImageLoader = ({ src }) => src;
+
+function isRemoteImageUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
 }
 
 export function CartModal({ isOpen, onClose }: CartModalProps) {
@@ -82,12 +88,20 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <div className="relative w-16 h-16 flex-shrink-0">
+                      {(() => {
+                        const isRemoteSrc = isRemoteImageUrl(item.image);
+
+                        return (
                       <Image
                         src={item.image}
                         alt={item.name}
                         fill
+                        loader={isRemoteSrc ? remoteImageLoader : undefined}
+                        unoptimized={isRemoteSrc}
                         className="object-cover rounded-lg"
                       />
+                        );
+                      })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-900 dark:text-white truncate">

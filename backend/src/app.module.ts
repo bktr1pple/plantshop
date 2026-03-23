@@ -4,6 +4,8 @@ import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PlantsModule } from './plants/plants.module';
+import { MediaModule } from './media/media.module';
+import { SiteSettingsModule } from './site-settings/site-settings.module';
 import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
 
 @Module({
@@ -20,6 +22,8 @@ import { ThrottlerExceptionFilter } from './filters/throttler-exception.filter';
     AuthModule,
     PrismaModule,
     PlantsModule,
+    MediaModule,
+    SiteSettingsModule,
   ],
   providers: [
     {

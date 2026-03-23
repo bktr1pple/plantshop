@@ -2,12 +2,17 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParserModule from 'cookie-parser';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { static as expressStatic } from 'express';
 import type { RequestHandler } from 'express';
 import {
   getAllowedOriginsFromEnv,
   getPort,
   getRequiredEnv,
 } from './config/env';
+import {
+  ensureUploadDirectories,
+  getUploadsRootDir,
+} from './media/media-storage';
 
 const cookieParser = cookieParserModule as unknown as () => RequestHandler;
 const logger = new Logger('Bootstrap');
@@ -20,11 +25,13 @@ function normalizeOrigin(origin: string): string {
 async function bootstrap() {
   getRequiredEnv('DATABASE_URL');
   getRequiredEnv('RECAPTCHA_SECRET_KEY');
+  ensureUploadDirectories();
 
   const app = await NestFactory.create(AppModule);
 
   // Middleware для работы с куки
   app.use(cookieParser());
+  app.use('/uploads', expressStatic(getUploadsRootDir()));
 
   app.useGlobalPipes(
     new ValidationPipe({

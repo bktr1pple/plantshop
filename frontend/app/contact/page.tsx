@@ -17,6 +17,7 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
+import { useSiteSettings } from "@/contexts/SiteSettingsContext";
 
 // Типы
 interface ContactFormData {
@@ -61,37 +62,6 @@ function SectionFade({
   );
 }
 
-const CONTACT_METHODS: ContactMethod[] = [
-  {
-    icon: <Phone className="w-6 h-6" />,
-    title: "Телефон",
-    details: "+38 (067) 123-45-67",
-    description: "Пн–Пт: 09:00–18:00",
-    link: "tel:+380671234567",
-  },
-  {
-    icon: <Mail className="w-6 h-6" />,
-    title: "Email",
-    details: "hello@plantshop.ua",
-    description: "Відповідаємо протягом 24 годин",
-    link: "mailto:hello@plantshop.ua",
-  },
-  {
-    icon: <MessageCircle className="w-6 h-6" />,
-    title: "Месенджери",
-    details: "Telegram / Viber",
-    description: "Зручне спілкування у чаті",
-    link: "#",
-  },
-  {
-    icon: <MapPin className="w-6 h-6" />,
-    title: "Шоурум",
-    details: "м. Київ, вул. Зелена, 123",
-    description: "Пн–Сб: 10:00–20:00",
-    link: "https://maps.google.com",
-  },
-];
-
 const STATS = [
   { number: "10K+", label: "постійних клієнтів" },
   { number: "99%", label: "позитивних відгуків" },
@@ -106,6 +76,7 @@ const SUPPORT_POINTS = [
 ];
 
 export default function ContactPage() {
+  const { settings } = useSiteSettings();
   const [formData, setFormData] = useState<ContactFormData>({
     name: "",
     email: "",
@@ -117,6 +88,37 @@ export default function ContactPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const workingHours = settings.showroomHours.split("\n").filter(Boolean);
+  const contactMethods: ContactMethod[] = [
+    {
+      icon: <Phone className="w-6 h-6" />,
+      title: "Телефон",
+      details: settings.contactPhoneDisplay,
+      description: workingHours[0] ?? "На зв'язку у робочі години",
+      link: settings.contactPhoneHref,
+    },
+    {
+      icon: <Mail className="w-6 h-6" />,
+      title: "Email",
+      details: settings.contactEmail,
+      description: "Відповідаємо протягом 24 годин",
+      link: `mailto:${settings.contactEmail}`,
+    },
+    {
+      icon: <MessageCircle className="w-6 h-6" />,
+      title: "Месенджери",
+      details: settings.messengerLabel,
+      description: "Зручне спілкування у чаті",
+      link: settings.messengerUrl,
+    },
+    {
+      icon: <MapPin className="w-6 h-6" />,
+      title: "Шоурум",
+      details: settings.contactAddress,
+      description: workingHours[0] ?? "Завітайте у зручний час",
+      link: "#",
+    },
+  ];
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -166,7 +168,7 @@ export default function ContactPage() {
               <div className="inline-flex items-center gap-2 rounded-full bg-white/80 dark:bg-slate-800/80 border border-emerald-100/70 dark:border-emerald-900/60 px-4 py-2 shadow-sm">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
                 <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                  PlantShop — турбота про ваш зелений простір
+                  {settings.siteTagline}
                 </span>
               </div>
             </SectionFade>
@@ -181,9 +183,7 @@ export default function ContactPage() {
                 </h1>
 
                 <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-xl">
-                  Маєте запитання щодо рослин, замовлення або догляду? Напишіть
-                  нам — і ми допоможемо підібрати ідеальні рослини саме для
-                  вашого простору.
+                  {settings.contactIntro}
                 </p>
 
                 <div className="flex flex-wrap gap-4">
@@ -197,7 +197,7 @@ export default function ContactPage() {
                   </Link>
 
                   <Link
-                    href="tel:+380671234567"
+                    href={settings.contactPhoneHref}
                     className="inline-flex items-center gap-2 rounded-xl border border-emerald-200/70 dark:border-emerald-700/70 bg-white/70 dark:bg-slate-900/70 px-5 py-3 text-sm sm:text-base font-medium text-emerald-700 dark:text-emerald-300 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-200 transition"
                   >
                     <Phone className="w-4 h-4" />
@@ -222,10 +222,10 @@ export default function ContactPage() {
                           Телефон
                         </p>
                         <a
-                          href="tel:+380671234567"
+                          href={settings.contactPhoneHref}
                           className="font-semibold text-slate-900 dark:text-slate-50"
                         >
-                          +38 (067) 123-45-67
+                          {settings.contactPhoneDisplay}
                         </a>
                       </div>
                     </div>
@@ -239,10 +239,10 @@ export default function ContactPage() {
                           Email
                         </p>
                         <a
-                          href="mailto:hello@plantshop.ua"
+                          href={`mailto:${settings.contactEmail}`}
                           className="font-semibold text-slate-900 dark:text-slate-50 break-all"
                         >
-                          hello@plantshop.ua
+                          {settings.contactEmail}
                         </a>
                       </div>
                     </div>
@@ -256,9 +256,14 @@ export default function ContactPage() {
                           Графік роботи
                         </p>
                         <p className="text-slate-800 dark:text-slate-200">
-                          Пн–Пт: 09:00–18:00
-                          <br />
-                          Сб: 10:00–16:00
+                          {workingHours.length > 0
+                            ? workingHours.map((line) => (
+                                <React.Fragment key={line}>
+                                  {line}
+                                  <br />
+                                </React.Fragment>
+                              ))
+                            : 'За домовленістю'}
                         </p>
                       </div>
                     </div>
@@ -302,7 +307,7 @@ export default function ContactPage() {
             </SectionFade>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {CONTACT_METHODS.map((method) => (
+              {contactMethods.map((method) => (
                 <SectionFade key={method.title}>
                   <a
                     href={method.link}
@@ -531,32 +536,19 @@ export default function ContactPage() {
                     <Clock className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
                     <h3 className="font-semibold">Графік роботи</h3>
                   </div>
-                  <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                    <div className="flex justify-between">
-                      <span>Пн–Пт</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-100">
-                        09:00–18:00
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Субота</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-100">
-                        10:00–16:00
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Неділя</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-100">
-                        Вихідний
-                      </span>
-                    </div>
+                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                    {workingHours.map((line) => (
+                      <div key={line} className="font-medium text-slate-800 dark:text-slate-100">
+                        {line}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 <div className="rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-100/70 dark:border-slate-800 p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <HeadphonesIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
-                    <h3 className="font-semibold">Підтримка PlantShop</h3>
+                    <h3 className="font-semibold">Підтримка {settings.siteName}</h3>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-4">
                     Наша команда допоможе розібратися з будь-якими питаннями по
@@ -582,7 +574,7 @@ export default function ContactPage() {
                     рішення: заміна, консультація або інший варіант.
                   </p>
                   <Link
-                    href="tel:+380671234567"
+                    href={settings.contactPhoneHref}
                     className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-medium hover:bg-white/15 transition"
                   >
                     <Zap className="w-4 h-4" />

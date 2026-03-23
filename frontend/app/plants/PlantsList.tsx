@@ -2,11 +2,33 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { LazyMotion, m, AnimatePresence, domAnimation } from 'framer-motion';
-import { ShoppingCart, X, ChevronLeft, ChevronRight, Heart, Share2, Star, Truck, Shield, Zap, Sun, Droplets, Maximize2 } from 'lucide-react';
-import Image from 'next/image';
+import {
+  ShoppingCart,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Share2,
+  Star,
+  Truck,
+  Shield,
+  Zap,
+  Sun,
+  Droplets,
+  Maximize2,
+  Pencil,
+  Trash2,
+  ShieldCheck,
+  Plus,
+  Save,
+} from 'lucide-react';
+import Image, { type ImageLoader } from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import { Plant } from '../types/plant';
 
+import { useNotification } from '@/app/components/NotificationSystem';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 
 // Optimized motion components
@@ -20,6 +42,18 @@ type OptimizedImageProps = Omit<React.ComponentProps<typeof Image>, 'src' | 'alt
   alt: string;
   priority?: boolean;
 };
+type PlantFormState = {
+  name: string;
+  description: string;
+  price: string;
+  images: string;
+};
+type PlantMutationResponse = Omit<Plant, 'images'> & {
+  images?: string[] | string | null;
+};
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const remoteImageLoader: ImageLoader = ({ src }) => src;
 
 const productFeatures = [
   { icon: Truck, text: 'Free shipping over $50' },
@@ -32,17 +66,89 @@ const careFeatures = [
   { icon: Droplets, text: 'Water weekly', level: 'Moderate' }
 ];
 
+const createEmptyPlantForm = (): PlantFormState => ({
+  name: '',
+  description: '',
+  price: '',
+  images: '',
+});
+
+function parseImagesInput(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function isRemoteImageUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function normalizePlant(plant: PlantMutationResponse): Plant {
+  let images: string[] = [];
+
+  if (Array.isArray(plant.images)) {
+    images = plant.images.filter((item): item is string => typeof item === 'string');
+  } else if (typeof plant.images === 'string') {
+    try {
+      const parsed = JSON.parse(plant.images) as unknown;
+      if (Array.isArray(parsed)) {
+        images = parsed.filter((item): item is string => typeof item === 'string');
+      }
+    } catch {
+      images = [];
+    }
+  }
+
+  return {
+    ...plant,
+    description: plant.description ?? null,
+    images,
+  };
+}
+
+async function readJsonSafely(res: Response): Promise<unknown | null> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function getApiMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') {
+    return fallback;
+  }
+
+  const message = (data as { message?: unknown }).message;
+
+  if (typeof message === 'string') {
+    return message;
+  }
+
+  if (Array.isArray(message)) {
+    const joined = message.filter((item): item is string => typeof item === 'string').join(', ');
+    return joined || fallback;
+  }
+
+  return fallback;
+}
+
 // Optimized image component with error handling
 const OptimizedImage = ({ src, alt, priority = false, ...props }: OptimizedImageProps) => {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const imageSrc = error ? '/images/placeholder.jpg' : src;
+  const isRemoteSrc = isRemoteImageUrl(imageSrc);
   
   return (
     <div className="relative w-full h-full">
       <Image
-        src={error ? '/images/placeholder.jpg' : src}
+        src={imageSrc}
         alt={alt}
         priority={priority}
+        loader={isRemoteSrc ? remoteImageLoader : undefined}
+        unoptimized={isRemoteSrc}
         onError={() => setError(true)}
         onLoad={() => setLoaded(true)}
         className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'} ${props.className}`}
@@ -73,19 +179,34 @@ const useMobile = () => {
 };
 
 export default function PlantsList({ plants }: Props) {
+  const { user } = useAuth();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { addNotification } = useNotification();
+  const router = useRouter();
+  const pathname = usePathname();
 
+  const [plantItems, setPlantItems] = useState<Plant[]>(plants);
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [newPlantForm, setNewPlantForm] = useState<PlantFormState>(createEmptyPlantForm);
+  const [editPlantForm, setEditPlantForm] = useState<PlantFormState>(createEmptyPlantForm);
+  const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
+  const [isEditingSelectedPlant, setIsEditingSelectedPlant] = useState(false);
   
   const isMobile = useMobile();
+  const isAdmin = user?.role === 'ADMIN';
+  const canManagePlants = isAdmin && pathname.startsWith('/admin');
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setPlantItems(plants);
+  }, [plants]);
 
   const images = (() => {
     if (!selectedPlant?.images?.length) return ['/images/placeholder.jpg'];
@@ -114,11 +235,13 @@ export default function PlantsList({ plants }: Props) {
     setImageLoadErrors(new Set());
     setIsModalOpen(true);
     setIsFullscreen(false);
+    setIsEditingSelectedPlant(false);
   }, []);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setIsFullscreen(false);
+    setIsEditingSelectedPlant(false);
     setTimeout(() => {
       setSelectedPlant(null);
       setCurrentIndex(0);
@@ -244,6 +367,220 @@ export default function PlantsList({ plants }: Props) {
 
   const handleImageError = (index: number) => {
     setImageLoadErrors(prev => new Set(prev).add(index));
+  };
+
+  const handleCreateFormChange = (field: keyof PlantFormState, value: string) => {
+    setNewPlantForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditFormChange = (field: keyof PlantFormState, value: string) => {
+    setEditPlantForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleStartEditingPlant = useCallback(() => {
+    if (!selectedPlant) return;
+
+    setEditPlantForm({
+      name: selectedPlant.name,
+      description: selectedPlant.description ?? '',
+      price: selectedPlant.price.toString(),
+      images: selectedPlant.images?.join(', ') ?? '',
+    });
+    setIsEditingSelectedPlant(true);
+  }, [selectedPlant]);
+
+  const handleCreatePlant = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const name = newPlantForm.name.trim();
+    const price = Number(newPlantForm.price);
+
+    if (!name) {
+      addNotification({
+        type: 'error',
+        title: 'Не вдалося створити рослину',
+        message: 'Назва є обов’язковою.',
+      });
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      addNotification({
+        type: 'error',
+        title: 'Некоректна ціна',
+        message: 'Вкажіть коректну невід’ємну ціну.',
+      });
+      return;
+    }
+
+    setIsSubmittingAdmin(true);
+
+    try {
+      const res = await fetch(`${API_URL}/plants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name,
+          description: newPlantForm.description.trim() || undefined,
+          price,
+          images: parseImagesInput(newPlantForm.images),
+        }),
+      });
+
+      const data = await readJsonSafely(res);
+
+      if (!res.ok) {
+        addNotification({
+          type: res.status === 403 ? 'warning' : 'error',
+          title: 'Не вдалося створити рослину',
+          message: getApiMessage(data, 'Перевірте права доступу або спробуйте ще раз.'),
+        });
+        return;
+      }
+
+      const createdPlant = normalizePlant(data as PlantMutationResponse);
+      setPlantItems((prev) => [createdPlant, ...prev]);
+      setNewPlantForm(createEmptyPlantForm());
+      router.refresh();
+
+      addNotification({
+        type: 'success',
+        title: 'Рослину створено',
+        message: `${createdPlant.name} успішно додано до каталогу.`,
+      });
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Сервер тимчасово недоступний',
+        message: 'Не вдалося створити рослину. Спробуйте ще раз пізніше.',
+      });
+    } finally {
+      setIsSubmittingAdmin(false);
+    }
+  };
+
+  const handleUpdatePlant = async () => {
+    if (!selectedPlant) return;
+
+    const name = editPlantForm.name.trim();
+    const price = Number(editPlantForm.price);
+
+    if (!name) {
+      addNotification({
+        type: 'error',
+        title: 'Не вдалося оновити рослину',
+        message: 'Назва є обов’язковою.',
+      });
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      addNotification({
+        type: 'error',
+        title: 'Некоректна ціна',
+        message: 'Вкажіть коректну невід’ємну ціну.',
+      });
+      return;
+    }
+
+    setIsSubmittingAdmin(true);
+
+    try {
+      const res = await fetch(`${API_URL}/plants/${selectedPlant.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name,
+          description: editPlantForm.description.trim() || undefined,
+          price,
+          images: parseImagesInput(editPlantForm.images),
+        }),
+      });
+
+      const data = await readJsonSafely(res);
+
+      if (!res.ok) {
+        addNotification({
+          type: res.status === 403 ? 'warning' : 'error',
+          title: 'Не вдалося оновити рослину',
+          message: getApiMessage(data, 'Перевірте права доступу або спробуйте ще раз.'),
+        });
+        return;
+      }
+
+      const updatedPlant = normalizePlant(data as PlantMutationResponse);
+      setPlantItems((prev) =>
+        prev.map((plant) => (plant.id === updatedPlant.id ? updatedPlant : plant)),
+      );
+      setSelectedPlant(updatedPlant);
+      setIsEditingSelectedPlant(false);
+      router.refresh();
+
+      addNotification({
+        type: 'success',
+        title: 'Рослину оновлено',
+        message: `${updatedPlant.name} успішно оновлено.`,
+      });
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Сервер тимчасово недоступний',
+        message: 'Не вдалося оновити рослину. Спробуйте ще раз пізніше.',
+      });
+    } finally {
+      setIsSubmittingAdmin(false);
+    }
+  };
+
+  const handleDeletePlant = async () => {
+    if (!selectedPlant) return;
+
+    const shouldDelete = window.confirm(
+      `Видалити рослину "${selectedPlant.name}" з каталогу?`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIsSubmittingAdmin(true);
+
+    try {
+      const res = await fetch(`${API_URL}/plants/${selectedPlant.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      const data = await readJsonSafely(res);
+
+      if (!res.ok) {
+        addNotification({
+          type: res.status === 403 ? 'warning' : 'error',
+          title: 'Не вдалося видалити рослину',
+          message: getApiMessage(data, 'Перевірте права доступу або спробуйте ще раз.'),
+        });
+        return;
+      }
+
+      setPlantItems((prev) => prev.filter((plant) => plant.id !== selectedPlant.id));
+      addNotification({
+        type: 'success',
+        title: 'Рослину видалено',
+        message: `${selectedPlant.name} більше не відображається в каталозі.`,
+      });
+      closeModal();
+      router.refresh();
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Сервер тимчасово недоступний',
+        message: 'Не вдалося видалити рослину. Спробуйте ще раз пізніше.',
+      });
+    } finally {
+      setIsSubmittingAdmin(false);
+    }
   };
 
   // Optimized thumbnails renderer
@@ -406,17 +743,117 @@ export default function PlantsList({ plants }: Props) {
               style={{ willChange: 'transform, opacity' }}
             >
               <h1 className="text-4xl sm:text-6xl font-bold mb-4 bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
-                Green Paradise
+                {canManagePlants ? 'Адмін панель' : 'Green Paradise'}
               </h1>
               <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-                Discover our curated collection of premium indoor plants.
+                {canManagePlants
+                  ? 'Керуйте каталогом рослин: створюйте нові позиції, редагуйте їх у модальному вікні та видаляйте непотрібні.'
+                  : 'Discover our curated collection of premium indoor plants.'}
               </p>
             </MotionDiv>
           </div>
 
+          {canManagePlants && (
+            <MotionDiv
+              id="admin-plants-panel"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-10 rounded-3xl border border-emerald-200/70 bg-white/90 p-5 shadow-xl backdrop-blur-xl dark:border-emerald-800/60 dark:bg-gray-800/90"
+            >
+              <div className="mb-5 flex items-start gap-3">
+                <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Admin: керування каталогом рослин
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    Тут доступне мінімальне керування: створення нової рослини, а редагування та видалення відкриваються в модальному вікні конкретної позиції.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleCreatePlant} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Назва
+                  </span>
+                  <input
+                    value={newPlantForm.name}
+                    onChange={(e) => handleCreateFormChange('name', e.target.value)}
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    placeholder="Наприклад, Monstera Deliciosa"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Ціна
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newPlantForm.price}
+                    onChange={(e) => handleCreateFormChange('price', e.target.value)}
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    placeholder="99.99"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Опис
+                  </span>
+                  <textarea
+                    value={newPlantForm.description}
+                    onChange={(e) => handleCreateFormChange('description', e.target.value)}
+                    rows={3}
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    placeholder="Короткий опис рослини"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    URL зображень
+                  </span>
+                  <textarea
+                    value={newPlantForm.images}
+                    onChange={(e) => handleCreateFormChange('images', e.target.value)}
+                    rows={3}
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    placeholder="Одне або кілька URL через кому або з нового рядка"
+                  />
+                </label>
+
+                <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAdmin}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-5 py-3 font-semibold text-white shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Plus size={16} />
+                    {isSubmittingAdmin ? 'Збереження...' : 'Створити рослину'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewPlantForm(createEmptyPlantForm())}
+                    className="rounded-2xl border border-gray-200 px-5 py-3 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    Очистити форму
+                  </button>
+                </div>
+              </form>
+            </MotionDiv>
+          )}
+
           {/* Plants Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {plants.map((plant, i) => {
+            {plantItems.map((plant, i) => {
               const productInfo = getProductInfo(plant);
               
               return (
@@ -646,7 +1083,7 @@ export default function PlantsList({ plants }: Props) {
 
                       {/* Price */}
                       <div className="flex items-center gap-3">
-                        <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">${selectedPlant.price.toFixed(2)}</div>
+                      <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">${selectedPlant.price.toFixed(2)}</div>
                         {getProductInfo(selectedPlant).originalPrice && (
                           <>
                             <div className="text-lg text-gray-400 line-through">
@@ -728,6 +1165,91 @@ export default function PlantsList({ plants }: Props) {
                           Share Product
                         </button>
                       </div>
+
+                      {canManagePlants && (
+                        <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-900/10">
+                          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                            <ShieldCheck size={16} />
+                            Admin-дії
+                          </div>
+
+                          {isEditingSelectedPlant ? (
+                            <div className="space-y-3">
+                              <input
+                                value={editPlantForm.name}
+                                onChange={(e) => handleEditFormChange('name', e.target.value)}
+                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
+                                placeholder="Назва"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editPlantForm.price}
+                                onChange={(e) => handleEditFormChange('price', e.target.value)}
+                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
+                                placeholder="Ціна"
+                              />
+                              <textarea
+                                rows={3}
+                                value={editPlantForm.description}
+                                onChange={(e) => handleEditFormChange('description', e.target.value)}
+                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
+                                placeholder="Опис"
+                              />
+                              <textarea
+                                rows={3}
+                                value={editPlantForm.images}
+                                onChange={(e) => handleEditFormChange('images', e.target.value)}
+                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
+                                placeholder="URL зображень через кому або новий рядок"
+                              />
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={handleUpdatePlant}
+                                  disabled={isSubmittingAdmin}
+                                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                                >
+                                  <Save size={14} />
+                                  {isSubmittingAdmin ? 'Збереження...' : 'Зберегти зміни'}
+                                </button>
+                                <button
+                                  onClick={() => setIsEditingSelectedPlant(false)}
+                                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-white dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                                >
+                                  Скасувати
+                                </button>
+                                <button
+                                  onClick={handleDeletePlant}
+                                  disabled={isSubmittingAdmin}
+                                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-900/40 dark:text-red-300 dark:hover:bg-red-900/20"
+                                >
+                                  <Trash2 size={14} />
+                                  Видалити
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={handleStartEditingPlant}
+                                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-gray-800"
+                              >
+                                <Pencil size={14} />
+                                Редагувати рослину
+                              </button>
+                              <button
+                                onClick={handleDeletePlant}
+                                disabled={isSubmittingAdmin}
+                                className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-900/40 dark:text-red-300 dark:hover:bg-red-900/20"
+                              >
+                                <Trash2 size={14} />
+                                Видалити
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </MotionDiv>

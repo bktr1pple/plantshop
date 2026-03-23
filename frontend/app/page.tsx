@@ -37,6 +37,7 @@ import {
   Building2,
   Gift,
 } from "lucide-react";
+import { useSiteSettings } from "@/contexts/SiteSettingsContext";
 
 // Types
 interface HeroImage {
@@ -460,6 +461,8 @@ const HeroSection = ({
   statsData,
   onDotClick,
 }: HeroSectionProps) => {
+  const { settings } = useSiteSettings();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Hero background з картинкою */}
@@ -514,13 +517,13 @@ const HeroSection = ({
             >
               <h1 className="pt-10 text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-7xl font-black leading-[1.1] tracking-tight">
                 <span className="bg-gradient-to-r from-emerald-200 via-green-300 to-emerald-400 bg-clip-text text-transparent block">
-                  Природа
+                  {settings.heroTitleLine1}
                 </span>
                 <span className="text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-6xl block mt-1 lg:mt-2">
-                  у сучасному
+                  {settings.heroTitleLine2}
                 </span>
                 <span className="bg-gradient-to-r from-green-200 via-emerald-300 to-green-400 bg-clip-text text-transparent block mt-1 lg:mt-2">
-                  дизайні
+                  {settings.heroTitleLine3}
                 </span>
               </h1>
             </MotionDiv>
@@ -531,9 +534,7 @@ const HeroSection = ({
               transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
               className="text-lg sm:text-xl md:text-2xl text-green-50/90 max-w-3xl lg:max-w-4xl mx-auto leading-relaxed font-light px-2 sm:px-4"
             >
-              Ексклюзивні рослини, професійний догляд та авторські рішення
-              <br className="hidden sm:block" />
-              для створення ідеального простору
+              {settings.heroSubtitle}
             </m.p>
           </div>
 
@@ -545,13 +546,13 @@ const HeroSection = ({
             className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 lg:mb-10"
           >
             <Link
-              href="/plants"
+              href={settings.heroPrimaryCtaHref}
               className="group relative inline-flex items-center justify-center gap-2 bg-white text-green-800 font-bold py-3 sm:py-3 px-6 sm:px-8 rounded-xl sm:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden min-w-[160px] sm:min-w-[180px]"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
               <Leaf className="w-4 h-4" />
               <span className="text-sm sm:text-base whitespace-nowrap">
-                До каталогу
+                {settings.heroPrimaryCtaLabel}
               </span>
               <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform duration-300" />
             </Link>

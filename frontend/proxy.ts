@@ -10,10 +10,21 @@ const PROTECTED_PATHS = {
   "/dashboard": {
     requireAuth: true,
   },
+  "/admin": {
+    requireAuth: true,
+    requireRole: "ADMIN",
+  },
 } as const;
 
+type AuthUser = {
+  id?: number;
+  email?: string;
+  name?: string;
+  role?: "USER" | "ADMIN";
+};
+
 type AuthCheckResult = {
-  user: unknown | null;
+  user: AuthUser | null;
   setCookies: string[];
 };
 
@@ -55,6 +66,10 @@ function appendSetCookies(
   }
 }
 
+function isAuthUser(value: unknown): value is AuthUser {
+  return typeof value === "object" && value !== null;
+}
+
 async function checkAuth(request: NextRequest) {
   try {
     const incomingCookies = request.headers.get("cookie") || "";
@@ -82,7 +97,7 @@ async function checkAuth(request: NextRequest) {
     try {
       const data = await res.json();
       return {
-        user: data?.user ?? null,
+        user: isAuthUser(data?.user) ? data.user : null,
         setCookies,
       } satisfies AuthCheckResult;
     } catch {
@@ -123,11 +138,23 @@ export default async function proxy(request: NextRequest) {
     return response;
   }
 
+  const pathConfig = PROTECTED_PATHS[matchedPath as keyof typeof PROTECTED_PATHS];
+  if (
+    "requireRole" in pathConfig &&
+    pathConfig.requireRole &&
+    authResult.user.role !== pathConfig.requireRole
+  ) {
+    const fallbackUrl = new URL("/dashboard", request.url);
+    const response = NextResponse.redirect(fallbackUrl);
+    appendSetCookies(response, authResult.setCookies);
+    return response;
+  }
+
   const response = NextResponse.next();
   appendSetCookies(response, authResult.setCookies);
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/admin/:path*"],
 };

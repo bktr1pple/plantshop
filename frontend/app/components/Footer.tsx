@@ -11,8 +11,10 @@ import {
   ArrowRight,
   MessageCircle,
 } from "lucide-react";
+import { useSiteSettings } from "@/contexts/SiteSettingsContext";
 
 export default function Footer() {
+  const { settings } = useSiteSettings();
   const [email, setEmail] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -29,31 +31,23 @@ export default function Footer() {
   const footerLinks = {
     company: [
       { name: "Про нас", href: "/about" },
-      { name: "Наша історія", href: "/about#history" },
-      { name: "Команда", href: "/about#team" },
-      { name: "Вакансії", href: "/careers" },
-      { name: "Блог", href: "/blog" },
+      { name: "Догляд за рослинами", href: "/care" },
+      { name: "Ландшафтний дизайн", href: "/landscape-design" },
     ],
     catalog: [
       { name: "Усі рослини", href: "/plants" },
-      { name: "Кімнатні рослини", href: "/plants?category=indoor" },
-      { name: "Рідкісні види", href: "/plants?category=rare" },
-      { name: "Новинки", href: "/plants?new=true" },
-      { name: "Розпродаж", href: "/plants?sale=true" },
+      { name: "Горщики та кашпо", href: "/pots" },
+      { name: "Догляд і підтримка", href: "/care" },
     ],
     services: [
-      { name: "Консультація", href: "/consultation" },
-      { name: "Догляд за рослинами", href: "/care" },
-      { name: "Озеленення офісів", href: "/services/office" },
-      { name: "Ландшафтний дизайн", href: "/services/landscape" },
-      { name: "Підписка на догляд", href: "/services/subscription" },
+      { name: "Контакти", href: "/contact" },
+      { name: "Озеленення просторів", href: "/landscape-design" },
+      { name: "Підбір рослин", href: "/plants" },
     ],
     help: [
       { name: "Контакти", href: "/contact" },
-      { name: "Доставка і оплата", href: "/delivery" },
-      { name: "Повернення товару", href: "/returns" },
-      { name: "FAQ", href: "/faq" },
-      { name: "Підтримка", href: "/support" },
+      { name: "Про компанію", href: "/about" },
+      { name: "Догляд", href: "/care" },
     ],
   };
 
@@ -78,12 +72,11 @@ export default function Footer() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/30 transition-transform group-hover:scale-110">
                   <Leaf className="w-5 h-5" />
                 </div>
-                PlantShop
+                {settings.siteName}
               </Link>
 
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-                Створюємо зелені простори, які надихають. Преміальні рослини,
-                професійний догляд та індивідуальний підхід до кожного клієнта.
+                {settings.footerDescription}
               </p>
 
               {/* Підписка на розсилку */}
@@ -123,7 +116,7 @@ export default function Footer() {
               {/* Соцмережі */}
               <div className="mt-6 flex items-center gap-3">
                 <a
-                  href="https://facebook.com"
+                  href={settings.facebookUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-all hover:border-emerald-500 hover:text-emerald-600 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
@@ -131,7 +124,7 @@ export default function Footer() {
                   <Facebook className="h-4 w-4" />
                 </a>
                 <a
-                  href="https://instagram.com"
+                  href={settings.instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-all hover:border-emerald-500 hover:text-emerald-600 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
@@ -139,7 +132,7 @@ export default function Footer() {
                   <Instagram className="h-4 w-4" />
                 </a>
                 <a
-                  href="mailto:info@plantshop.com"
+                  href={`mailto:${settings.contactEmail}`}
                   className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-all hover:border-emerald-500 hover:text-emerald-600 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
                 >
                   <Mail className="h-4 w-4" />
@@ -234,15 +227,15 @@ export default function Footer() {
               {/* Кнопка контактів */}
               <div className="mt-8">
                 <Link
-                  href="/contact"
+                  href={settings.footerCtaHref}
                   className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/40 w-full sm:w-auto"
                 >
                   <MessageCircle className="h-5 w-5" />
-                  <span>Зв&apos;язатися з нами</span>
+                  <span>{settings.footerCtaLabel}</span>
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <p className="mt-3 text-xs text-center sm:text-left text-gray-500 dark:text-gray-500">
-                  Телефон, email, адреса та робочий графік
+                  {settings.contactPhoneDisplay} • {settings.contactEmail}
                 </p>
               </div>
             </div>
@@ -254,7 +247,7 @@ export default function Footer() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
             <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
               <p className="text-xs text-gray-500 dark:text-gray-500">
-                © {new Date().getFullYear()} PlantShop. Всі права захищені.
+                © {new Date().getFullYear()} {settings.siteName}. Всі права захищені.
               </p>
 
               <div className="flex flex-wrap items-center justify-center gap-4 text-xs">

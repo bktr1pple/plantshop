@@ -42,3 +42,30 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
+
+model SiteSettings {
+  id                  Int      @id @default(1)
+  siteName            String   @default("PlantShop")
+  siteTagline         String   @default("PlantShop — турбота про ваш зелений простір")
+  heroTitleLine1      String   @default("Природа")
+  heroTitleLine2      String   @default("у сучасному")
+  heroTitleLine3      String   @default("дизайні")
+  heroSubtitle        String   @db.Text
+  heroPrimaryCtaLabel String   @default("До каталогу")
+  heroPrimaryCtaHref  String   @default("/plants")
+  contactIntro        String   @db.Text
+  footerDescription   String   @db.Text
+  footerCtaLabel      String   @default("Зв'язатися з нами")
+  footerCtaHref       String   @default("/contact")
+  contactPhoneDisplay String   @default("+38 (067) 123-45-67")
+  contactPhoneHref    String   @default("tel:+380671234567")
+  contactEmail        String   @default("hello@plantshop.ua")
+  contactAddress      String   @default("м. Київ, вул. Зелена, 123")
+  showroomHours       String   @db.Text
+  messengerLabel      String   @default("Telegram / Viber")
+  messengerUrl        String   @default("#")
+  facebookUrl         String   @default("https://facebook.com")
+  instagramUrl        String   @default("https://instagram.com")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

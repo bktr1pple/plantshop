@@ -2,7 +2,7 @@
 'use client';
 
 import Link from "next/link";
-import { X, Search, ShoppingBag, Heart, ChevronRight, Sparkles, User, LogOut, Settings, Package } from "lucide-react";
+import { X, Search, ShoppingBag, Heart, ChevronRight, Sparkles, User, LogOut, Settings, Package, ShieldCheck } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
 import { NavLink } from '@/app/types/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -257,6 +257,18 @@ export function MobileNavigation({
                     <Package className="w-4 h-4 mr-3" />
                     Мої замовлення
                   </button>
+                  {user.role === 'ADMIN' && (
+                    <button
+                      onClick={async () => {
+                        onClose();
+                        await ensureAuthAndGo('/admin');
+                      }}
+                      className="w-full flex items-center p-4 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-300 font-medium"
+                    >
+                      <ShieldCheck className="w-4 h-4 mr-3" />
+                      Адмін панель
+                    </button>
+                  )}
                   <button 
                     onClick={handleLogout}
                     className="w-full flex items-center p-4 text-rose-600 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-900/20 rounded-xl transition-all duration-300 font-medium"

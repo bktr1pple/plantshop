@@ -43,3 +43,15 @@ export function getPort(): number {
 
   return port;
 }
+
+export function getPublicApiBaseUrl(): string {
+  const explicit =
+    process.env.PUBLIC_API_URL?.trim() ||
+    process.env.BACKEND_PUBLIC_URL?.trim();
+
+  if (explicit) {
+    return explicit.replace(/\/+$/, '');
+  }
+
+  return `http://localhost:${getPort()}`;
+}

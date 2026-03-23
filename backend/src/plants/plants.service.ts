@@ -2,78 +2,114 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePlantDto } from './dto/create-plant.dto';
 import { UpdatePlantDto } from './dto/update-plant.dto';
-
-function parseImages(images: string | null): string[] {
-  if (!images) {
-    return [];
-  }
-
-  const parsed = JSON.parse(images) as unknown;
-  return Array.isArray(parsed)
-    ? parsed.filter((item): item is string => typeof item === 'string')
-    : [];
-}
+import {
+  deleteManagedUploadFile,
+  isManagedUploadUrl,
+} from '../media/media-storage';
+import { parsePlantImages, stringifyPlantImages } from './plant-images';
 
 @Injectable()
 export class PlantsService {
   constructor(private prisma: PrismaService) {}
 
+  private mapPlantResponse<T extends { images: string | null }>(
+    plant: T,
+  ): Omit<T, 'images'> & { images: string[] } {
+    return {
+      ...plant,
+      images: parsePlantImages(plant.images),
+    };
+  }
+
+  private async cleanupUnusedManagedImages(candidateUrls: string[]) {
+    const managedUrls = candidateUrls.filter(isManagedUploadUrl);
+
+    if (!managedUrls.length) {
+      return;
+    }
+
+    const plants = await this.prisma.plant.findMany({
+      select: { images: true },
+    });
+    const stillUsedImages = new Set(
+      plants.flatMap((plant) => parsePlantImages(plant.images)),
+    );
+
+    for (const url of managedUrls) {
+      if (!stillUsedImages.has(url)) {
+        await deleteManagedUploadFile(url);
+      }
+    }
+  }
+
   async create(createPlantDto: CreatePlantDto) {
-    // Якщо images не передано — створюємо порожній масив
     const imagesArray = createPlantDto.images?.length
       ? createPlantDto.images
       : [];
 
-    return this.prisma.plant.create({
+    const createdPlant = await this.prisma.plant.create({
       data: {
         name: createPlantDto.name,
         description: createPlantDto.description,
         price: createPlantDto.price,
-        // Зберігаємо JSON у базі
-        images: JSON.stringify(imagesArray),
+        images: stringifyPlantImages(imagesArray),
       },
     });
+
+    return this.mapPlantResponse(createdPlant);
   }
 
   async findAll() {
-    const plants = await this.prisma.plant.findMany();
-    // Парсимо JSON щоб повернути масив у відповідь
-    return plants.map((plant) => ({
-      ...plant,
-      images: parseImages(plant.images),
-    }));
+    const plants = await this.prisma.plant.findMany({
+      orderBy: { updatedAt: 'desc' },
+    });
+    return plants.map((plant) => this.mapPlantResponse(plant));
   }
 
   async findOne(id: number) {
     const plant = await this.prisma.plant.findUnique({ where: { id } });
     if (!plant) throw new NotFoundException(`Plant with id ${id} not found`);
 
-    return {
-      ...plant,
-      images: parseImages(plant.images),
-    };
+    return this.mapPlantResponse(plant);
   }
 
   async update(id: number, updatePlantDto: UpdatePlantDto) {
     const plant = await this.prisma.plant.findUnique({ where: { id } });
     if (!plant) throw new NotFoundException(`Plant with id ${id} not found`);
 
-    const updatedImages = updatePlantDto.images?.length
-      ? JSON.stringify(updatePlantDto.images)
-      : plant.images;
+    const previousImages = parsePlantImages(plant.images);
+    const nextImages =
+      updatePlantDto.images !== undefined
+        ? updatePlantDto.images
+        : previousImages;
+    const removedImages = previousImages.filter(
+      (image) => !nextImages.includes(image),
+    );
 
-    return this.prisma.plant.update({
+    const updatedPlant = await this.prisma.plant.update({
       where: { id },
       data: {
         name: updatePlantDto.name,
         description: updatePlantDto.description,
         price: updatePlantDto.price,
-        images: updatedImages,
+        images: stringifyPlantImages(nextImages),
       },
     });
+
+    await this.cleanupUnusedManagedImages(removedImages);
+
+    return this.mapPlantResponse(updatedPlant);
   }
 
   async remove(id: number) {
-    return this.prisma.plant.delete({ where: { id } });
+    const plant = await this.prisma.plant.findUnique({ where: { id } });
+    if (!plant) throw new NotFoundException(`Plant with id ${id} not found`);
+
+    const imagesToCleanup = parsePlantImages(plant.images);
+    const deletedPlant = await this.prisma.plant.delete({ where: { id } });
+
+    await this.cleanupUnusedManagedImages(imagesToCleanup);
+
+    return this.mapPlantResponse(deletedPlant);
   }
 }

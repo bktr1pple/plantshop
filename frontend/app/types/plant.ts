@@ -4,4 +4,6 @@ export interface Plant {
   description: string | null;
   price: number;
   images?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }

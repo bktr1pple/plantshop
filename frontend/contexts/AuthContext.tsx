@@ -14,10 +14,13 @@ import { useNotification } from '@/app/components/NotificationSystem';
 import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
 import { useRouter } from 'next/navigation';
 
+export type UserRole = 'USER' | 'ADMIN';
+
 export interface User {
   id: number;
   email: string;
   name: string;
+  role: UserRole;
 }
 
 interface AuthContextType {
