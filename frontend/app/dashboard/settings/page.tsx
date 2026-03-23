@@ -133,7 +133,8 @@ const Input: React.FC<{
   onChange: (value: string) => void;
   type?: string;
   placeholder?: string;
-}> = ({ label, value, onChange, type = 'text', placeholder }) => (
+  disabled?: boolean;
+}> = ({ label, value, onChange, type = 'text', placeholder, disabled = false }) => (
   <div className="space-y-1.5">
     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
       {label}
@@ -142,8 +143,9 @@ const Input: React.FC<{
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
       placeholder={placeholder}
-      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
+      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
     />
   </div>
 );
@@ -153,7 +155,8 @@ const Textarea: React.FC<{
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-}> = ({ label, value, onChange, placeholder }) => (
+  disabled?: boolean;
+}> = ({ label, value, onChange, placeholder, disabled = false }) => (
   <div className="space-y-1.5">
     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
       {label}
@@ -161,9 +164,10 @@ const Textarea: React.FC<{
     <textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
       placeholder={placeholder}
       rows={4}
-      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
+      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
     />
   </div>
 );
@@ -173,11 +177,13 @@ const ToggleRow: React.FC<{
   description?: string;
   checked: boolean;
   onChange: (value: boolean) => void;
-}> = ({ label, description, checked, onChange }) => (
+  disabled?: boolean;
+}> = ({ label, description, checked, onChange, disabled = false }) => (
   <button
     type="button"
     onClick={() => onChange(!checked)}
-    className="flex w-full items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5 text-left text-sm transition hover:border-emerald-200 hover:bg-emerald-50/60 dark:border-gray-800 dark:bg-gray-900/70 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/20"
+    disabled={disabled}
+    className="flex w-full items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5 text-left text-sm transition hover:border-emerald-200 hover:bg-emerald-50/60 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-800 dark:bg-gray-900/70 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/20"
   >
     <div>
       <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-50">{label}</p>
@@ -231,21 +237,21 @@ export default function SettingsPage() {
   }, [user]);
 
   // Настройки
-  const [notifications, setNotifications] = useState<NotificationSettings>({
+  const [notifications] = useState<NotificationSettings>({
     emailNotifications: true,
     orderUpdates: true,
     careReminders: true,
     promotional: false,
   });
 
-  const [privacy, setPrivacy] = useState<PrivacySettings>({
+  const [privacy] = useState<PrivacySettings>({
     profileVisibility: 'friends',
     dataSharing: false,
     personalizedAds: false,
   });
 
   const [activeSection, setActiveSection] = useState<SectionId>('profile');
-  const [hasChanges, setHasChanges] = useState(false);
+  const settingsBackendConnected = false;
 
   const sidebarItems: { id: SectionId; label: string; icon: React.ReactNode }[] = useMemo(
     () => [
@@ -257,70 +263,25 @@ export default function SettingsPage() {
     []
   );
 
-  const markChanged = useCallback(() => setHasChanges(true), []);
-
-  const handleProfileChange = useCallback(
-    (field: keyof ProfileState, value: string) => {
-      setProfile((prev) => ({ ...prev, [field]: value }));
-      markChanged();
-    },
-    [markChanged]
-  );
-
-  const handleNotificationChange = useCallback(
-    (field: keyof NotificationSettings, value: boolean) => {
-      setNotifications((prev) => ({ ...prev, [field]: value }));
-      markChanged();
-    },
-    [markChanged]
-  );
-
-  const handlePrivacyChange = useCallback(
-    (field: keyof PrivacySettings, value: PrivacySettings[typeof field]) => {
-      setPrivacy((prev) => ({ ...prev, [field]: value }));
-      markChanged();
-    },
-    [markChanged]
-  );
-
   const handleSave = useCallback(() => {
-    // Здесь в будущем можно вызвать API (PATCH /me, /settings и т.п.)
     addNotification({
-      type: 'success',
-      title: 'Налаштування збережено',
-      message: 'Ваші зміни профілю та налаштувань будуть застосовані.',
+      type: 'info',
+      title: 'Налаштування акаунта ще не підключені',
+      message:
+        'Профіль, сповіщення та параметри конфіденційності поки доступні лише для перегляду.',
       duration: 3000,
     });
-    setHasChanges(false);
   }, [addNotification]);
 
   const handleReset = useCallback(() => {
-    setProfile({
-      name: user?.name ?? '',
-      email: user?.email ?? '',
-      phone: '',
-      address: '',
-      bio: '',
-    });
-    setNotifications({
-      emailNotifications: true,
-      orderUpdates: true,
-      careReminders: true,
-      promotional: false,
-    });
-    setPrivacy({
-      profileVisibility: 'friends',
-      dataSharing: false,
-      personalizedAds: false,
-    });
-    setHasChanges(false);
     addNotification({
       type: 'info',
-      title: 'Скидання налаштувань',
-      message: 'Налаштування повернено до стандартних значень.',
+      title: 'Редагування недоступне',
+      message:
+        'Скидання теж недоступне, поки backend для налаштувань акаунта не підключений.',
       duration: 2500,
     });
-  }, [user, addNotification]);
+  }, [addNotification]);
 
   const handleDeleteAccount = useCallback(() => {
     addNotification({
@@ -361,15 +322,13 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              {hasChanges && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 ring-1 ring-amber-100 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-800/50">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  Є незбережені зміни
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 ring-1 ring-sky-100 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-800/50">
+                Налаштування доступні лише для перегляду
+              </span>
               <button
                 type="button"
                 onClick={handleReset}
+                disabled
                 className="rounded-xl border border-gray-200 bg-white/80 px-3.5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-900"
               >
                 Скинути
@@ -377,10 +336,10 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!hasChanges}
+                disabled={!settingsBackendConnected}
                 className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4.5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400/60"
               >
-                Зберегти зміни
+                Збереження недоступне
               </button>
             </div>
           </motion.header>
@@ -433,32 +392,39 @@ export default function SettingsPage() {
                       title="Особиста інформація"
                       description="Ім’я та контакти будуть використовуватися для оформлення замовлень та сповіщень."
                     >
+                      <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
+                        Редагування профілю ще не підключене до backend. Дані нижче зараз доступні лише для перегляду.
+                      </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Input
                           label="Ім’я"
                           value={profile.name}
-                          onChange={(v) => handleProfileChange('name', v)}
+                          onChange={() => {}}
                           placeholder="Ваше ім’я"
+                          disabled
                         />
                         <Input
                           label="Email"
                           type="email"
                           value={profile.email}
-                          onChange={(v) => handleProfileChange('email', v)}
+                          onChange={() => {}}
                           placeholder="Ваш email"
+                          disabled
                         />
                         <Input
                           label="Телефон"
                           type="tel"
                           value={profile.phone}
-                          onChange={(v) => handleProfileChange('phone', v)}
+                          onChange={() => {}}
                           placeholder="+380..."
+                          disabled
                         />
                         <Input
                           label="Адреса доставки"
                           value={profile.address}
-                          onChange={(v) => handleProfileChange('address', v)}
+                          onChange={() => {}}
                           placeholder="Місто, вулиця, відділення пошти"
+                          disabled
                         />
                       </div>
 
@@ -466,8 +432,9 @@ export default function SettingsPage() {
                         <Textarea
                           label="Коротко про вас і ваші рослини"
                           value={profile.bio}
-                          onChange={(v) => handleProfileChange('bio', v)}
+                          onChange={() => {}}
                           placeholder="Наприклад: люблю монстери та світлі інтер’єри..."
+                          disabled
                         />
                       </div>
                     </SectionShell>
@@ -487,37 +454,36 @@ export default function SettingsPage() {
                       title="Сповіщення"
                       description="Оберіть, які повідомлення ви хочете отримувати від PlantShop."
                     >
+                      <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
+                        Налаштування сповіщень ще не зберігаються на сервері, тому перемикачі тимчасово недоступні.
+                      </div>
                       <div className="space-y-3">
                         <ToggleRow
                           label="Email-сповіщення"
                           description="Основні оновлення по акаунту та замовленнях."
                           checked={notifications.emailNotifications}
-                          onChange={(v) =>
-                            handleNotificationChange('emailNotifications', v)
-                          }
+                          onChange={() => {}}
+                          disabled
                         />
                         <ToggleRow
                           label="Оновлення замовлень"
                           description="Статус замовлення, відправлення, доставка."
                           checked={notifications.orderUpdates}
-                          onChange={(v) =>
-                            handleNotificationChange('orderUpdates', v)
-                          }
+                          onChange={() => {}}
+                          disabled
                         />
                         <ToggleRow
                           label="Нагадування по догляду"
                           description="Полив, підживлення та інші корисні поради."
                           checked={notifications.careReminders}
-                          onChange={(v) =>
-                            handleNotificationChange('careReminders', v)
-                          }
+                          onChange={() => {}}
+                          disabled
                         />
                         <ToggleRow
                           label="Акції та спецпропозиції"
                           checked={notifications.promotional}
-                          onChange={(v) =>
-                            handleNotificationChange('promotional', v)
-                          }
+                          onChange={() => {}}
+                          disabled
                         />
                       </div>
                     </SectionShell>
@@ -537,6 +503,9 @@ export default function SettingsPage() {
                       title="Конфіденційність та безпека"
                       description="Керуйте тим, хто бачить інформацію про вас, та налаштуйте безпеку входу."
                     >
+                      <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
+                        Параметри конфіденційності ще не підключені до акаунтного backend і зараз не застосовуються.
+                      </div>
                       <div className="space-y-6">
                         <div className="space-y-3">
                           <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
@@ -563,11 +532,9 @@ export default function SettingsPage() {
                               <button
                                 key={opt.id}
                                 type="button"
-                                onClick={() =>
-                                  handlePrivacyChange('profileVisibility', opt.id)
-                                }
+                                disabled
                                 className={
-                                  'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left text-xs transition ' +
+                                  'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-70 ' +
                                   (privacy.profileVisibility === opt.id
                                     ? 'border-emerald-500 bg-emerald-50/80 text-gray-900 dark:border-emerald-500 dark:bg-emerald-900/20 dark:text-gray-50'
                                     : 'border-gray-200 bg-white/70 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-200 dark:hover:border-emerald-600')
@@ -590,17 +557,15 @@ export default function SettingsPage() {
                             label="Анонімна аналітика"
                             description="Допомагає нам покращувати PlantShop. Без персональних даних."
                             checked={privacy.dataSharing}
-                            onChange={(v) =>
-                              handlePrivacyChange('dataSharing', v)
-                            }
+                            onChange={() => {}}
+                            disabled
                           />
                           <ToggleRow
                             label="Персоналізовані рекомендації"
                             description="Підбір рослин з урахуванням ваших замовлень та переглядів."
                             checked={privacy.personalizedAds}
-                            onChange={(v) =>
-                              handlePrivacyChange('personalizedAds', v)
-                            }
+                            onChange={() => {}}
+                            disabled
                           />
                         </div>
 
@@ -615,6 +580,7 @@ export default function SettingsPage() {
                               value=""
                               onChange={() => {}}
                               placeholder="********"
+                              disabled
                             />
                             <Input
                               label="Новий пароль"
@@ -622,6 +588,7 @@ export default function SettingsPage() {
                               value=""
                               onChange={() => {}}
                               placeholder="********"
+                              disabled
                             />
                             <Input
                               label="Підтвердження"
@@ -629,6 +596,7 @@ export default function SettingsPage() {
                               value=""
                               onChange={() => {}}
                               placeholder="********"
+                              disabled
                             />
                           </div>
                           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">

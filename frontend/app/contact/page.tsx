@@ -86,8 +86,6 @@ export default function ContactPage() {
     consent: false,
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const workingHours = settings.showroomHours.split("\n").filter(Boolean);
   const contactMethods: ContactMethod[] = [
     {
@@ -136,25 +134,6 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    // Тут потім підключиш реальну відправку (бекенд / email-сервіс)
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        subject: "",
-        message: "",
-        consent: false,
-      });
-    }, 4000);
   };
 
   return (
@@ -353,31 +332,13 @@ export default function ContactPage() {
                       Напишіть нам
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                      Залиште свої контакти — ми повернемось з відповіддю протягом
-                      робочого дня.
+                      Онлайн-форма тимчасово недоступна. Скористайтеся телефоном,
+                      email або месенджером вище.
                     </p>
                   </div>
                 </div>
 
-                {isSubmitted ? (
-                  <MotionDiv
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="text-center py-10"
-                  >
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
-                      <CheckCircle className="h-9 w-9 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <h4 className="text-lg font-semibold mb-2">
-                      Повідомлення надіслано
-                    </h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto">
-                      Дякуємо за звернення! Ми звʼяжемося з вами найближчим
-                      часом, щоб обговорити всі деталі.
-                    </p>
-                  </MotionDiv>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <label
@@ -393,6 +354,7 @@ export default function ContactPage() {
                           required
                           value={formData.name}
                           onChange={handleInputChange}
+                          disabled
                           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
                           placeholder="Ваше імʼя"
                         />
@@ -411,6 +373,7 @@ export default function ContactPage() {
                           required
                           value={formData.email}
                           onChange={handleInputChange}
+                          disabled
                           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
                           placeholder="you@example.com"
                         />
@@ -431,6 +394,7 @@ export default function ContactPage() {
                           type="tel"
                           value={formData.phone}
                           onChange={handleInputChange}
+                          disabled
                           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
                           placeholder="+38 (0__) ___ __ __"
                         />
@@ -448,6 +412,7 @@ export default function ContactPage() {
                           required
                           value={formData.subject}
                           onChange={handleInputChange}
+                          disabled
                           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition"
                         >
                           <option value="">Оберіть тему</option>
@@ -474,6 +439,7 @@ export default function ContactPage() {
                         rows={5}
                         value={formData.message}
                         onChange={handleInputChange}
+                        disabled
                         className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 dark:focus:ring-emerald-900/60 outline-none transition resize-none"
                         placeholder="Розкажіть коротко, що вас цікавить..."
                       />
@@ -487,6 +453,7 @@ export default function ContactPage() {
                         required
                         checked={formData.consent}
                         onChange={handleInputChange}
+                        disabled
                         className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                       />
                       <label
@@ -500,31 +467,30 @@ export default function ContactPage() {
 
                     <button
                       type="submit"
-                      disabled={isSubmitting || !formData.consent}
+                      disabled
                       className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-3.5 text-sm sm:text-base font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed"
                     >
-                      {isSubmitting ? (
-                        <>
-                          <MotionDiv
-                            animate={{ rotate: 360 }}
-                            transition={{
-                              duration: 1,
-                              repeat: Infinity,
-                              ease: "linear",
-                            }}
-                            className="h-4 w-4 rounded-full border-2 border-white border-t-transparent"
-                          />
-                          Надсилаємо...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          Надіслати повідомлення
-                        </>
-                      )}
+                      <Send className="w-4 h-4" />
+                      Форма тимчасово недоступна
                     </button>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Зараз звернення через сайт не надсилаються. Напишіть на{" "}
+                      <a
+                        href={`mailto:${settings.contactEmail}`}
+                        className="font-medium text-emerald-600 dark:text-emerald-300"
+                      >
+                        {settings.contactEmail}
+                      </a>{" "}
+                      або зателефонуйте{" "}
+                      <a
+                        href={settings.contactPhoneHref}
+                        className="font-medium text-emerald-600 dark:text-emerald-300"
+                      >
+                        {settings.contactPhoneDisplay}
+                      </a>
+                      .
+                    </p>
                   </form>
-                )}
               </div>
             </SectionFade>
 

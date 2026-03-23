@@ -558,8 +558,6 @@ export default function LandscapeDesignPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log('Form submitted:', formData);
   };
 
   return (
@@ -771,7 +769,7 @@ export default function LandscapeDesignPage() {
                   Want to update your yard or garden?
                 </h3>
                 <p className="text-emerald-100 mb-8">
-                  Order a consultation with our designer — we will help create the space of your dreams.
+                  Online request submission is not connected yet. Use the contact details on the right to discuss your project.
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -781,6 +779,7 @@ export default function LandscapeDesignPage() {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
+                      disabled
                       placeholder="Your Name"
                       className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-100 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                       required
@@ -792,6 +791,7 @@ export default function LandscapeDesignPage() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
+                      disabled
                       placeholder="Phone Number"
                       className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-100 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                       required
@@ -802,6 +802,7 @@ export default function LandscapeDesignPage() {
                       name="message"
                       value={formData.message}
                       onChange={handleInputChange}
+                      disabled
                       placeholder="Tell us about your project..."
                       rows={4}
                       className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-100 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent resize-none"
@@ -810,10 +811,14 @@ export default function LandscapeDesignPage() {
                   </div>
                   <button
                     type="submit"
+                    disabled
                     className="w-full bg-white text-emerald-600 hover:bg-emerald-50 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105"
                   >
-                    Send Request
+                    Request form unavailable
                   </button>
+                  <p className="text-sm text-emerald-100">
+                    Please contact us directly by phone, email, or Telegram from the contact block.
+                  </p>
                 </form>
               </m.div>
 

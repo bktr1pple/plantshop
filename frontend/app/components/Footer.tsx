@@ -16,17 +16,6 @@ import { useSiteSettings } from "@/contexts/SiteSettingsContext";
 export default function Footer() {
   const { settings } = useSiteSettings();
   const [email, setEmail] = useState("");
-  const [isSubscribed, setIsSubscribed] = useState(false);
-
-  const handleSubscribe = () => {
-    if (email) {
-      setIsSubscribed(true);
-      setTimeout(() => {
-        setEmail("");
-        setIsSubscribed(false);
-      }, 3000);
-    }
-  };
 
   const footerLinks = {
     company: [
@@ -89,28 +78,29 @@ export default function Footer() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSubscribe()}
                     placeholder="Ваш email"
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-12 text-sm transition-all focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    disabled={isSubscribed}
+                    disabled
                   />
                   <button
-                    onClick={handleSubscribe}
-                    disabled={isSubscribed}
+                    type="button"
+                    disabled
                     className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white transition-all hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50"
                   >
-                    {isSubscribed ? (
-                      <span className="text-xs">✓</span>
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
+                    <Send className="h-4 w-4" />
                   </button>
                 </div>
-                {isSubscribed && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                    Дякуємо за підписку!
-                  </p>
-                )}
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Підписка на розсилку ще не підключена. Для новин і пропозицій
+                  напишіть нам на{" "}
+                  <a
+                    href={`mailto:${settings.contactEmail}`}
+                    className="font-medium text-emerald-600 dark:text-emerald-400"
+                  >
+                    {settings.contactEmail}
+                  </a>
+                  .
+                </p>
               </div>
 
               {/* Соцмережі */}
