@@ -10,8 +10,10 @@ The repository is no longer a starter/demo state. It already contains:
 - a minimal real `USER` / `ADMIN` role model
 - protected admin-only backend write operations
 - a real `/admin` subsystem
+- real current-user profile/account settings persistence
 - media upload/storage and cleanup logic
 - backend-backed site settings/content management
+- a small real backend HTTP smoke suite for critical auth/admin paths
 - frontend unit/integration tests and browser E2E smoke tests
 - a parallel `vinext` experiment in the frontend
 
@@ -25,7 +27,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 
 ### Frontend
 - Main app lives in `frontend/app`.
-- Public storefront routes include `/`, `/plants`, `/about`, `/contact`, `/care`, `/pots`, `/landscape-design`, `/convert`, `/dashboard`, `/signin`, `/register`, `/logout`.
+- Public storefront routes include `/`, `/plants`, `/about`, `/contact`, `/care`, `/pots`, `/landscape-design`, `/convert`, `/dashboard`, `/dashboard/orders`, `/dashboard/settings`, `/signin`, `/register`, `/logout`.
 - Admin routes live under `frontend/app/admin`:
   - `/admin`
   - `/admin/plants`
@@ -40,6 +42,10 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `frontend/contexts/SiteSettingsContext.tsx`
   - `frontend/contexts/CartContext.tsx`
   - `frontend/contexts/WishlistContext.tsx`
+- Current authenticated dashboard reality:
+  - `/dashboard/settings` is real and persists current-user profile/preferences through `PATCH /auth/me`
+  - `/dashboard/orders` is intentionally truthful-but-unavailable; there is still no real orders backend contract in the repository
+  - dashboard overview must not show fake metrics or fake order history
 
 ### Backend
 - Main entry point: `backend/src/main.ts`
@@ -60,6 +66,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `POST /auth/login`
   - `POST /auth/logout`
   - `GET /auth/me`
+  - `PATCH /auth/me`
 - Auth uses httpOnly cookies:
   - `access_token`
   - `refresh_token`
@@ -69,9 +76,15 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - unauthorized
   - temporarily unavailable auth backend
 - Temporary auth/backend/network failures must not be treated as confirmed logout.
+- Frontend logout is confirmed-only:
+  - success path clears local auth state only after confirmed backend logout or confirmed unauthorized follow-up
+  - ambiguous logout failure must preserve user state and surface an honest error/unavailable signal
 - Route protection is enforced both:
   - server-side in `frontend/proxy.ts`
   - backend-side on protected endpoints
+- Current server-side proxy reality:
+  - `frontend/proxy.ts` currently redirects protected routes to login when `/auth/me` confirms unauthorized
+  - `frontend/proxy.ts` is still sensitive around temporary backend verification failure and must be changed only in a narrowly scoped auth-policy pass
 
 ### Role/admin model
 - Role model is already implemented in the database and auth payloads.
@@ -143,12 +156,15 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Registration must automatically log in the user through backend-created real session cookies.
 - Frontend must not fake authenticated state after registration.
 - `/dashboard` and `/admin` must not remain accessible if auth verification fails.
+- Current-user dashboard settings are real and use the authenticated `/auth/me` read/update contract.
+- Orders history is still not backend-backed and must remain explicitly unavailable rather than mocked.
 - `/admin` is a real subsystem now, not a draft.
 - `admin-test` is not a production admin area and should not be reintroduced as if it were one.
 - `/plants` read endpoints stay public.
 - `/plants` write endpoints require authenticated `ADMIN`.
 - Site settings are editable through the admin UI and are consumed by public pages.
 - Media uploads are real backend-managed files, not fake blob-only frontend state.
+- Logout UX must not claim success before backend truth confirms session termination.
 - Validation is enabled globally in NestJS via `ValidationPipe` with compatibility-safe settings:
   - `whitelist: true`
   - `transform: true`
@@ -182,6 +198,12 @@ When auditing or reviewing this repository, prioritize:
 - Prefer file-based evidence.
 - If behavior depends on DB contents, cookies, live uploads, deployed origin, or real env vars, say so explicitly.
 - If a repo rule and the code disagree, trust the codebase and update the guidance instead of repeating stale assumptions.
+
+## AGENTS maintenance rule
+- `AGENTS.md` is a living operational file for this exact repository, not a one-time bootstrap note.
+- Every meaningful codebase change that affects architecture, runtime contracts, auth/session behavior, role/admin behavior, testing strategy, environment expectations, or product truthfulness must review and update `AGENTS.md` in the same batch.
+- Do not treat `AGENTS.md` updates as optional doc polish when repository truth changes.
+- If a change does not require an `AGENTS.md` update, say so explicitly in the final summary instead of silently skipping the review.
 
 ## Development rules
 - Do not change code unless explicitly asked.
@@ -279,21 +301,30 @@ When auditing or reviewing this repository, prioritize:
 - Jest unit/integration-style tests in `backend/src/**/*.spec.ts`
 - Current backend suite covers:
   - auth service/controller/DTOs
+  - current-user `/auth/me` profile/settings update
   - roles guard
   - admin contract
   - plants service/controller
   - media storage/service/controller
   - site settings service/controller
-- Backend `test:e2e` config exists, but there is no meaningful real backend browser/HTTP E2E suite yet.
+- Backend `test:e2e` now includes an opt-in real HTTP smoke suite in `backend/test/admin-smoke.e2e-spec.ts` for:
+  - real login
+  - real cookies
+  - real `/auth/me`
+  - real admin-only `PATCH /site-settings`
+  - real logout invalidation
+  - real current-user `PATCH /auth/me`
+- The real-stack smoke suite is DB-backed and intentionally opt-in via `RUN_REAL_STACK_SMOKE=1`.
 
 ### Current frontend test stack
 - Vitest + Testing Library component/integration tests
 - Playwright browser E2E smoke tests
 - Frontend tests currently cover:
   - admin shell
+  - `AuthContext` auth/logout semantics
   - plants admin manager
   - media uploader
-  - settings manager
+  - dashboard settings current-user persistence
   - browser admin access
   - browser plants smoke flow
   - browser settings smoke flow
@@ -310,6 +341,10 @@ When auditing or reviewing this repository, prioritize:
   - `cd backend && npm run lint`
   - `cd backend && npm run build`
   - `cd backend && npm test -- --runInBand`
+- If a backend auth/session change touches real cookies, logout semantics, `/auth/me`, or current-user update flow, also prefer:
+  - `cd backend && npm run test:e2e`
+  - and when needed `RUN_REAL_STACK_SMOKE=1` with a valid local/test `DATABASE_URL`
+- If the DB-backed smoke suite is not run, say so explicitly.
 - If verification fails, prefer a narrow repair pass before moving on.
 - If a build/test fails due sandbox or environment restrictions rather than code, say so explicitly.
 
@@ -348,9 +383,12 @@ When auditing or reviewing this repository, prioritize:
 - `build:vinext` may emit non-fatal Rolldown/plugin warnings even when it succeeds.
 - Backend media storage is local filesystem storage; deployment/storage strategy beyond local/public serving still requires operational care.
 - Auth/session logic is much better aligned now, but middleware refresh/cookie behavior remains sensitive.
+- `frontend/proxy.ts` still requires special care because protected-route behavior under temporary backend verification failure is security-sensitive and easy to get wrong.
+- Refresh-token hygiene is improved, but lookup is still user-scoped `findMany + bcrypt.compare`, not a schema-level O(1) token identifier design.
 - Site settings currently cover text/links/contact content, not a full CMS or full media-backed theme system.
+- Current-user dashboard settings are real, but orders history is still intentionally unavailable until a real backend contract exists.
 - Browser E2E coverage is a smoke baseline, not exhaustive coverage.
-- Backend DB-backed real integration coverage is still limited compared with the unit/integration-style test suite.
+- Backend DB-backed real integration coverage now exists as a small opt-in smoke layer, but it is still limited compared with the unit/integration-style suite.
 - `backend/.env.example` should be reviewed carefully in future passes if it drifts from safe/local defaults.
 - Root `.gitignore` currently ignores `*.md`, which can affect future repo-level documentation additions and should be treated cautiously.
 

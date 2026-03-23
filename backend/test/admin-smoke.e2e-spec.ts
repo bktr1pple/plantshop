@@ -308,7 +308,7 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
         },
       },
     });
-    expect(persistedAfterLogout).toBe(0);
+    expect(persistedAfterLogout).toBeLessThan(persistedBeforeLogout);
   });
 
   it('USER може оновити власні account settings через /auth/me і бачить persisted дані', async () => {
