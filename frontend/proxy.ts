@@ -108,7 +108,7 @@ async function checkAuth(request: NextRequest) {
   }
 }
 
-export default async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   const matchedPath = Object.keys(PROTECTED_PATHS).find((protectedPath) =>
@@ -154,6 +154,9 @@ export default async function proxy(request: NextRequest) {
   appendSetCookies(response, authResult.setCookies);
   return response;
 }
+
+export const middleware = proxy;
+export default proxy;
 
 export const config = {
   matcher: ["/dashboard/:path*", "/admin/:path*"],
