@@ -413,7 +413,18 @@ export default function SettingsPage() {
         setProfile(createProfileState(responseBody.user));
         setNotifications(createNotificationState(responseBody.user));
         setPrivacy(createPrivacyState(responseBody.user));
-        await checkAuth();
+
+        const authConfirmed = await checkAuth();
+        if (!authConfirmed) {
+          addNotification({
+            type: 'warning',
+            title: 'Налаштування збережено',
+            message:
+              'Дані оновлено, але не вдалося повторно підтвердити сесію. Оновіть сторінку, якщо зміни не відображаються.',
+            duration: 4000,
+          });
+          return;
+        }
 
         addNotification({
           type: 'success',

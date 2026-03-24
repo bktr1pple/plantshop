@@ -69,19 +69,25 @@ export default function OrdersPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const queryOrderId = parseSelectedOrder(searchParams.get('orderId'));
 
-  const loadDetail = async (orderId: number) => {
+  const loadDetail = async (orderId: number): Promise<boolean> => {
     try {
       setIsLoadingDetail(true);
       setErrorMessage(null);
+      setSelectedOrderId(orderId);
+      setSelectedOrder(null);
+
       const detail = await getCurrentUserOrder(orderId);
       setSelectedOrder(detail);
-      setSelectedOrderId(orderId);
+      setErrorMessage(null);
+      return true;
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
           : 'Не вдалося завантажити деталі замовлення.',
       );
+      setSelectedOrder(null);
+      return false;
     } finally {
       setIsLoadingDetail(false);
     }
@@ -101,7 +107,11 @@ export default function OrdersPage() {
       }
 
       const nextSelectedId = queryOrderId ?? selectedOrderId ?? nextOrders[0].id;
-      await loadDetail(nextSelectedId);
+      const loaded = await loadDetail(nextSelectedId);
+
+      if (!loaded && nextSelectedId !== nextOrders[0].id) {
+        await loadDetail(nextOrders[0].id);
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -124,8 +134,14 @@ export default function OrdersPage() {
       return;
     }
 
-    void loadDetail(queryOrderId);
-  }, [orders.length, queryOrderId, selectedOrderId]);
+    void (async () => {
+      const loaded = await loadDetail(queryOrderId);
+
+      if (!loaded && orders[0] && queryOrderId !== orders[0].id) {
+        await loadDetail(orders[0].id);
+      }
+    })();
+  }, [orders, queryOrderId, selectedOrderId]);
 
   const activeOrder = selectedOrder;
 

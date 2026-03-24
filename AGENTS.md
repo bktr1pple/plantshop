@@ -110,6 +110,8 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - unauthorized
   - temporarily unavailable auth backend
 - Temporary auth/backend/network failures must not be treated as confirmed logout.
+- Backend `/auth/me` should distinguish confirmed unauthorized refresh failures from transient auth/backend failures; transient refresh or auth infrastructure failures should surface as unavailable rather than forcing a false logout.
+- Current client-side cabinet fetches outside `/auth/*` may confirm session state through `/auth/me` and retry once after confirmed authenticated recovery; auth endpoints themselves must not recurse through the same recovery path.
 - Frontend logout is confirmed-only:
   - success path clears local auth state only after confirmed backend logout or confirmed unauthorized follow-up
   - ambiguous logout failure must preserve user state and surface an honest error/unavailable signal
@@ -360,16 +362,19 @@ When auditing or reviewing this repository, prioritize:
 ### Current frontend test stack
 - Vitest + Testing Library component/integration tests
 - Playwright browser E2E smoke tests
+- Browser E2E specs live under `frontend/e2e`, but their execution currently depends on Playwright tooling being available in the environment; `frontend/package.json` does not presently pin Playwright as a local devDependency.
 - Frontend tests currently cover:
   - admin shell
   - `AuthContext` auth/logout semantics
   - cart-to-order creation wiring
+  - dashboard overview latest-order summary state
   - dashboard orders list/detail states
   - admin orders manager
   - plants admin manager
   - media uploader
   - dashboard settings current-user persistence
   - browser admin access
+  - browser user-cabinet smoke flow
   - browser plants smoke flow
   - browser settings smoke flow
 - Keep app/runtime TS config and test TS config separated. Production build must not depend on test-only files.

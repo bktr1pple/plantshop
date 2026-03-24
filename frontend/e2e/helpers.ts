@@ -17,6 +17,19 @@ export async function resetMockBackend(request: APIRequestContext) {
   }
 }
 
+export async function setMockBackendConfig(
+  request: APIRequestContext,
+  config: Record<string, unknown>,
+) {
+  const response = await request.post(`${E2E_BACKEND_ORIGIN}/__e2e/config`, {
+    data: config,
+  });
+
+  if (!response.ok()) {
+    throw new Error(`Не вдалося оновити mock backend: ${response.status()}`);
+  }
+}
+
 export async function setSessionRole(
   context: BrowserContext,
   role: SessionRole,

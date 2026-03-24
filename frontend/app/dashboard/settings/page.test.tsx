@@ -182,6 +182,35 @@ describe('Dashboard settings page', () => {
     expect(mockCheckAuth).not.toHaveBeenCalled();
   });
 
+  it('не показує success toast, якщо після save не вдалося підтвердити сесію', async () => {
+    mockCheckAuth.mockResolvedValueOnce(false);
+
+    render(<SettingsPage />);
+
+    fireEvent.change(screen.getByDisplayValue('Люблю рослини'), {
+      target: { value: 'Оновлений опис' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Зберегти зміни' }));
+
+    await waitFor(() =>
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          title: 'Налаштування збережено',
+          message:
+            'Дані оновлено, але не вдалося повторно підтвердити сесію. Оновіть сторінку, якщо зміни не відображаються.',
+        }),
+      ),
+    );
+    expect(mockAddNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'success',
+        title: 'Налаштування збережено',
+      }),
+    );
+  });
+
   it('не відправляє PATCH без змін у формі', () => {
     render(<SettingsPage />);
 

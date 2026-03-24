@@ -271,6 +271,16 @@ describe('AuthService', () => {
     );
   });
 
+  it('refresh не згортає transient db failure в UnauthorizedException', async () => {
+    jwtServiceMock.verify.mockReturnValue({ sub: 5 });
+    prismaMock.refreshToken.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.refreshToken.findMany.mockRejectedValue(new Error('db down'));
+
+    await expect(service.refresh('valid-refresh-token')).rejects.toThrow(
+      'db down',
+    );
+  });
+
   it('revokeRefreshToken видаляє знайдений token hash', async () => {
     jwtServiceMock.verify.mockReturnValue({ sub: 11 });
     prismaMock.refreshToken.findMany.mockResolvedValue([

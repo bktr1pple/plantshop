@@ -1,4 +1,7 @@
-import { UnauthorizedException } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
@@ -260,6 +263,48 @@ describe('AuthController', () => {
       'new-access',
     );
     expect(res.cookie).toHaveBeenCalledTimes(2);
+  });
+
+  it('me не очищає cookies і повертає ServiceUnavailableException при transient refresh failure', async () => {
+    authServiceMock.refresh.mockRejectedValue(new Error('db down'));
+    const res = createResponseMock();
+
+    await expect(
+      controller.me(
+        {
+          cookies: { refresh_token: 'refresh-token' },
+        } as Request,
+        res as Response,
+      ),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(res.clearCookie).not.toHaveBeenCalled();
+  });
+
+  it('me не очищає cookies при expired access token і transient refresh failure', async () => {
+    const expiredError = new Error('expired');
+    expiredError.name = 'TokenExpiredError';
+
+    authServiceMock.verifyAccessToken.mockImplementation(() => {
+      throw expiredError;
+    });
+    authServiceMock.refresh.mockRejectedValue(new Error('db down'));
+    const res = createResponseMock();
+
+    await expect(
+      controller.me(
+        {
+          cookies: {
+            access_token: 'access-token',
+            refresh_token: 'refresh-token',
+          },
+        } as Request,
+        res as Response,
+      ),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(authServiceMock.refresh).toHaveBeenCalledWith('refresh-token');
+    expect(res.clearCookie).not.toHaveBeenCalled();
   });
 
   it('updateMe оновлює current-user profile та preferences', async () => {

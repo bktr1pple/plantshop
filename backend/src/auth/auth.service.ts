@@ -153,51 +153,48 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  // auth.service.ts
   async refresh(refreshToken: string) {
-    try {
-      const userId = this.extractRefreshTokenUserId(refreshToken, {
-        allowExpired: false,
-      });
-      if (userId === null) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      await this.deleteExpiredRefreshTokens(userId);
-      const tokens = await this.prisma.refreshToken.findMany({
-        where: { userId },
-      });
-
-      for (const t of tokens) {
-        const match = await bcrypt.compare(refreshToken, t.tokenHash);
-        if (match) {
-          const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { email: true, role: true },
-          });
-
-          if (!user) {
-            throw new UnauthorizedException('User not found');
-          }
-
-          const { accessToken, refreshToken: newRefreshToken } =
-            await this.login(userId, user.email, user.role);
-
-          await this.prisma.refreshToken
-            .deleteMany({
-              where: { id: t.id },
-            })
-            .catch(() => undefined);
-
-          return { accessToken, refreshToken: newRefreshToken };
-        }
-      }
-
-      throw new UnauthorizedException('Invalid refresh token');
-    } catch {
-      await this.revokeRefreshToken(refreshToken).catch(() => false);
+    const userId = this.extractRefreshTokenUserId(refreshToken, {
+      allowExpired: false,
+    });
+    if (userId === null) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+
+    await this.deleteExpiredRefreshTokens(userId);
+    const tokens = await this.prisma.refreshToken.findMany({
+      where: { userId },
+    });
+
+    for (const t of tokens) {
+      const match = await bcrypt.compare(refreshToken, t.tokenHash);
+      if (match) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, role: true },
+        });
+
+        if (!user) {
+          throw new UnauthorizedException('User not found');
+        }
+
+        const { accessToken, refreshToken: newRefreshToken } = await this.login(
+          userId,
+          user.email,
+          user.role,
+        );
+
+        await this.prisma.refreshToken
+          .deleteMany({
+            where: { id: t.id },
+          })
+          .catch(() => undefined);
+
+        return { accessToken, refreshToken: newRefreshToken };
+      }
+    }
+
+    throw new UnauthorizedException('Invalid refresh token');
   }
 
   async revokeRefreshToken(token: string) {

@@ -30,6 +30,28 @@ describe('Orders DTO validation', () => {
     expect(errors.some((error) => error.property === 'items')).toBe(true);
   });
 
+  it('CreateOrderDto відхиляє required поля, що складаються лише з пробілів', async () => {
+    const dto = plainToInstance(CreateOrderDto, {
+      customerName: '   ',
+      customerPhone: '   ',
+      deliveryAddress: '   ',
+      note: '   ',
+      items: [{ plantId: 1, quantity: 1 }],
+    });
+
+    const errors = await validate(dto);
+    const properties = errors.map((error) => error.property);
+
+    expect(properties).toEqual(
+      expect.arrayContaining([
+        'customerName',
+        'customerPhone',
+        'deliveryAddress',
+      ]),
+    );
+    expect(dto.note).toBeUndefined();
+  });
+
   it('UpdateOrderStatusDto приймає лише валідні статуси', async () => {
     const validDto = plainToInstance(UpdateOrderStatusDto, {
       status: OrderStatus.SHIPPED,

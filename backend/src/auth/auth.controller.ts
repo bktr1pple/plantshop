@@ -8,6 +8,7 @@ import {
   Get,
   Patch,
   UnauthorizedException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { Prisma } from '@prisma/client';
@@ -260,9 +261,15 @@ export class AuthController {
             this.setAuthCookies(res, newTokens);
 
             payload = this.authService.verifyAccessToken(newTokens.accessToken);
-          } catch {
-            this.clearAuthCookies(res);
-            throw new UnauthorizedException('Invalid refresh token');
+          } catch (error) {
+            if (error instanceof UnauthorizedException) {
+              this.clearAuthCookies(res);
+              throw new UnauthorizedException('Invalid refresh token');
+            }
+
+            throw new ServiceUnavailableException(
+              'Auth service temporarily unavailable',
+            );
           }
         } else {
           this.clearAuthCookies(res);
@@ -274,9 +281,15 @@ export class AuthController {
         const newTokens = await this.authService.refresh(refreshToken);
         this.setAuthCookies(res, newTokens);
         payload = this.authService.verifyAccessToken(newTokens.accessToken);
-      } catch {
-        this.clearAuthCookies(res);
-        throw new UnauthorizedException('Invalid refresh token');
+      } catch (error) {
+        if (error instanceof UnauthorizedException) {
+          this.clearAuthCookies(res);
+          throw new UnauthorizedException('Invalid refresh token');
+        }
+
+        throw new ServiceUnavailableException(
+          'Auth service temporarily unavailable',
+        );
       }
     }
 

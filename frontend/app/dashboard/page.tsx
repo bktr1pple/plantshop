@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { m as motion, LazyMotion, domAnimation } from 'framer-motion';
 import {
@@ -14,6 +14,12 @@ import {
 
 import { useNotification } from '@/app/components/NotificationSystem';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  getOrderStatusBadgeClass,
+  getOrderStatusLabel,
+  listCurrentUserOrders,
+  type OrderSummary,
+} from '@/lib/orders';
 
 const Card: React.FC<{
   children: React.ReactNode;
@@ -36,8 +42,62 @@ export default function DashboardPage() {
   const router = useRouter();
   const { addNotification } = useNotification();
   const { user, logout, isLoading } = useAuth();
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [isOrdersLoading, setIsOrdersLoading] = useState(true);
 
-  const displayName = user?.name || user?.email || 'Гість';
+  const displayName = isLoading ? 'Кабінет' : user?.name || user?.email || 'Гість';
+  const latestOrder = orders[0] ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOrders = async () => {
+      if (isLoading) {
+        return;
+      }
+
+      if (!user) {
+        setOrders([]);
+        setOrdersError(null);
+        setIsOrdersLoading(false);
+        return;
+      }
+
+      setIsOrdersLoading(true);
+      setOrdersError(null);
+
+      try {
+        const nextOrders = await listCurrentUserOrders();
+        if (cancelled) {
+          return;
+        }
+
+        setOrders(nextOrders);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setOrders([]);
+        setOrdersError(
+          error instanceof Error
+            ? error.message
+            : 'Не вдалося завантажити історію замовлень.',
+        );
+      } finally {
+        if (!cancelled) {
+          setIsOrdersLoading(false);
+        }
+      }
+    };
+
+    void loadOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, user]);
 
   const handleGoToOrders = useCallback(() => {
     router.push('/dashboard/orders');
@@ -46,6 +106,15 @@ export default function DashboardPage() {
   const handleSettings = useCallback(() => {
     router.push('/dashboard/settings');
   }, [router]);
+
+  const handleLatestOrder = useCallback(() => {
+    if (!latestOrder) {
+      router.push('/dashboard/orders');
+      return;
+    }
+
+    router.push(`/dashboard/orders?orderId=${latestOrder.id}`);
+  }, [latestOrder, router]);
 
   const handleLogout = useCallback(async () => {
     const loggedOut = await logout();
@@ -178,7 +247,7 @@ export default function DashboardPage() {
             <Card className="p-5 sm:p-6">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                  Останні замовлення
+                  Останнє замовлення
                 </h2>
                 <button
                   onClick={handleGoToOrders}
@@ -188,10 +257,91 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              <p className="py-4 text-base text-gray-500 dark:text-gray-400">
-                Відкрийте розділ замовлень, щоб переглянути реальну історію
-                покупок, актуальні статуси та деталі складу замовлень.
-              </p>
+              {isOrdersLoading ? (
+                <p className="py-4 text-base text-gray-500 dark:text-gray-400">
+                  Завантажуємо реальну історію замовлень...
+                </p>
+              ) : ordersError ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-base text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/20 dark:text-amber-200">
+                  <p className="font-semibold">Історію замовлень зараз не вдалося завантажити</p>
+                  <p className="mt-1 text-sm">
+                    Перейдіть до розділу замовлень або спробуйте ще раз трохи пізніше.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleGoToOrders}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+                  >
+                    До замовлень
+                  </button>
+                </div>
+              ) : latestOrder ? (
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-50">
+                        Замовлення #{latestOrder.id}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Оформлено {new Intl.DateTimeFormat('uk-UA', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        }).format(new Date(latestOrder.createdAt))}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${getOrderStatusBadgeClass(
+                        latestOrder.status,
+                      )}`}
+                    >
+                      {getOrderStatusLabel(latestOrder.status)}
+                    </span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-gray-200 bg-white/80 p-3 dark:border-gray-800 dark:bg-gray-950/30">
+                      <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                        Позицій
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-50">
+                        {latestOrder.itemCount}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-gray-200 bg-white/80 p-3 dark:border-gray-800 dark:bg-gray-950/30">
+                      <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                        Сума
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-50">
+                        ${latestOrder.totalAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-gray-200 bg-white/80 p-3 dark:border-gray-800 dark:bg-gray-950/30">
+                      <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                        Статус
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-50">
+                        {getOrderStatusLabel(latestOrder.status)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLatestOrder}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+                  >
+                    Відкрити деталі
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-base text-gray-600 dark:border-gray-800 dark:bg-gray-900/50 dark:text-gray-300">
+                  <p className="font-semibold text-gray-900 dark:text-gray-50">
+                    У вас ще немає замовлень
+                  </p>
+                  <p className="mt-1">
+                    Перше реальне замовлення з кошика з&apos;явиться тут після оформлення.
+                  </p>
+                </div>
+              )}
             </Card>
           </section>
 
