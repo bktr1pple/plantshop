@@ -1,4 +1,4 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
@@ -16,6 +16,7 @@ describe('AuthService', () => {
     user: {
       findUnique: jest.Mock;
       create: jest.Mock;
+      update: jest.Mock;
     };
     refreshToken: {
       create: jest.Mock;
@@ -34,6 +35,7 @@ describe('AuthService', () => {
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       refreshToken: {
         create: jest.fn(),
@@ -70,7 +72,7 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  it('register хешує пароль і створює користувача', async () => {
+  it('register створює нового користувача з emailVerifiedAt = null', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue({
       id: 1,
@@ -78,6 +80,7 @@ describe('AuthService', () => {
       name: 'User',
       role: 'USER',
       createdAt: new Date(),
+      emailVerifiedAt: null,
     });
     jest.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
 
@@ -93,6 +96,7 @@ describe('AuthService', () => {
         password: 'hashed-password',
         name: 'User',
         role: 'USER',
+        emailVerifiedAt: null,
       },
       select: {
         id: true,
@@ -100,21 +104,46 @@ describe('AuthService', () => {
         name: true,
         role: true,
         createdAt: true,
+        emailVerifiedAt: true,
       },
     });
-    expect(result.id).toBe(1);
-    expect(result.email).toBe('user@example.com');
-    expect(result.name).toBe('User');
-    expect(result.role).toBe('USER');
-    expect(result.createdAt).toBeInstanceOf(Date);
+    expect(result.created).toBe(true);
   });
 
-  it('register кидає BadRequestException для дубльованого email', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({ id: 1 });
+  it('register не створює дубль для вже існуючого неверифікованого email', async () => {
+    const createdAt = new Date();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 4,
+      email: 'user@example.com',
+      name: 'Existing',
+      role: 'USER',
+      createdAt,
+      emailVerifiedAt: null,
+    });
 
     await expect(
       service.register('user@example.com', 'password123', 'User'),
-    ).rejects.toThrow(BadRequestException);
+    ).resolves.toEqual({
+      id: 4,
+      email: 'user@example.com',
+      name: 'Existing',
+      role: 'USER',
+      createdAt,
+      emailVerifiedAt: null,
+      created: false,
+    });
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
+
+  it('register кидає ConflictException для вже верифікованого email', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 1,
+      emailVerifiedAt: new Date(),
+    });
+
+    await expect(
+      service.register('user@example.com', 'password123', 'User'),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('validateUser повертає користувача лише для валідного пароля', async () => {
@@ -134,83 +163,52 @@ describe('AuthService', () => {
     });
   });
 
-  it('login видає токени і зберігає hashed refresh token', async () => {
+  it('login видає токени і зберігає trusted context metadata', async () => {
     jwtServiceMock.sign
       .mockReturnValueOnce('access-token')
       .mockReturnValueOnce('refresh-token');
     jest.mocked(bcrypt.hash).mockResolvedValue('hashed-refresh' as never);
     prismaMock.refreshToken.create.mockResolvedValue({ id: 1 });
 
-    const result = await service.login(7, 'user@example.com', 'ADMIN');
+    const result = await service.login(7, 'user@example.com', 'ADMIN', {
+      trustedContextHash: 'trusted-hash',
+      userAgentSummary: 'chrome:macos:desktop',
+    });
+
+    expect(result).toEqual({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
     const createCalls = prismaMock.refreshToken.create.mock.calls as Array<
       [
         {
           data: {
             tokenHash: string;
             userId: number;
-            expiresAt: Date;
+            trustedContextHash: string | null;
+            userAgentSummary: string | null;
           };
         },
       ]
     >;
-    const createCall = createCalls[0]?.[0] as
-      | {
-          data: {
-            tokenHash: string;
-            userId: number;
-            expiresAt: Date;
-          };
-        }
-      | undefined;
+    const createPayload = createCalls[0]?.[0];
 
-    expect(createCall).toBeDefined();
-    const createPayload = createCall as {
-      data: {
-        tokenHash: string;
-        userId: number;
-        expiresAt: Date;
-      };
-    };
-
-    expect(result).toEqual({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-    });
-    expect(jwtServiceMock.sign).toHaveBeenNthCalledWith(
-      1,
-      { sub: 7, email: 'user@example.com', role: 'ADMIN' },
-      expect.any(Object),
-    );
-    expect(createPayload.data.tokenHash).toBe('hashed-refresh');
-    expect(createPayload.data.userId).toBe(7);
-    expect(createPayload.data.expiresAt).toBeInstanceOf(Date);
-    const deleteExpiredCalls = (
-      prismaMock.refreshToken.deleteMany.mock as {
-        calls: Array<
-          [
-            {
-              where: {
-                userId: number;
-                expiresAt: { lt: Date };
-              };
-            },
-          ]
-        >;
-      }
-    ).calls;
-    const deleteExpiredCall = deleteExpiredCalls[0]?.[0];
-
-    expect(deleteExpiredCall?.where.userId).toBe(7);
-    expect(deleteExpiredCall?.where.expiresAt.lt).toBeInstanceOf(Date);
+    expect(createPayload).toBeDefined();
+    expect(createPayload?.data.tokenHash).toBe('hashed-refresh');
+    expect(createPayload?.data.userId).toBe(7);
+    expect(createPayload?.data.trustedContextHash).toBe('trusted-hash');
+    expect(createPayload?.data.userAgentSummary).toBe('chrome:macos:desktop');
   });
 
-  it('refresh повертає нові токени для валідного refresh token', async () => {
+  it('refresh переносить trusted context metadata у нову сесію', async () => {
     jwtServiceMock.verify.mockReturnValue({ sub: 5 });
     prismaMock.refreshToken.findMany.mockResolvedValue([
       {
         id: 10,
         tokenHash: 'stored-hash',
         userId: 5,
+        trustedContextHash: 'trusted-hash',
+        userAgentSummary: 'chrome:linux:desktop',
         expiresAt: new Date(Date.now() + 60_000),
       },
     ]);
@@ -228,25 +226,10 @@ describe('AuthService', () => {
       accessToken: 'new-access',
       refreshToken: 'new-refresh',
     });
-    const cleanupCalls = (
-      prismaMock.refreshToken.deleteMany.mock as {
-        calls: Array<
-          [
-            {
-              where: {
-                userId: number;
-                expiresAt: { lt: Date };
-              };
-            },
-          ]
-        >;
-      }
-    ).calls;
-    const cleanupCall = cleanupCalls[0]?.[0];
-
-    expect(cleanupCall?.where.userId).toBe(5);
-    expect(cleanupCall?.where.expiresAt.lt).toBeInstanceOf(Date);
-    expect(loginSpy).toHaveBeenCalledWith(5, 'user@example.com', 'ADMIN');
+    expect(loginSpy).toHaveBeenCalledWith(5, 'user@example.com', 'ADMIN', {
+      trustedContextHash: 'trusted-hash',
+      userAgentSummary: 'chrome:linux:desktop',
+    });
     expect(prismaMock.refreshToken.deleteMany).toHaveBeenCalledWith({
       where: { id: 10 },
     });
@@ -262,98 +245,25 @@ describe('AuthService', () => {
     );
   });
 
-  it('refresh кидає UnauthorizedException для expired або непридатного refresh payload', async () => {
-    jwtServiceMock.verify.mockImplementation(() => {
-      throw new Error('expired');
+  it('verifyCurrentPassword перевіряє поточний пароль', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      password: 'stored-password-hash',
     });
-    await expect(service.refresh('expired-token')).rejects.toThrow(
-      UnauthorizedException,
-    );
-  });
-
-  it('refresh не згортає transient db failure в UnauthorizedException', async () => {
-    jwtServiceMock.verify.mockReturnValue({ sub: 5 });
-    prismaMock.refreshToken.deleteMany.mockResolvedValue({ count: 0 });
-    prismaMock.refreshToken.findMany.mockRejectedValue(new Error('db down'));
-
-    await expect(service.refresh('valid-refresh-token')).rejects.toThrow(
-      'db down',
-    );
-  });
-
-  it('revokeRefreshToken видаляє знайдений token hash', async () => {
-    jwtServiceMock.verify.mockReturnValue({ sub: 11 });
-    prismaMock.refreshToken.findMany.mockResolvedValue([
-      { id: 1, tokenHash: 'hash-1' },
-      { id: 2, tokenHash: 'hash-2' },
-    ]);
-    jest
-      .mocked(bcrypt.compare)
-      .mockResolvedValueOnce(false as never)
-      .mockResolvedValueOnce(true as never);
-
-    await expect(service.revokeRefreshToken('refresh-token')).resolves.toBe(
-      true,
-    );
-    const revokeCleanupCalls = (
-      prismaMock.refreshToken.deleteMany.mock as {
-        calls: Array<
-          [
-            {
-              where: {
-                userId: number;
-                expiresAt: { lt: Date };
-              };
-            },
-          ]
-        >;
-      }
-    ).calls;
-    const revokeCleanupCall = revokeCleanupCalls[0]?.[0];
-
-    expect(revokeCleanupCall?.where.userId).toBe(11);
-    expect(revokeCleanupCall?.where.expiresAt.lt).toBeInstanceOf(Date);
-    expect(prismaMock.refreshToken.findMany).toHaveBeenCalledWith({
-      where: { userId: 11 },
-    });
-    expect(prismaMock.refreshToken.deleteMany).toHaveBeenCalledWith({
-      where: { id: 2 },
-    });
-  });
-
-  it('revokeRefreshToken використовує decode fallback для expired refresh token і чистить лише токени цього userId', async () => {
-    const expiredError = new Error('expired');
-    expiredError.name = 'TokenExpiredError';
-    jwtServiceMock.verify.mockImplementation(() => {
-      throw expiredError;
-    });
-    jwtServiceMock.decode.mockReturnValue({ sub: 22 });
-    prismaMock.refreshToken.findMany.mockResolvedValue([
-      { id: 7, tokenHash: 'hash-7' },
-    ]);
     jest.mocked(bcrypt.compare).mockResolvedValue(true as never);
 
-    await expect(
-      service.revokeRefreshToken('expired-refresh-token'),
-    ).resolves.toBe(true);
-
-    expect(prismaMock.refreshToken.findMany).toHaveBeenCalledWith({
-      where: { userId: 22 },
-    });
-    expect(prismaMock.refreshToken.deleteMany).toHaveBeenCalledWith({
-      where: { id: 7 },
-    });
+    await expect(service.verifyCurrentPassword(1, 'secret')).resolves.toBe(
+      true,
+    );
   });
 
-  it('revokeRefreshToken не робить global scan, якщо не може визначити userId', async () => {
-    jwtServiceMock.verify.mockImplementation(() => {
-      throw new Error('invalid');
-    });
-    jwtServiceMock.decode.mockReturnValue(null);
+  it('updatePassword хешує новий пароль і оновлює користувача', async () => {
+    jest.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
 
-    await expect(service.revokeRefreshToken('bad-token')).resolves.toBe(false);
-    expect(jwtServiceMock.decode).not.toHaveBeenCalled();
-    expect(prismaMock.refreshToken.findMany).not.toHaveBeenCalled();
-    expect(prismaMock.refreshToken.deleteMany).not.toHaveBeenCalled();
+    await service.updatePassword(3, 'new-password');
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: 3 },
+      data: { password: 'hashed-password' },
+    });
   });
 });

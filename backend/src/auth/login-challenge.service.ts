@@ -1,0 +1,364 @@
+import { Injectable } from '@nestjs/common';
+import type { UserRole } from '@prisma/client';
+import { addMinutes } from 'date-fns';
+import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
+import { buildLoginChallengeTemplate } from '../mail/mail.templates';
+
+const LOGIN_CHALLENGE_TTL_MINUTES = 10;
+const LOGIN_CHALLENGE_COOLDOWN_MS = 60_000;
+const LOGIN_CHALLENGE_MAX_ATTEMPTS = 5;
+
+export type ChallengeError =
+  | 'TOKEN_INVALID'
+  | 'TOKEN_EXPIRED'
+  | 'TOKEN_CONSUMED'
+  | 'CODE_INVALID'
+  | 'TOO_MANY_ATTEMPTS';
+
+export interface ChallengeUser {
+  id: number;
+  email: string;
+  role: UserRole;
+}
+
+export interface ChallengeResult {
+  status: 'challenge_required';
+  challengeId: number;
+  waitSeconds?: number;
+  reusedActiveChallenge: boolean;
+}
+
+export interface VerifiedChallengeResult {
+  status: 'verified' | 'error';
+  error?: ChallengeError;
+  user?: ChallengeUser;
+  userAgentSummary?: string | null;
+}
+
+function hashOpaqueValue(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function summarizeUserAgent(raw: string | undefined): string {
+  const normalized = (raw || '').toLowerCase();
+  const browser = normalized.includes('edg/')
+    ? 'edge'
+    : normalized.includes('chrome/')
+      ? 'chrome'
+      : normalized.includes('firefox/')
+        ? 'firefox'
+        : normalized.includes('safari/')
+          ? 'safari'
+          : 'unknown';
+  const os = normalized.includes('android')
+    ? 'android'
+    : normalized.includes('iphone') || normalized.includes('ipad')
+      ? 'ios'
+      : normalized.includes('windows')
+        ? 'windows'
+        : normalized.includes('mac os x') || normalized.includes('macintosh')
+          ? 'macos'
+          : normalized.includes('linux')
+            ? 'linux'
+            : 'unknown';
+  const device = normalized.includes('mobile')
+    ? 'mobile'
+    : normalized.includes('tablet') || normalized.includes('ipad')
+      ? 'tablet'
+      : 'desktop';
+
+  return `${browser}:${os}:${device}`;
+}
+
+function resolveIp(raw: string | string[] | undefined): string | null {
+  if (!raw) {
+    return null;
+  }
+
+  const value = Array.isArray(raw) ? raw[0] : raw.split(',')[0];
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function buildContextHash(params: {
+  userId: number;
+  userAgentSummary: string;
+  ipHash: string | null;
+}): string {
+  return hashOpaqueValue(
+    `${params.userId}:${params.userAgentSummary}:${params.ipHash ?? 'no-ip'}`,
+  );
+}
+
+function buildChallengeCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function buildWaitSeconds(createdAt: Date): number {
+  const waitMs =
+    LOGIN_CHALLENGE_COOLDOWN_MS - (Date.now() - createdAt.getTime());
+  return Math.max(1, Math.ceil(waitMs / 1000));
+}
+
+@Injectable()
+export class LoginChallengeService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
+
+  summarizeUserAgent(raw: string | undefined): string {
+    return summarizeUserAgent(raw);
+  }
+
+  generateTrustedLoginToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  hashTrustedLoginToken(token: string): string {
+    return hashOpaqueValue(token);
+  }
+
+  async isRecognizedContext(params: {
+    userId: number;
+    trustedLoginToken?: string;
+    userAgent?: string;
+  }): Promise<{
+    recognized: boolean;
+    userAgentSummary: string;
+    trustedContextHash: string | null;
+  }> {
+    const userAgentSummary = summarizeUserAgent(params.userAgent);
+    const trustedLoginToken = params.trustedLoginToken?.trim();
+
+    if (!trustedLoginToken) {
+      return {
+        recognized: false,
+        userAgentSummary,
+        trustedContextHash: null,
+      };
+    }
+
+    const trustedContextHash = hashOpaqueValue(trustedLoginToken);
+    const activeToken = await this.prisma.refreshToken.findFirst({
+      where: {
+        userId: params.userId,
+        trustedContextHash,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (!activeToken) {
+      return {
+        recognized: false,
+        userAgentSummary,
+        trustedContextHash: null,
+      };
+    }
+
+    if (
+      activeToken.userAgentSummary &&
+      activeToken.userAgentSummary !== userAgentSummary
+    ) {
+      return {
+        recognized: false,
+        userAgentSummary,
+        trustedContextHash: null,
+      };
+    }
+
+    return {
+      recognized: true,
+      userAgentSummary,
+      trustedContextHash,
+    };
+  }
+
+  async createChallenge(params: {
+    user: ChallengeUser;
+    userAgent?: string;
+    ip?: string | string[];
+  }): Promise<ChallengeResult> {
+    const userAgentSummary = summarizeUserAgent(params.userAgent);
+    const ip = resolveIp(params.ip);
+    const ipHash = ip ? hashOpaqueValue(ip) : null;
+    const contextHash = buildContextHash({
+      userId: params.user.id,
+      userAgentSummary,
+      ipHash,
+    });
+    const now = new Date();
+    const code = buildChallengeCode();
+    const codeHash = await bcrypt.hash(code, 10);
+
+    const txResult = await this.prisma.$transaction(async (tx) => {
+      const activeChallenge = await tx.loginChallenge.findFirst({
+        where: {
+          userId: params.user.id,
+          consumedAt: null,
+          expiresAt: { gt: now },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (
+        activeChallenge &&
+        now.getTime() - activeChallenge.createdAt.getTime() <
+          LOGIN_CHALLENGE_COOLDOWN_MS
+      ) {
+        return {
+          status: 'existing' as const,
+          challengeId: activeChallenge.id,
+          waitSeconds: buildWaitSeconds(activeChallenge.createdAt),
+        };
+      }
+
+      await tx.loginChallenge.updateMany({
+        where: {
+          userId: params.user.id,
+          consumedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: {
+          consumedAt: now,
+        },
+      });
+
+      const created = await tx.loginChallenge.create({
+        data: {
+          userId: params.user.id,
+          codeHash,
+          contextHash,
+          ipHash,
+          userAgentSummary,
+          expiresAt: addMinutes(now, LOGIN_CHALLENGE_TTL_MINUTES),
+          maxAttempts: LOGIN_CHALLENGE_MAX_ATTEMPTS,
+        },
+      });
+
+      return {
+        status: 'created' as const,
+        challengeId: created.id,
+      };
+    });
+
+    if (txResult.status === 'existing') {
+      return {
+        status: 'challenge_required',
+        challengeId: txResult.challengeId,
+        waitSeconds: txResult.waitSeconds,
+        reusedActiveChallenge: true,
+      };
+    }
+
+    const template = buildLoginChallengeTemplate({
+      code,
+      expiresInMinutes: LOGIN_CHALLENGE_TTL_MINUTES,
+      userAgentSummary,
+    });
+
+    try {
+      await this.mailService.sendMail({
+        to: params.user.email,
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
+      });
+    } catch (error) {
+      await this.prisma.loginChallenge.updateMany({
+        where: {
+          id: txResult.challengeId,
+          consumedAt: null,
+        },
+        data: {
+          consumedAt: new Date(),
+        },
+      });
+      throw error;
+    }
+
+    return {
+      status: 'challenge_required',
+      challengeId: txResult.challengeId,
+      reusedActiveChallenge: false,
+    };
+  }
+
+  async verifyChallenge(
+    challengeId: number,
+    code: string,
+  ): Promise<VerifiedChallengeResult> {
+    const challenge = await this.prisma.loginChallenge.findUnique({
+      where: { id: challengeId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!challenge) {
+      return { status: 'error', error: 'TOKEN_INVALID' };
+    }
+
+    if (challenge.consumedAt) {
+      return { status: 'error', error: 'TOKEN_CONSUMED' };
+    }
+
+    if (challenge.expiresAt.getTime() <= Date.now()) {
+      return { status: 'error', error: 'TOKEN_EXPIRED' };
+    }
+
+    if (challenge.attemptCount >= challenge.maxAttempts) {
+      return { status: 'error', error: 'TOO_MANY_ATTEMPTS' };
+    }
+
+    const matches = await bcrypt.compare(code, challenge.codeHash);
+
+    if (!matches) {
+      const nextAttempts = challenge.attemptCount + 1;
+
+      await this.prisma.loginChallenge.update({
+        where: { id: challenge.id },
+        data: {
+          attemptCount: nextAttempts,
+          consumedAt:
+            nextAttempts >= challenge.maxAttempts ? new Date() : undefined,
+        },
+      });
+
+      return {
+        status: 'error',
+        error:
+          nextAttempts >= challenge.maxAttempts
+            ? 'TOO_MANY_ATTEMPTS'
+            : 'CODE_INVALID',
+      };
+    }
+
+    await this.prisma.loginChallenge.update({
+      where: { id: challenge.id },
+      data: {
+        consumedAt: new Date(),
+      },
+    });
+
+    return {
+      status: 'verified',
+      user: challenge.user,
+      userAgentSummary: challenge.userAgentSummary,
+    };
+  }
+}

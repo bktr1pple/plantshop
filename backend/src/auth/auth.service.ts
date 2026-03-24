@@ -1,9 +1,9 @@
 import {
-  BadRequestException,
-  UnauthorizedException,
+  ConflictException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
-import type { UserRole } from '@prisma/client';
+import type { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { addSeconds } from 'date-fns';
@@ -17,8 +17,19 @@ import {
 type StringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
 type AccessTokenPayload = { sub: number; email: string; role: UserRole };
 type RefreshTokenPayload = { sub: number };
+type PrismaExecutor = Prisma.TransactionClient | PrismaService;
 
 export type VerifiedAccessTokenPayload = AccessTokenPayload;
+
+export interface AuthSessionTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+interface LoginSessionOptions {
+  trustedContextHash?: string | null;
+  userAgentSummary?: string | null;
+}
 
 const jwtAccessSecret = getRequiredEnv('JWT_ACCESS_SECRET');
 const jwtRefreshSecret = getRequiredEnv('JWT_REFRESH_SECRET');
@@ -41,24 +52,57 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  private getSaltRounds(): number {
+    return Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, this.getSaltRounds());
+  }
+
   async register(email: string, password: string, name?: string) {
     const exists = await this.prisma.user.findUnique({ where: { email } });
-    if (exists)
-      throw new BadRequestException('Обліковий запис з таким email вже існує');
 
-    const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
-    const hashed = await bcrypt.hash(password, saltRounds);
+    if (exists?.emailVerifiedAt) {
+      throw new ConflictException('Обліковий запис з таким email вже існує');
+    }
 
-    return this.prisma.user.create({
-      data: { email, password: hashed, name, role: 'USER' },
+    if (exists) {
+      return {
+        id: exists.id,
+        email: exists.email,
+        name: exists.name,
+        role: exists.role,
+        createdAt: exists.createdAt,
+        emailVerifiedAt: exists.emailVerifiedAt,
+        created: false,
+      };
+    }
+
+    const hashed = await this.hashPassword(password);
+
+    const createdUser = await this.prisma.user.create({
+      data: {
+        email,
+        password: hashed,
+        name,
+        role: 'USER',
+        emailVerifiedAt: null,
+      },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
         createdAt: true,
+        emailVerifiedAt: true,
       },
     });
+
+    return {
+      ...createdUser,
+      created: true,
+    };
   }
 
   async validateUser(email: string, password: string) {
@@ -67,6 +111,21 @@ export class AuthService {
 
     const valid = await bcrypt.compare(password, user.password);
     return valid ? user : null;
+  }
+
+  async verifyCurrentPassword(userId: number, password: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        password: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return bcrypt.compare(password, user.password);
   }
 
   private _parseDurationSeconds(duration: string) {
@@ -123,7 +182,12 @@ export class AuthService {
     }
   }
 
-  async login(userId: number, email: string, role: UserRole) {
+  async login(
+    userId: number,
+    email: string,
+    role: UserRole,
+    options: LoginSessionOptions = {},
+  ): Promise<AuthSessionTokens> {
     const payload = { sub: userId, email, role };
 
     const accessToken = this.jwtService.sign<AccessTokenPayload>(payload, {
@@ -147,7 +211,13 @@ export class AuthService {
     await this.deleteExpiredRefreshTokens(userId);
 
     await this.prisma.refreshToken.create({
-      data: { tokenHash, userId, expiresAt },
+      data: {
+        tokenHash,
+        userId,
+        expiresAt,
+        trustedContextHash: options.trustedContextHash ?? null,
+        userAgentSummary: options.userAgentSummary ?? null,
+      },
     });
 
     return { accessToken, refreshToken };
@@ -166,32 +236,31 @@ export class AuthService {
       where: { userId },
     });
 
-    for (const t of tokens) {
-      const match = await bcrypt.compare(refreshToken, t.tokenHash);
-      if (match) {
-        const user = await this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { email: true, role: true },
-        });
-
-        if (!user) {
-          throw new UnauthorizedException('User not found');
-        }
-
-        const { accessToken, refreshToken: newRefreshToken } = await this.login(
-          userId,
-          user.email,
-          user.role,
-        );
-
-        await this.prisma.refreshToken
-          .deleteMany({
-            where: { id: t.id },
-          })
-          .catch(() => undefined);
-
-        return { accessToken, refreshToken: newRefreshToken };
+    for (const storedToken of tokens) {
+      const match = await bcrypt.compare(refreshToken, storedToken.tokenHash);
+      if (!match) {
+        continue;
       }
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, role: true },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const nextTokens = await this.login(userId, user.email, user.role, {
+        trustedContextHash: storedToken.trustedContextHash ?? null,
+        userAgentSummary: storedToken.userAgentSummary ?? null,
+      });
+
+      await this.prisma.refreshToken.deleteMany({
+        where: { id: storedToken.id },
+      });
+
+      return nextTokens;
     }
 
     throw new UnauthorizedException('Invalid refresh token');
@@ -210,9 +279,11 @@ export class AuthService {
       where: { userId },
     });
 
-    for (const t of storedTokens) {
-      if (await bcrypt.compare(token, t.tokenHash)) {
-        await this.prisma.refreshToken.deleteMany({ where: { id: t.id } });
+    for (const storedToken of storedTokens) {
+      if (await bcrypt.compare(token, storedToken.tokenHash)) {
+        await this.prisma.refreshToken.deleteMany({
+          where: { id: storedToken.id },
+        });
         return true;
       }
     }
@@ -225,7 +296,20 @@ export class AuthService {
     });
   }
 
-  async logoutAll(userId: number) {
-    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+  async logoutAll(userId: number, prisma: PrismaExecutor = this.prisma) {
+    await prisma.refreshToken.deleteMany({ where: { userId } });
+  }
+
+  async updatePassword(
+    userId: number,
+    newPassword: string,
+    prisma: PrismaExecutor = this.prisma,
+  ) {
+    const passwordHash = await this.hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: passwordHash },
+    });
   }
 }

@@ -1,14 +1,18 @@
 import {
+  BadRequestException,
   Body,
+  ConflictException,
   Controller,
+  Get,
+  GoneException,
   HttpCode,
+  Patch,
   Post,
   Req,
   Res,
-  Get,
-  Patch,
-  UnauthorizedException,
   ServiceUnavailableException,
+  UnauthorizedException,
+  HttpException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { Prisma } from '@prisma/client';
@@ -19,9 +23,25 @@ import { LoginDto } from './dto/login.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequiredEnv } from '../config/env';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationEmailDto } from './dto/resend-verification-email.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyLoginChallengeDto } from './dto/verify-login-challenge.dto';
+import {
+  EmailSecurityService,
+  type TokenStateError,
+} from './email-security.service';
+import {
+  LoginChallengeService,
+  type ChallengeError,
+} from './login-challenge.service';
 
 type CaptchaToken = string;
-type RequestCookies = Partial<Record<'access_token' | 'refresh_token', string>>;
+type RequestCookies = Partial<
+  Record<'access_token' | 'refresh_token' | 'trusted_login', string>
+>;
 type VerifiedAuthPayload = Partial<VerifiedAccessTokenPayload> & {
   userId?: number;
 };
@@ -35,6 +55,7 @@ interface RecaptchaVerifyResponse {
   success?: boolean;
 }
 
+const TRUSTED_LOGIN_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000;
 const recaptchaSecret = getRequiredEnv('RECAPTCHA_SECRET_KEY');
 const currentUserSelect = {
   id: true,
@@ -68,6 +89,62 @@ function isTokenExpiredError(error: unknown): error is { name: string } {
     'name' in error &&
     (error as { name?: unknown }).name === 'TokenExpiredError'
   );
+}
+
+function createSecurityError(
+  status: number,
+  error: string,
+  message: string,
+): never {
+  if (status === 410) {
+    throw new GoneException({ error, message });
+  }
+
+  if (status === 409) {
+    throw new ConflictException({ error, message });
+  }
+
+  if (status === 429) {
+    throw new HttpException({ error, message }, 429);
+  }
+
+  throw new BadRequestException({ error, message });
+}
+
+function throwTokenStateError(error: TokenStateError): never {
+  if (error === 'TOKEN_EXPIRED') {
+    createSecurityError(410, error, 'Термін дії токена минув.');
+  }
+
+  if (error === 'TOKEN_CONSUMED') {
+    createSecurityError(409, error, 'Цей токен уже використано.');
+  }
+
+  createSecurityError(400, error, 'Токен недійсний або не знайдений.');
+}
+
+function throwChallengeError(error: ChallengeError): never {
+  if (error === 'TOKEN_EXPIRED') {
+    createSecurityError(410, error, 'Термін дії challenge минув.');
+  }
+
+  if (error === 'TOKEN_CONSUMED') {
+    createSecurityError(409, error, 'Challenge уже використано.');
+  }
+
+  if (error === 'TOO_MANY_ATTEMPTS') {
+    createSecurityError(
+      429,
+      error,
+      'Вичерпано ліміт спроб. Запросіть новий код входу.',
+    );
+  }
+
+  if (error === 'CODE_INVALID') {
+    createSecurityError(400, error, 'Невірний код підтвердження входу.');
+  }
+
+  createSecurityError(400, error, 'Challenge не знайдено або він недійсний.');
 }
 
 async function verifyCaptcha(token: CaptchaToken): Promise<boolean> {
@@ -169,6 +246,8 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
+    private readonly emailSecurityService: EmailSecurityService,
+    private readonly loginChallengeService: LoginChallengeService,
   ) {}
 
   private getCookieDomainValue(): string | undefined {
@@ -228,12 +307,22 @@ export class AuthController {
     });
   }
 
+  private setTrustedLoginCookie(res: Response, token: string) {
+    const opts = this.getCommonCookieOptions();
+
+    res.cookie('trusted_login', token, {
+      ...opts,
+      maxAge: TRUSTED_LOGIN_MAX_AGE_MS,
+    });
+  }
+
   private clearAuthCookies(res: Response) {
     const domain = this.getCookieDomain();
     const opts = { path: '/', domain };
 
     res.clearCookie('access_token', opts);
     res.clearCookie('refresh_token', opts);
+    res.clearCookie('trusted_login', opts);
   }
 
   private async resolveCurrentUser(
@@ -313,11 +402,26 @@ export class AuthController {
     return user;
   }
 
+  private ensureMatchingPasswords(password: string, confirmation: string) {
+    if (password !== confirmation) {
+      throw new BadRequestException({
+        error: 'PASSWORD_MISMATCH',
+        message: 'Пароль і підтвердження не співпадають.',
+      });
+    }
+  }
+
+  private getUserAgent(req: Request): string | undefined {
+    const value = req.get('user-agent');
+    return value || undefined;
+  }
+
+  private getClientIp(req: Request): string | string[] | undefined {
+    return req.headers['x-forwarded-for'] ?? req.ip;
+  }
+
   @Post('register')
-  async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async register(@Body() dto: RegisterDto) {
     const captchaValid = await verifyCaptcha(dto.captchaToken);
     if (!captchaValid) {
       return {
@@ -332,16 +436,33 @@ export class AuthController {
       dto.name,
     );
 
-    const tokens = await this.authService.login(user.id, user.email, user.role);
-    this.setAuthCookies(res, tokens);
+    const sendResult = await this.emailSecurityService.sendEmailVerification(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        emailVerifiedAt: user.emailVerifiedAt,
+      },
+      { resent: !user.created },
+    );
 
-    return { status: 'ok', user };
+    return {
+      status: 'verification_required',
+      email: user.email,
+      resent: !user.created,
+      waitSeconds:
+        sendResult.status === 'cooldown' ? sendResult.waitSeconds : undefined,
+      message: user.created
+        ? 'Ми надіслали лист для підтвердження email. Завершіть верифікацію, щоб увійти.'
+        : 'Для цього email вже існує неверифікований акаунт. Ми оновили лист підтвердження.',
+    };
   }
 
   @HttpCode(200)
   @Post('login')
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const captchaValid = await verifyCaptcha(dto.captchaToken);
@@ -357,9 +478,227 @@ export class AuthController {
       return { status: 'error', message: 'Невірний email або пароль' };
     }
 
-    const tokens = await this.authService.login(user.id, user.email, user.role);
+    if (!user.emailVerifiedAt) {
+      const sendResult = await this.emailSecurityService.sendEmailVerification(
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          emailVerifiedAt: user.emailVerifiedAt,
+        },
+        { resent: true },
+      );
+
+      this.clearAuthCookies(res);
+
+      return {
+        status: 'verification_required',
+        email: user.email,
+        waitSeconds:
+          sendResult.status === 'cooldown' ? sendResult.waitSeconds : undefined,
+        message:
+          'Перш ніж увійти, підтвердіть email. Ми надіслали або щойно повторили лист підтвердження.',
+      };
+    }
+
+    const cookies = (req.cookies ?? {}) as RequestCookies;
+    const context = await this.loginChallengeService.isRecognizedContext({
+      userId: user.id,
+      trustedLoginToken: cookies.trusted_login,
+      userAgent: this.getUserAgent(req),
+    });
+
+    if (!context.recognized) {
+      const challenge = await this.loginChallengeService.createChallenge({
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        },
+        userAgent: this.getUserAgent(req),
+        ip: this.getClientIp(req),
+      });
+
+      this.clearAuthCookies(res);
+
+      return {
+        status: 'challenge_required',
+        email: user.email,
+        challengeId: challenge.challengeId,
+        waitSeconds: challenge.waitSeconds,
+        message: challenge.reusedActiveChallenge
+          ? 'Ми вже надіслали код підтвердження для цього входу. Використайте наявний код або зачекайте трохи перед повторною відправкою.'
+          : 'Ми надіслали код підтвердження на ваш email, бо це новий або невпізнаний контекст входу.',
+      };
+    }
+
+    const trustedLoginToken =
+      this.loginChallengeService.generateTrustedLoginToken();
+    const trustedContextHash =
+      this.loginChallengeService.hashTrustedLoginToken(trustedLoginToken);
+    const tokens = await this.authService.login(
+      user.id,
+      user.email,
+      user.role,
+      {
+        trustedContextHash,
+        userAgentSummary: context.userAgentSummary,
+      },
+    );
 
     this.setAuthCookies(res, tokens);
+    this.setTrustedLoginCookie(res, trustedLoginToken);
+    return { status: 'ok' };
+  }
+
+  @Post('verify-email')
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    const result = await this.emailSecurityService.verifyEmailToken(dto.token);
+
+    if (result.status === 'error') {
+      throwTokenStateError(result.error as TokenStateError);
+    }
+
+    return {
+      status: 'ok',
+      email: result.email,
+      message: 'Email успішно підтверджено. Тепер ви можете увійти.',
+    };
+  }
+
+  @Post('resend-verification-email')
+  async resendVerificationEmail(@Body() dto: ResendVerificationEmailDto) {
+    const result = await this.emailSecurityService.resendVerificationForEmail(
+      dto.email,
+    );
+
+    return {
+      status: 'ok',
+      waitSeconds:
+        result.status === 'cooldown' ? result.waitSeconds : undefined,
+      message:
+        'Якщо акаунт з цим email існує і ще не підтверджений, ми надіслали лист або він уже був відправлений нещодавно.',
+    };
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    const result = await this.emailSecurityService.createPasswordReset(
+      dto.email,
+    );
+
+    return {
+      status: 'ok',
+      waitSeconds:
+        result.status === 'cooldown' ? result.waitSeconds : undefined,
+      message:
+        'Якщо акаунт з таким email існує, інструкції для скидання пароля вже надіслані або були відправлені нещодавно.',
+    };
+  }
+
+  @Post('reset-password')
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.ensureMatchingPasswords(dto.newPassword, dto.confirmPassword);
+
+    const result = await this.emailSecurityService.consumePasswordResetToken(
+      dto.token,
+      async (tx, userId) => {
+        await this.authService.updatePassword(userId, dto.newPassword, tx);
+        await this.authService.logoutAll(userId, tx);
+      },
+    );
+
+    if (result.status === 'error') {
+      throwTokenStateError(result.error as TokenStateError);
+    }
+
+    this.clearAuthCookies(res);
+
+    return {
+      status: 'ok',
+      message:
+        'Пароль оновлено. Для безпеки всі попередні сесії завершено. Увійдіть знову.',
+    };
+  }
+
+  @Post('change-password')
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.ensureMatchingPasswords(dto.newPassword, dto.confirmPassword);
+
+    const currentUser = await this.resolveCurrentUser(req, res);
+    const validCurrentPassword = await this.authService.verifyCurrentPassword(
+      currentUser.id,
+      dto.currentPassword,
+    );
+
+    if (!validCurrentPassword) {
+      throw new BadRequestException({
+        error: 'CURRENT_PASSWORD_INVALID',
+        message: 'Поточний пароль введено невірно.',
+      });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.authService.updatePassword(
+        currentUser.id,
+        dto.newPassword,
+        tx,
+      );
+      await this.authService.logoutAll(currentUser.id, tx);
+    });
+
+    this.clearAuthCookies(res);
+
+    return {
+      status: 'ok',
+      message:
+        'Пароль успішно змінено. Для безпеки ми завершили всі попередні сесії. Увійдіть знову.',
+    };
+  }
+
+  @Post('login-challenge/verify')
+  async verifyLoginChallenge(
+    @Body() dto: VerifyLoginChallengeDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.loginChallengeService.verifyChallenge(
+      dto.challengeId,
+      dto.code,
+    );
+
+    if (result.status === 'error') {
+      throwChallengeError(result.error as ChallengeError);
+    }
+
+    const verifiedUser = result.user;
+    const trustedLoginToken =
+      this.loginChallengeService.generateTrustedLoginToken();
+    const trustedContextHash =
+      this.loginChallengeService.hashTrustedLoginToken(trustedLoginToken);
+
+    const tokens = await this.authService.login(
+      verifiedUser!.id,
+      verifiedUser!.email,
+      verifiedUser!.role,
+      {
+        trustedContextHash,
+        userAgentSummary:
+          result.userAgentSummary ??
+          this.loginChallengeService.summarizeUserAgent(this.getUserAgent(req)),
+      },
+    );
+
+    this.setAuthCookies(res, tokens);
+    this.setTrustedLoginCookie(res, trustedLoginToken);
+
     return { status: 'ok' };
   }
 

@@ -34,6 +34,21 @@ export interface User {
   role: UserRole;
 }
 
+export type AuthActionStatus =
+  | 'ok'
+  | 'verification_required'
+  | 'challenge_required'
+  | 'error';
+
+export interface AuthActionResult {
+  success: boolean;
+  status: AuthActionStatus;
+  message?: string;
+  email?: string;
+  challengeId?: number;
+  waitSeconds?: number;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -41,13 +56,13 @@ interface AuthContextType {
     email: string,
     password: string,
     captchaToken: string,
-  ) => Promise<{ success: boolean; message?: string }>;
+  ) => Promise<AuthActionResult>;
   register: (
     email: string,
     password: string,
     name: string,
     captchaToken: string,
-  ) => Promise<{ success: boolean; message?: string }>;
+  ) => Promise<AuthActionResult>;
   logout: () => Promise<boolean>;
   checkAuth: () => Promise<boolean>;
   ensureAuthAndGo: (path: string) => Promise<void>;
@@ -182,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     captchaToken: string,
-  ): Promise<{ success: boolean; message?: string }> => {
+  ): Promise<AuthActionResult> => {
     try {
       setIsLoading(true);
 
@@ -193,34 +208,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password, captchaToken }),
       });
 
-      const data = await res.json();
+      const data = (await res.json().catch(() => null)) as
+        | {
+            status?: AuthActionStatus;
+            message?: string;
+            email?: string;
+            challengeId?: number;
+            waitSeconds?: number;
+          }
+        | null;
 
-      if (data.status === 'ok') {
+      if (data?.status === 'ok') {
         // лёгкая пауза для установки/синка кук
         await new Promise((resolve) => setTimeout(resolve, 100));
         const authStatus = await checkAuthStatus();
 
         if (authStatus === 'authenticated') {
-          return { success: true };
+          return { success: true, status: 'ok' };
         }
 
         if (authStatus === 'unauthorized') {
           setUser(null);
           return {
             success: false,
+            status: 'error',
             message: 'Сесію не вдалося підтвердити після входу',
           };
         }
 
         return {
           success: false,
+          status: 'error',
           message: 'Не вдалося підтвердити сесію через тимчасову помилку мережі',
         };
-      } else {
-        return { success: false, message: data.message || 'Login failed' };
       }
+
+      if (data?.status === 'verification_required') {
+        return {
+          success: false,
+          status: 'verification_required',
+          message: data.message,
+          email: data.email,
+          waitSeconds: data.waitSeconds,
+        };
+      }
+
+      if (data?.status === 'challenge_required') {
+        return {
+          success: false,
+          status: 'challenge_required',
+          message: data.message,
+          email: data.email,
+          challengeId: data.challengeId,
+          waitSeconds: data.waitSeconds,
+        };
+      }
+
+      return {
+        success: false,
+        status: 'error',
+        message: data?.message || 'Login failed',
+      };
     } catch {
-      return { success: false, message: 'Network error' };
+      return { success: false, status: 'error', message: 'Network error' };
     } finally {
       setIsLoading(false);
     }
@@ -231,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string,
     captchaToken: string,
-  ): Promise<{ success: boolean; message?: string }> => {
+  ): Promise<AuthActionResult> => {
     try {
       setIsLoading(true);
       const res = await fetch(
@@ -244,36 +294,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       );
 
-      const data = await res.json();
+      const data = (await res.json().catch(() => null)) as
+        | {
+            status?: AuthActionStatus;
+            message?: string;
+            email?: string;
+            waitSeconds?: number;
+          }
+        | null;
 
-      if (data.status === 'ok') {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        const authStatus = await checkAuthStatus();
-
-        if (authStatus === 'authenticated') {
-          return { success: true };
-        }
-
-        if (authStatus === 'unauthorized') {
-          setUser(null);
-          return {
-            success: false,
-            message: 'Сесію не вдалося підтвердити після реєстрації',
-          };
-        }
-
+      if (data?.status === 'verification_required') {
         return {
           success: false,
-          message: 'Не вдалося підтвердити сесію через тимчасову помилку мережі',
-        };
-      } else {
-        return {
-          success: false,
-          message: data.message || 'Registration failed',
+          status: 'verification_required',
+          message: data.message,
+          email: data.email,
+          waitSeconds: data.waitSeconds,
         };
       }
+
+      return {
+        success: false,
+        status: 'error',
+        message: data?.message || 'Registration failed',
+      };
     } catch {
-      return { success: false, message: 'Network error' };
+      return { success: false, status: 'error', message: 'Network error' };
     } finally {
       setIsLoading(false);
     }

@@ -7,6 +7,7 @@ This repository is a real product codebase with two main applications:
 
 The repository is no longer a starter/demo state. It already contains:
 - real cookie-based auth/session flow
+- real email verification / password reset / login challenge security flows
 - a minimal real `USER` / `ADMIN` role model
 - protected admin-only backend write operations
 - a real `/admin` subsystem
@@ -29,6 +30,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 ### Frontend
 - Main app lives in `frontend/app`.
 - Public storefront routes include `/`, `/plants`, `/about`, `/contact`, `/care`, `/pots`, `/landscape-design`, `/convert`, `/dashboard`, `/dashboard/orders`, `/dashboard/settings`, `/signin`, `/register`, `/logout`.
+- Public auth/security routes also include `/verify-email`, `/verify-login-code`, `/forgot-password`, `/reset-password`.
 - Global unmatched routes should resolve through `frontend/app/not-found.tsx` instead of falling back to the default gray framework "Not Found" screen.
 - Orders dashboard also has a deep-link detail entrypoint under `/dashboard/orders/[id]`, which resolves to the real persisted order detail view.
 - Admin routes live under `frontend/app/admin`:
@@ -94,21 +96,30 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - customer email is taken from the authenticated account, not from an arbitrary checkout field
 
 ### Auth/session architecture
-- Registration auto-logs in the user through the backend, not through frontend fake state.
+- Registration now creates a real user with `emailVerifiedAt = null`, sends a verification email, and returns `verification_required` without auth cookies.
 - Backend auth endpoints:
   - `POST /auth/register`
   - `POST /auth/login`
   - `POST /auth/logout`
   - `GET /auth/me`
   - `PATCH /auth/me`
+  - `POST /auth/verify-email`
+  - `POST /auth/resend-verification-email`
+  - `POST /auth/forgot-password`
+  - `POST /auth/reset-password`
+  - `POST /auth/change-password`
+  - `POST /auth/login-challenge/verify`
 - Auth uses httpOnly cookies:
   - `access_token`
   - `refresh_token`
+  - `trusted_login`
 - Frontend auth bootstrap performs a real `/auth/me` check on mount.
 - Frontend distinguishes:
   - authenticated
   - unauthorized
   - temporarily unavailable auth backend
+- Login for an unverified account does not issue auth cookies; it returns `verification_required`.
+- Login from an unrecognized context does not issue auth cookies until a successful email challenge verification.
 - Temporary auth/backend/network failures must not be treated as confirmed logout.
 - Backend `/auth/me` should distinguish confirmed unauthorized refresh failures from transient auth/backend failures; transient refresh or auth infrastructure failures should surface as unavailable rather than forcing a false logout.
 - Current client-side cabinet fetches outside `/auth/*` may confirm session state through `/auth/me` and retry once after confirmed authenticated recovery; auth endpoints themselves must not recurse through the same recovery path.
@@ -123,6 +134,11 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - confirmed unauthorized state redirects to login
   - temporary auth verification failure redirects to a neutral `/auth-unavailable` entrypoint instead of being treated as confirmed logout
   - `frontend/proxy.ts` remains security-sensitive and must still be changed only in a narrowly scoped auth-policy pass
+- Current trusted-login reality:
+  - `trusted_login` is a long-lived httpOnly cookie with an opaque random token
+  - the backend validates it only via a hash match against an active `RefreshToken.trustedContextHash`
+  - `userAgentSummary` must also be compatible before the context is treated as recognized
+  - if those checks fail, login falls back to email challenge instead of trusting the cookie
 
 ### Role/admin model
 - Role model is already implemented in the database and auth payloads.
@@ -191,7 +207,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Do not assume a Vinext issue implies a Next.js issue, or vice versa.
 
 ## Current product decisions already implemented
-- Registration must automatically log in the user through backend-created real session cookies.
+- Registration must not create a fake authenticated session before email verification succeeds.
 - Frontend must not fake authenticated state after registration.
 - `/dashboard` and `/admin` must not remain accessible if auth verification fails.
 - Current-user dashboard settings are real and use the authenticated `/auth/me` read/update contract.
@@ -205,6 +221,9 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Site settings are editable through the admin UI and are consumed by public pages.
 - Media uploads are real backend-managed files, not fake blob-only frontend state.
 - Logout UX must not claim success before backend truth confirms session termination.
+- Forgot-password public UX must stay non-enumerating.
+- Reset-password and dashboard change-password must revoke refresh sessions and clear auth cookies on success.
+- Current access tokens are still short-lived stateless JWTs; after password reset/change they naturally expire on their normal TTL, because a token-version redesign is still out of scope.
 - Validation is enabled globally in NestJS via `ValidationPipe` with compatibility-safe settings:
   - `whitelist: true`
   - `transform: true`
@@ -282,13 +301,20 @@ When auditing or reviewing this repository, prioritize:
     - `JWT_REFRESH_SECRET`
     - `DATABASE_URL`
     - `RECAPTCHA_SECRET_KEY`
+    - `MAIL_HOST`
+    - `MAIL_PORT`
+    - `MAIL_SECURE`
+    - `MAIL_USER`
+    - `MAIL_PASSWORD`
+    - `MAIL_FROM_EMAIL`
+    - `MAIL_FROM_NAME`
 - Keep local assumptions separate from production assumptions.
 - Do not hardcode production domains/secrets in source code.
 - Treat `.env.example` as the documentation contract for new environments.
 - If `.env.example` disagrees with runtime code, that is a real issue and should be called out.
 
 ## Auth/session rules
-- Preserve backend-driven session creation after register/login.
+- Preserve backend-driven session creation only after a verified login or a successfully completed login challenge.
 - Preserve `/auth/me` as the real source of auth state.
 - Do not reintroduce frontend-only auth markers or fake session state.
 - Temporary auth unavailability should degrade gracefully, not silently convert to logout.
@@ -340,7 +366,7 @@ When auditing or reviewing this repository, prioritize:
 ### Current backend test stack
 - Jest unit/integration-style tests in `backend/src/**/*.spec.ts`
 - Current backend suite covers:
-  - auth service/controller/DTOs
+  - auth service/controller/DTOs, including email verification/reset/challenge/password-change contracts
   - current-user `/auth/me` profile/settings update
   - orders service/controller/DTOs
   - roles guard
@@ -366,13 +392,14 @@ When auditing or reviewing this repository, prioritize:
 - Frontend tests currently cover:
   - admin shell
   - `AuthContext` auth/logout semantics
+  - auth-security client helpers
   - cart-to-order creation wiring
   - dashboard overview latest-order summary state
   - dashboard orders list/detail states
   - admin orders manager
   - plants admin manager
   - media uploader
-  - dashboard settings current-user persistence
+  - dashboard settings current-user persistence and password-change flow
   - browser admin access
   - browser user-cabinet smoke flow
   - browser plants smoke flow
@@ -432,8 +459,14 @@ When auditing or reviewing this repository, prioritize:
 - `build:vinext` may emit non-fatal Rolldown/plugin warnings even when it succeeds.
 - Backend media storage is local filesystem storage; deployment/storage strategy beyond local/public serving still requires operational care.
 - Auth/session logic is much better aligned now, but middleware refresh/cookie behavior remains sensitive.
+- SMTP-backed security email delivery is now part of the runtime contract and still needs operational monitoring in real environments.
 - `frontend/proxy.ts` still requires special care because protected-route behavior under temporary backend verification failure is security-sensitive and easy to get wrong.
 - Refresh-token hygiene is improved, but lookup is still user-scoped `findMany + bcrypt.compare`, not a schema-level O(1) token identifier design.
+- Email security is now a real persisted domain via `VerificationToken` and `LoginChallenge`, but broader account lifecycle features are still postponed:
+  - change email
+  - delete account
+  - export account data
+  - full session/device management UI
 - Site settings currently cover text/links/contact content, not a full CMS or full media-backed theme system.
 - Orders are now a real minimal subsystem, but advanced commerce features are still absent:
   - payment gateway integration

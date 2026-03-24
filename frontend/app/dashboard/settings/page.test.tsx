@@ -2,12 +2,33 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import SettingsPage from './page';
 
-const { mockAddNotification, mockCheckAuth, mockFetchWithRefresh } =
+const {
+  mockAddNotification,
+  mockCheckAuth,
+  mockFetchWithRefresh,
+  mockChangePassword,
+  mockPush,
+  mockRefresh,
+} =
   vi.hoisted(() => ({
     mockAddNotification: vi.fn(),
     mockCheckAuth: vi.fn(),
     mockFetchWithRefresh: vi.fn(),
+    mockChangePassword: vi.fn(),
+    mockPush: vi.fn(),
+    mockRefresh: vi.fn(),
   }));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+    refresh: mockRefresh,
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  }),
+}));
 
 vi.mock('@/app/components/NotificationSystem', () => ({
   useNotification: () => ({
@@ -34,6 +55,7 @@ vi.mock('@/contexts/AuthContext', () => ({
       role: 'USER',
     },
     checkAuth: mockCheckAuth,
+    isLoading: false,
   }),
 }));
 
@@ -41,10 +63,19 @@ vi.mock('@/lib/fetchWithRefresh', () => ({
   fetchWithRefresh: mockFetchWithRefresh,
 }));
 
+vi.mock('@/lib/auth-security', () => ({
+  changePassword: mockChangePassword,
+  getSecurityErrorMessage: (code: string | undefined, fallback: string) =>
+    code ? `mapped:${code}` : fallback,
+}));
+
 describe('Dashboard settings page', () => {
   beforeEach(() => {
     mockAddNotification.mockReset();
     mockCheckAuth.mockReset();
+    mockChangePassword.mockReset();
+    mockPush.mockReset();
+    mockRefresh.mockReset();
     mockCheckAuth.mockResolvedValue(true);
     mockFetchWithRefresh.mockReset();
     mockFetchWithRefresh.mockResolvedValue({
@@ -220,5 +251,51 @@ describe('Dashboard settings page', () => {
     expect(saveButton).toBeDisabled();
     expect(resetButton).toBeDisabled();
     expect(mockFetchWithRefresh).not.toHaveBeenCalled();
+  });
+
+  it('змінює пароль через реальний backend-backed flow і веде в re-login', async () => {
+    mockChangePassword.mockResolvedValue({
+      success: true,
+      message: 'Пароль успішно змінено. Увійдіть знову.',
+    });
+    mockCheckAuth.mockResolvedValueOnce(false);
+
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Конфіденційність' }));
+
+    const currentPasswordInput = await screen.findByLabelText('Поточний пароль');
+    const newPasswordInput = await screen.findByLabelText('Новий пароль');
+    const confirmPasswordInput = await screen.findByLabelText('Підтвердження');
+
+    fireEvent.change(currentPasswordInput, {
+      target: { value: 'old-password' },
+    });
+    fireEvent.change(newPasswordInput, {
+      target: { value: 'new-password' },
+    });
+    fireEvent.change(confirmPasswordInput, {
+      target: { value: 'new-password' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Змінити пароль' }));
+
+    await waitFor(() =>
+      expect(mockChangePassword).toHaveBeenCalledWith({
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+        confirmPassword: 'new-password',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'success',
+          title: 'Пароль змінено',
+        }),
+      ),
+    );
+    expect(mockPush).toHaveBeenCalledWith('/?auth=login');
+    expect(mockRefresh).toHaveBeenCalled();
   });
 });

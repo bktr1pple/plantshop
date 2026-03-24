@@ -11,3 +11,6 @@ process.env.JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 process.env.DOMAIN_COOKIE = process.env.DOMAIN_COOKIE || 'localhost';
 process.env.BCRYPT_SALT_ROUNDS = process.env.BCRYPT_SALT_ROUNDS || '10';
+process.env.MAIL_FROM_EMAIL =
+  process.env.MAIL_FROM_EMAIL || 'no-reply@test.local';
+process.env.MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || 'PlantShop Test';

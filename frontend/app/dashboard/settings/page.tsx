@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { LazyMotion, m as motion, domAnimation, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -16,6 +17,7 @@ import {
 import { useAuth, type User as AuthUser } from '@/contexts/AuthContext';
 import { useNotification } from '@/app/components/NotificationSystem';
 import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
+import { changePassword, getSecurityErrorMessage } from '@/lib/auth-security';
 
 // ---- Типы ----
 
@@ -47,6 +49,20 @@ interface SettingsValidationErrors {
   phone?: string;
   address?: string;
   bio?: string;
+}
+
+interface PasswordFormState {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+function createPasswordState(): PasswordFormState {
+  return {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  };
 }
 
 function createProfileState(user: AuthUser | null): ProfileState {
@@ -169,21 +185,29 @@ const Input: React.FC<{
   type?: string;
   placeholder?: string;
   disabled?: boolean;
-}> = ({ label, value, onChange, type = 'text', placeholder, disabled = false }) => (
-  <div className="space-y-1.5">
-    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-      {label}
-    </label>
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      placeholder={placeholder}
-      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
-    />
-  </div>
-);
+}> = ({ label, value, onChange, type = 'text', placeholder, disabled = false }) => {
+  const inputId = React.useId();
+
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={inputId}
+        className="text-sm font-medium text-gray-700 dark:text-gray-300"
+      >
+        {label}
+      </label>
+      <input
+        id={inputId}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
+      />
+    </div>
+  );
+};
 
 const Textarea: React.FC<{
   label: string;
@@ -191,21 +215,29 @@ const Textarea: React.FC<{
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
-}> = ({ label, value, onChange, placeholder, disabled = false }) => (
-  <div className="space-y-1.5">
-    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-      {label}
-    </label>
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      placeholder={placeholder}
-      rows={4}
-      className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
-    />
-  </div>
-);
+}> = ({ label, value, onChange, placeholder, disabled = false }) => {
+  const textareaId = React.useId();
+
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={textareaId}
+        className="text-sm font-medium text-gray-700 dark:text-gray-300"
+      >
+        {label}
+      </label>
+      <textarea
+        id={textareaId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        rows={4}
+        className="w-full rounded-xl border border-gray-200 bg-white/70 px-3.5 py-3 text-base text-gray-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-50 dark:focus:ring-emerald-900/40"
+      />
+    </div>
+  );
+};
 
 const ToggleRow: React.FC<{
   label: string;
@@ -249,6 +281,7 @@ const ToggleRow: React.FC<{
 export default function SettingsPage() {
   const { user, checkAuth, isLoading } = useAuth();
   const { addNotification } = useNotification();
+  const router = useRouter();
 
   const [profile, setProfile] = useState<ProfileState>(() =>
     createProfileState(user),
@@ -260,6 +293,10 @@ export default function SettingsPage() {
     createPrivacyState(user),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [passwordForm, setPasswordForm] = useState<PasswordFormState>(() =>
+    createPasswordState(),
+  );
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -274,6 +311,7 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SectionId>('profile');
   const accountSettingsBackendConnected = true;
   const controlsDisabled = isLoading || isSaving;
+  const passwordControlsDisabled = controlsDisabled || isChangingPassword;
 
   const savedProfile = useMemo(() => createProfileState(user), [user]);
   const savedNotifications = useMemo(() => createNotificationState(user), [user]);
@@ -302,6 +340,39 @@ export default function SettingsPage() {
   }, [profile]);
 
   const hasValidationErrors = Object.keys(validationErrors).length > 0;
+  const passwordValidationMessage = useMemo(() => {
+    if (
+      !passwordForm.currentPassword &&
+      !passwordForm.newPassword &&
+      !passwordForm.confirmPassword
+    ) {
+      return null;
+    }
+
+    if (passwordForm.currentPassword.length < 6) {
+      return 'Поточний пароль має містити щонайменше 6 символів.';
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      return 'Новий пароль має містити щонайменше 6 символів.';
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      return 'Новий пароль і підтвердження не співпадають.';
+    }
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      return 'Новий пароль має відрізнятися від поточного.';
+    }
+
+    return null;
+  }, [passwordForm]);
+  const canSubmitPasswordChange =
+    !passwordControlsDisabled &&
+    !passwordValidationMessage &&
+    !!passwordForm.currentPassword &&
+    !!passwordForm.newPassword &&
+    !!passwordForm.confirmPassword;
   const hasChanges = useMemo(
     () =>
       JSON.stringify(profile) !== JSON.stringify(savedProfile) ||
@@ -459,6 +530,59 @@ export default function SettingsPage() {
       duration: 2500,
     });
   }, [addNotification, user]);
+
+  const handleChangePassword = useCallback(() => {
+    void (async () => {
+      if (!canSubmitPasswordChange) {
+        return;
+      }
+
+      try {
+        setIsChangingPassword(true);
+
+        const result = await changePassword(passwordForm);
+
+        if (!result.success) {
+          addNotification({
+            type:
+              result.errorCode === 'TEMPORARILY_UNAVAILABLE'
+                ? 'warning'
+                : 'error',
+            title:
+              result.errorCode === 'TEMPORARILY_UNAVAILABLE'
+                ? 'Сервіс безпеки тимчасово недоступний'
+                : 'Не вдалося змінити пароль',
+            message: getSecurityErrorMessage(
+              result.errorCode,
+              result.message || 'Не вдалося змінити пароль.',
+            ),
+            duration: 4000,
+          });
+          return;
+        }
+
+        setPasswordForm(createPasswordState());
+        await checkAuth();
+        addNotification({
+          type: 'success',
+          title: 'Пароль змінено',
+          message:
+            'Для безпеки ми завершили поточну сесію. Увійдіть знову з новим паролем.',
+          duration: 3500,
+        });
+        router.push('/?auth=login');
+        router.refresh();
+      } finally {
+        setIsChangingPassword(false);
+      }
+    })();
+  }, [
+    addNotification,
+    canSubmitPasswordChange,
+    checkAuth,
+    passwordForm,
+    router,
+  ]);
 
   return (
     <LazyMotion features={domAnimation}>
@@ -745,7 +869,7 @@ export default function SettingsPage() {
                       description="Керуйте тим, хто бачить інформацію про вас, та налаштуйте безпеку входу."
                     >
                       <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                        Параметри конфіденційності нижче зберігаються для поточного акаунта. Зміна пароля ще лишається недоступною.
+                        Параметри конфіденційності зберігаються для поточного акаунта. Зміна пароля тепер підтверджується backend і після успіху завершує поточні сесії.
                       </div>
                       <div className="space-y-6">
                         <div className="space-y-3">
@@ -834,31 +958,72 @@ export default function SettingsPage() {
                             <Input
                               label="Поточний пароль"
                               type="password"
-                              value=""
-                              onChange={() => {}}
+                              value={passwordForm.currentPassword}
+                              onChange={(value) =>
+                                setPasswordForm((prev) => ({
+                                  ...prev,
+                                  currentPassword: value,
+                                }))
+                              }
                               placeholder="********"
-                              disabled
+                              disabled={passwordControlsDisabled}
                             />
                             <Input
                               label="Новий пароль"
                               type="password"
-                              value=""
-                              onChange={() => {}}
+                              value={passwordForm.newPassword}
+                              onChange={(value) =>
+                                setPasswordForm((prev) => ({
+                                  ...prev,
+                                  newPassword: value,
+                                }))
+                              }
                               placeholder="********"
-                              disabled
+                              disabled={passwordControlsDisabled}
                             />
                             <Input
                               label="Підтвердження"
                               type="password"
-                              value=""
-                              onChange={() => {}}
+                              value={passwordForm.confirmPassword}
+                              onChange={(value) =>
+                                setPasswordForm((prev) => ({
+                                  ...prev,
+                                  confirmPassword: value,
+                                }))
+                              }
                               placeholder="********"
-                              disabled
+                              disabled={passwordControlsDisabled}
                             />
                           </div>
-                          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                            Зміна пароля буде доступна після підключення відповідного розділу на бекенді.
-                          </p>
+                          {passwordValidationMessage ? (
+                            <p className="text-xs sm:text-sm text-red-600 dark:text-red-400">
+                              {passwordValidationMessage}
+                            </p>
+                          ) : (
+                            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                              Після успішної зміни пароля backend завершить поточні refresh-сесії, тому потрібно буде увійти знову.
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={handleChangePassword}
+                              disabled={!canSubmitPasswordChange}
+                              className="inline-flex items-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400/60"
+                            >
+                              {isChangingPassword
+                                ? 'Оновлюємо пароль...'
+                                : 'Змінити пароль'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPasswordForm(createPasswordState())}
+                              disabled={passwordControlsDisabled}
+                              className="rounded-xl border border-gray-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200"
+                            >
+                              Очистити поля
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </SectionShell>

@@ -7,6 +7,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtStrategy } from './jwt.strategy';
 import { RolesGuard } from './roles.guard';
 import { getJwtAccessExpiresIn, getRequiredEnv } from '../config/env';
+import { MailModule } from '../mail/mail.module';
+import { EmailSecurityService } from './email-security.service';
+import { LoginChallengeService } from './login-challenge.service';
 
 type JwtStringValue = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'y'}`;
 
@@ -17,6 +20,7 @@ const jwtAccessExpiresIn = getJwtAccessExpiresIn() as JwtStringValue | number;
 @Module({
   imports: [
     PassportModule,
+    MailModule,
     JwtModule.register({
       secret: jwtAccessSecret,
       signOptions: {
@@ -25,7 +29,14 @@ const jwtAccessExpiresIn = getJwtAccessExpiresIn() as JwtStringValue | number;
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PrismaService, JwtStrategy, RolesGuard],
+  providers: [
+    AuthService,
+    PrismaService,
+    JwtStrategy,
+    RolesGuard,
+    EmailSecurityService,
+    LoginChallengeService,
+  ],
   exports: [AuthService, RolesGuard],
 })
 export class AuthModule {}

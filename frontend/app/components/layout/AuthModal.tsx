@@ -5,6 +5,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, User, Mail, Lock, Sparkles } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
 import ReCAPTCHA from 'react-google-recaptcha';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AuthForm } from '@/app/types/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { modalBackdropVariants, scaleInVariants, tabContentVariants } from '@/app/animations/navbar';
@@ -28,6 +30,7 @@ export function AuthModal({
   onTabChange,
 }: AuthModalProps) {
   const { login, register } = useAuth();
+  const router = useRouter();
   const captchaRef = useRef<ReCAPTCHA>(null);
   const [localError, setLocalError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -173,6 +176,52 @@ export function AuthModal({
         if (captchaRef.current) {
           captchaRef.current.reset();
         }
+      } else if (
+        result.status === 'verification_required' &&
+        result.email
+      ) {
+        onClose();
+        setForm({
+          name: "",
+          email: "",
+          password: "",
+          rememberMe: false,
+        });
+        setCaptchaToken(null);
+        if (captchaRef.current) {
+          captchaRef.current.reset();
+        }
+        const search = new URLSearchParams({
+          email: result.email,
+        });
+        if (result.waitSeconds) {
+          search.set('waitSeconds', String(result.waitSeconds));
+        }
+        router.push(`/verify-email?${search.toString()}`);
+      } else if (
+        result.status === 'challenge_required' &&
+        result.email &&
+        result.challengeId
+      ) {
+        onClose();
+        setForm({
+          name: "",
+          email: "",
+          password: "",
+          rememberMe: false,
+        });
+        setCaptchaToken(null);
+        if (captchaRef.current) {
+          captchaRef.current.reset();
+        }
+        const search = new URLSearchParams({
+          email: result.email,
+          challengeId: String(result.challengeId),
+        });
+        if (result.waitSeconds) {
+          search.set('waitSeconds', String(result.waitSeconds));
+        }
+        router.push(`/verify-login-code?${search.toString()}`);
       } else {
         // Error - show message and reset CAPTCHA
         setLocalError(result.message || 'Сталася помилка');
@@ -372,12 +421,12 @@ export function AuthModal({
                           />
                           <span className="text-sm">Запам&apos;ятати мене</span>
                         </label>
-                        <a
-                          href="#"
+                        <Link
+                          href="/forgot-password"
                           className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition font-medium text-sm text-right"
                         >
                           Забули пароль?
-                        </a>
+                        </Link>
                       </div>
                     )}
 

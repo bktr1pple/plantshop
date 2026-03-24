@@ -22,6 +22,7 @@ model Plant {
 model User {
   id                Int            @id @default(autoincrement())
   email             String         @unique
+  emailVerifiedAt   DateTime?
   password          String
   name              String?
   phone             String?
@@ -38,6 +39,8 @@ model User {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   refreshTokens     RefreshToken[]
+  verificationTokens VerificationToken[]
+  loginChallenges   LoginChallenge[]
   orders            Order[]
 }
 
@@ -47,12 +50,56 @@ enum UserRole {
 }
 
 model RefreshToken {
-  id        Int      @id @default(autoincrement())
-  tokenHash String
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id                 Int      @id @default(autoincrement())
+  tokenHash          String
+  trustedContextHash String?
+  userAgentSummary   String?
+  userId             Int
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt          DateTime
+  lastUsedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([trustedContextHash])
+}
+
+enum VerificationTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+model VerificationToken {
+  id          Int                   @id @default(autoincrement())
+  userId      Int
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        VerificationTokenType
+  tokenHash   String
+  targetEmail String?
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime              @default(now())
+
+  @@index([userId, type, expiresAt])
+  @@index([userId, type, consumedAt])
+}
+
+model LoginChallenge {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash         String
+  contextHash      String
+  ipHash           String?
+  userAgentSummary String?
+  attemptCount     Int      @default(0)
+  maxAttempts      Int      @default(5)
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([userId, consumedAt])
 }
 
 model SiteSettings {

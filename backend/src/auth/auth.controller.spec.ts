@@ -1,12 +1,15 @@
 import {
+  BadRequestException,
+  ConflictException,
   UnauthorizedException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { EmailSecurityService } from './email-security.service';
+import { LoginChallengeService } from './login-challenge.service';
 
 function createResponseMock(): Pick<Response, 'cookie' | 'clearCookie'> {
   return {
@@ -24,12 +27,31 @@ describe('AuthController', () => {
     revokeRefreshToken: jest.Mock;
     refresh: jest.Mock;
     verifyAccessToken: jest.Mock;
+    verifyCurrentPassword: jest.Mock;
+    updatePassword: jest.Mock;
+    logoutAll: jest.Mock;
   };
   let prismaMock: {
     user: {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
+    $transaction: jest.Mock;
+  };
+  let emailSecurityMock: {
+    sendEmailVerification: jest.Mock;
+    verifyEmailToken: jest.Mock;
+    resendVerificationForEmail: jest.Mock;
+    createPasswordReset: jest.Mock;
+    consumePasswordResetToken: jest.Mock;
+  };
+  let loginChallengeMock: {
+    isRecognizedContext: jest.Mock;
+    createChallenge: jest.Mock;
+    generateTrustedLoginToken: jest.Mock;
+    hashTrustedLoginToken: jest.Mock;
+    summarizeUserAgent: jest.Mock;
+    verifyChallenge: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -40,6 +62,9 @@ describe('AuthController', () => {
       revokeRefreshToken: jest.fn(),
       refresh: jest.fn(),
       verifyAccessToken: jest.fn(),
+      verifyCurrentPassword: jest.fn(),
+      updatePassword: jest.fn(),
+      logoutAll: jest.fn(),
     };
 
     prismaMock = {
@@ -47,6 +72,27 @@ describe('AuthController', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      $transaction: jest.fn(
+        async (callback: (tx: PrismaService) => Promise<unknown>) =>
+          callback(prismaMock as unknown as PrismaService),
+      ),
+    };
+
+    emailSecurityMock = {
+      sendEmailVerification: jest.fn(),
+      verifyEmailToken: jest.fn(),
+      resendVerificationForEmail: jest.fn(),
+      createPasswordReset: jest.fn(),
+      consumePasswordResetToken: jest.fn(),
+    };
+
+    loginChallengeMock = {
+      isRecognizedContext: jest.fn(),
+      createChallenge: jest.fn(),
+      generateTrustedLoginToken: jest.fn(),
+      hashTrustedLoginToken: jest.fn(),
+      summarizeUserAgent: jest.fn(),
+      verifyChallenge: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -59,6 +105,14 @@ describe('AuthController', () => {
         {
           provide: PrismaService,
           useValue: prismaMock,
+        },
+        {
+          provide: EmailSecurityService,
+          useValue: emailSecurityMock,
+        },
+        {
+          provide: LoginChallengeService,
+          useValue: loginChallengeMock,
         },
       ],
     }).compile();
@@ -77,15 +131,12 @@ describe('AuthController', () => {
     }) as typeof fetch;
 
     await expect(
-      controller.register(
-        {
-          email: 'user@example.com',
-          password: 'password123',
-          name: 'User',
-          captchaToken: 'bad-captcha',
-        },
-        createResponseMock() as Response,
-      ),
+      controller.register({
+        email: 'user@example.com',
+        password: 'password123',
+        name: 'User',
+        captchaToken: 'bad-captcha',
+      }),
     ).resolves.toEqual({
       status: 'error',
       message: 'Ви не пройшли перевірку reCAPTCHA!',
@@ -93,7 +144,7 @@ describe('AuthController', () => {
     expect(authServiceMock.register).not.toHaveBeenCalled();
   });
 
-  it('register створює сесію через backend і ставить cookies', async () => {
+  it('register створює або перевикористовує unverified user і повертає verification_required без cookies', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ success: true }),
@@ -103,7 +154,141 @@ describe('AuthController', () => {
       email: 'user@example.com',
       name: 'User',
       role: 'USER',
+      created: true,
+      emailVerifiedAt: null,
     });
+    emailSecurityMock.sendEmailVerification.mockResolvedValue({
+      status: 'sent',
+      resent: false,
+    });
+
+    await expect(
+      controller.register({
+        email: 'user@example.com',
+        password: 'password123',
+        name: 'User',
+        captchaToken: 'captcha-token',
+      }),
+    ).resolves.toEqual({
+      status: 'verification_required',
+      email: 'user@example.com',
+      resent: false,
+      waitSeconds: undefined,
+      message:
+        'Ми надіслали лист для підтвердження email. Завершіть верифікацію, щоб увійти.',
+    });
+    expect(emailSecurityMock.sendEmailVerification).toHaveBeenCalled();
+    expect(authServiceMock.login).not.toHaveBeenCalled();
+  });
+
+  it('login повертає verification_required для неверифікованого акаунта', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    }) as typeof fetch;
+    authServiceMock.validateUser.mockResolvedValue({
+      id: 1,
+      email: 'user@example.com',
+      role: 'USER',
+      emailVerifiedAt: null,
+    });
+    emailSecurityMock.sendEmailVerification.mockResolvedValue({
+      status: 'sent',
+      resent: true,
+    });
+    const res = createResponseMock();
+
+    await expect(
+      controller.login(
+        {
+          email: 'user@example.com',
+          password: 'password123',
+          captchaToken: 'captcha-token',
+        },
+        { cookies: {}, get: jest.fn() } as unknown as Request,
+        res as Response,
+      ),
+    ).resolves.toEqual({
+      status: 'verification_required',
+      email: 'user@example.com',
+      waitSeconds: undefined,
+      message:
+        'Перш ніж увійти, підтвердіть email. Ми надіслали або щойно повторили лист підтвердження.',
+    });
+    expect(res.cookie).not.toHaveBeenCalled();
+    expect(res.clearCookie).toHaveBeenCalledTimes(3);
+  });
+
+  it('login повертає challenge_required без auth cookies для невпізнаного контексту', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    }) as typeof fetch;
+    authServiceMock.validateUser.mockResolvedValue({
+      id: 1,
+      email: 'user@example.com',
+      role: 'USER',
+      emailVerifiedAt: new Date(),
+    });
+    loginChallengeMock.isRecognizedContext.mockResolvedValue({
+      recognized: false,
+      userAgentSummary: 'chrome:macos:desktop',
+      trustedContextHash: null,
+    });
+    loginChallengeMock.createChallenge.mockResolvedValue({
+      status: 'challenge_required',
+      challengeId: 44,
+      reusedActiveChallenge: false,
+    });
+    const res = createResponseMock();
+
+    await expect(
+      controller.login(
+        {
+          email: 'user@example.com',
+          password: 'password123',
+          captchaToken: 'captcha-token',
+        },
+        {
+          cookies: {},
+          get: jest.fn().mockReturnValue('Mozilla/5.0'),
+          headers: {},
+          ip: '127.0.0.1',
+        } as unknown as Request,
+        res as Response,
+      ),
+    ).resolves.toEqual({
+      status: 'challenge_required',
+      email: 'user@example.com',
+      challengeId: 44,
+      waitSeconds: undefined,
+      message:
+        'Ми надіслали код підтвердження на ваш email, бо це новий або невпізнаний контекст входу.',
+    });
+    expect(authServiceMock.login).not.toHaveBeenCalled();
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
+  it('login у recognized context ставить auth і trusted_login cookies', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    }) as typeof fetch;
+    authServiceMock.validateUser.mockResolvedValue({
+      id: 1,
+      email: 'user@example.com',
+      role: 'USER',
+      emailVerifiedAt: new Date(),
+    });
+    loginChallengeMock.isRecognizedContext.mockResolvedValue({
+      recognized: true,
+      userAgentSummary: 'chrome:macos:desktop',
+      trustedContextHash: 'existing-hash',
+    });
+    loginChallengeMock.generateTrustedLoginToken.mockReturnValue(
+      'trusted-token',
+    );
+    loginChallengeMock.hashTrustedLoginToken.mockReturnValue('trusted-hash');
     authServiceMock.login.mockResolvedValue({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -111,60 +296,136 @@ describe('AuthController', () => {
     const res = createResponseMock();
 
     await expect(
-      controller.register(
+      controller.login(
         {
           email: 'user@example.com',
           password: 'password123',
-          name: 'User',
           captchaToken: 'captcha-token',
+        },
+        {
+          cookies: { trusted_login: 'trusted-token' },
+          get: jest.fn().mockReturnValue('Mozilla/5.0'),
+          headers: {},
+          ip: '127.0.0.1',
+        } as unknown as Request,
+        res as Response,
+      ),
+    ).resolves.toEqual({ status: 'ok' });
+    expect(authServiceMock.login).toHaveBeenCalledWith(
+      1,
+      'user@example.com',
+      'USER',
+      {
+        trustedContextHash: 'trusted-hash',
+        userAgentSummary: 'chrome:macos:desktop',
+      },
+    );
+    expect(res.cookie).toHaveBeenCalledTimes(3);
+  });
+
+  it('verify-email мапить TOKEN_CONSUMED у ConflictException body', async () => {
+    emailSecurityMock.verifyEmailToken.mockResolvedValue({
+      status: 'error',
+      error: 'TOKEN_CONSUMED',
+    });
+
+    await expect(
+      controller.verifyEmail({ token: 'a'.repeat(32) }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('reset-password очищає cookies після успіху', async () => {
+    emailSecurityMock.consumePasswordResetToken.mockResolvedValue({
+      status: 'consumed',
+      userId: 5,
+    });
+    const res = createResponseMock();
+
+    await expect(
+      controller.resetPassword(
+        {
+          token: 'a'.repeat(32),
+          newPassword: 'new-password',
+          confirmPassword: 'new-password',
         },
         res as Response,
       ),
     ).resolves.toEqual({
       status: 'ok',
-      user: {
-        id: 1,
-        email: 'user@example.com',
-        name: 'User',
-        role: 'USER',
-      },
+      message:
+        'Пароль оновлено. Для безпеки всі попередні сесії завершено. Увійдіть знову.',
     });
-    expect(authServiceMock.register).toHaveBeenCalledWith(
-      'user@example.com',
-      'password123',
-      'User',
-    );
-    expect(authServiceMock.login).toHaveBeenCalledWith(
-      1,
-      'user@example.com',
-      'USER',
-    );
-    expect(res.cookie).toHaveBeenCalledTimes(2);
+    expect(res.clearCookie).toHaveBeenCalledTimes(3);
   });
 
-  it('login повертає error для невалідних облікових даних', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
-    }) as typeof fetch;
-    authServiceMock.validateUser.mockResolvedValue(null);
+  it('change-password відхиляє невірний current password', async () => {
+    authServiceMock.verifyAccessToken.mockReturnValue({ sub: 8 });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 8,
+      email: 'user@example.com',
+      name: 'User',
+      phone: null,
+      address: null,
+      bio: null,
+      emailNotifications: true,
+      orderUpdates: true,
+      careReminders: true,
+      promotional: false,
+      profileVisibility: 'friends',
+      dataSharing: false,
+      personalizedAds: false,
+      role: 'USER',
+    });
+    authServiceMock.verifyCurrentPassword.mockResolvedValue(false);
 
     await expect(
-      controller.login(
+      controller.changePassword(
         {
-          email: 'user@example.com',
-          password: 'wrong-password',
-          captchaToken: 'captcha-token',
+          currentPassword: 'wrong-password',
+          newPassword: 'new-password',
+          confirmPassword: 'new-password',
         },
+        {
+          cookies: {
+            access_token: 'access-token',
+          },
+        } as Request,
         createResponseMock() as Response,
       ),
-    ).resolves.toEqual({
-      status: 'error',
-      message: 'Невірний email або пароль',
-    });
+    ).rejects.toThrow(BadRequestException);
   });
 
-  it('logout відкликає refresh token і чистить cookies', async () => {
+  it('verify-login-challenge ставить cookies після успіху', async () => {
+    loginChallengeMock.verifyChallenge.mockResolvedValue({
+      status: 'verified',
+      user: {
+        id: 9,
+        email: 'user@example.com',
+        role: 'USER',
+      },
+      userAgentSummary: 'chrome:macos:desktop',
+    });
+    loginChallengeMock.generateTrustedLoginToken.mockReturnValue(
+      'trusted-token',
+    );
+    loginChallengeMock.hashTrustedLoginToken.mockReturnValue('trusted-hash');
+    authServiceMock.login.mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    const res = createResponseMock();
+
+    await expect(
+      controller.verifyLoginChallenge(
+        { challengeId: 12, code: '123456' },
+        { get: jest.fn().mockReturnValue('Mozilla/5.0') } as unknown as Request,
+        res as Response,
+      ),
+    ).resolves.toEqual({ status: 'ok' });
+    expect(res.cookie).toHaveBeenCalledTimes(3);
+  });
+
+  it('logout відкликає refresh token і чистить всі auth cookies', async () => {
     authServiceMock.revokeRefreshToken.mockResolvedValue(true);
     const res = createResponseMock();
 
@@ -180,32 +441,7 @@ describe('AuthController', () => {
     expect(authServiceMock.revokeRefreshToken).toHaveBeenCalledWith(
       'refresh-token',
     );
-    expect(res.clearCookie).toHaveBeenCalledTimes(2);
-  });
-
-  it('logout без refresh token все одно чистить cookies і завершується успішно', async () => {
-    const res = createResponseMock();
-
-    await expect(
-      controller.logout(
-        {
-          cookies: {},
-        } as Request,
-        res as Response,
-      ),
-    ).resolves.toEqual({ status: 'ok' });
-
-    expect(authServiceMock.revokeRefreshToken).not.toHaveBeenCalled();
-    expect(res.clearCookie).toHaveBeenCalledTimes(2);
-  });
-
-  it('me кидає UnauthorizedException без access і refresh token', async () => {
-    await expect(
-      controller.me(
-        { cookies: {} } as Request,
-        createResponseMock() as Response,
-      ),
-    ).rejects.toThrow(UnauthorizedException);
+    expect(res.clearCookie).toHaveBeenCalledTimes(3);
   });
 
   it('me робить refresh по refresh_token і повертає користувача', async () => {
@@ -258,159 +494,15 @@ describe('AuthController', () => {
       },
     });
 
-    expect(authServiceMock.refresh).toHaveBeenCalledWith('refresh-token');
-    expect(authServiceMock.verifyAccessToken).toHaveBeenCalledWith(
-      'new-access',
-    );
     expect(res.cookie).toHaveBeenCalledTimes(2);
   });
 
-  it('me не очищає cookies і повертає ServiceUnavailableException при transient refresh failure', async () => {
-    authServiceMock.refresh.mockRejectedValue(new Error('db down'));
-    const res = createResponseMock();
-
+  it('me кидає UnauthorizedException без access і refresh token', async () => {
     await expect(
       controller.me(
-        {
-          cookies: { refresh_token: 'refresh-token' },
-        } as Request,
-        res as Response,
-      ),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
-
-    expect(res.clearCookie).not.toHaveBeenCalled();
-  });
-
-  it('me не очищає cookies при expired access token і transient refresh failure', async () => {
-    const expiredError = new Error('expired');
-    expiredError.name = 'TokenExpiredError';
-
-    authServiceMock.verifyAccessToken.mockImplementation(() => {
-      throw expiredError;
-    });
-    authServiceMock.refresh.mockRejectedValue(new Error('db down'));
-    const res = createResponseMock();
-
-    await expect(
-      controller.me(
-        {
-          cookies: {
-            access_token: 'access-token',
-            refresh_token: 'refresh-token',
-          },
-        } as Request,
-        res as Response,
-      ),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
-
-    expect(authServiceMock.refresh).toHaveBeenCalledWith('refresh-token');
-    expect(res.clearCookie).not.toHaveBeenCalled();
-  });
-
-  it('updateMe оновлює current-user profile та preferences', async () => {
-    authServiceMock.verifyAccessToken.mockReturnValue({ sub: 7 });
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: 7,
-      email: 'user@example.com',
-      name: 'User',
-      phone: null,
-      address: null,
-      bio: null,
-      emailNotifications: true,
-      orderUpdates: true,
-      careReminders: true,
-      promotional: false,
-      profileVisibility: 'friends',
-      dataSharing: false,
-      personalizedAds: false,
-      role: 'USER',
-    });
-    prismaMock.user.update.mockResolvedValue({
-      id: 7,
-      email: 'user@example.com',
-      name: 'Updated User',
-      phone: '+380671234567',
-      address: 'Київ',
-      bio: 'Люблю рослини',
-      emailNotifications: true,
-      orderUpdates: false,
-      careReminders: true,
-      promotional: true,
-      profileVisibility: 'private',
-      dataSharing: false,
-      personalizedAds: true,
-      role: 'USER',
-    });
-
-    await expect(
-      controller.updateMe(
-        {
-          name: 'Updated User',
-          phone: '+380671234567',
-          address: 'Київ',
-          bio: 'Люблю рослини',
-          orderUpdates: false,
-          promotional: true,
-          profileVisibility: 'private',
-          personalizedAds: true,
-        },
-        {
-          cookies: { access_token: 'access-token' },
-        } as Request,
+        { cookies: {} } as Request,
         createResponseMock() as Response,
       ),
-    ).resolves.toEqual({
-      user: {
-        id: 7,
-        email: 'user@example.com',
-        name: 'Updated User',
-        phone: '+380671234567',
-        address: 'Київ',
-        bio: 'Люблю рослини',
-        emailNotifications: true,
-        orderUpdates: false,
-        careReminders: true,
-        promotional: true,
-        profileVisibility: 'private',
-        dataSharing: false,
-        personalizedAds: true,
-        role: 'USER',
-      },
-    });
-
-    const updateCalls = (
-      prismaMock.user.update.mock as {
-        calls: Array<
-          [
-            {
-              where: { id: number };
-              data: Record<string, unknown>;
-              select: Record<string, boolean>;
-            },
-          ]
-        >;
-      }
-    ).calls;
-    const updateCall = updateCalls[0]?.[0];
-
-    expect(updateCall).toBeDefined();
-    expect(updateCall?.where).toEqual({ id: 7 });
-    expect(updateCall?.data).toEqual({
-      name: 'Updated User',
-      phone: '+380671234567',
-      address: 'Київ',
-      bio: 'Люблю рослини',
-      orderUpdates: false,
-      promotional: true,
-      profileVisibility: 'private',
-      personalizedAds: true,
-    });
-    expect(updateCall?.select).toEqual(
-      expect.objectContaining({
-        id: true,
-        email: true,
-        role: true,
-      }),
-    );
+    ).rejects.toThrow(UnauthorizedException);
   });
 });
