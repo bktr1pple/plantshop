@@ -13,9 +13,9 @@ import { RolesGuard } from '../auth/roles.guard';
 import { OrdersService } from './orders.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
-@Controller('admin/orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
+@Controller('orders/admin')
 export class AdminOrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
@@ -29,7 +29,7 @@ export class AdminOrdersController {
     return this.ordersService.getForAdmin(id);
   }
 
-  @Patch(':id/status')
+  @Patch(':id')
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrderStatusDto,

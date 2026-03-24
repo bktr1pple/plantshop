@@ -164,7 +164,7 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
         message: `Замовлення #${order.id} успішно збережено.`,
       });
       onClose();
-      router.push(`/dashboard/orders?orderId=${order.id}`);
+      router.push(`/dashboard/orders/${order.id}`);
     } catch (error) {
       if (
         error instanceof OrdersApiError &&

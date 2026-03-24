@@ -29,6 +29,8 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 ### Frontend
 - Main app lives in `frontend/app`.
 - Public storefront routes include `/`, `/plants`, `/about`, `/contact`, `/care`, `/pots`, `/landscape-design`, `/convert`, `/dashboard`, `/dashboard/orders`, `/dashboard/settings`, `/signin`, `/register`, `/logout`.
+- Global unmatched routes should resolve through `frontend/app/not-found.tsx` instead of falling back to the default gray framework "Not Found" screen.
+- Orders dashboard also has a deep-link detail entrypoint under `/dashboard/orders/[id]`, which resolves to the real persisted order detail view.
 - Admin routes live under `frontend/app/admin`:
   - `/admin`
   - `/admin/orders`
@@ -47,6 +49,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Current authenticated dashboard reality:
   - `/dashboard/settings` is real and persists current-user profile/preferences through `PATCH /auth/me`
   - `/dashboard/orders` is real and loads persisted current-user order history/details from the backend
+  - `/dashboard/orders/[id]` is a real detail entrypoint for a specific persisted order
   - dashboard overview must not show fake metrics or fake order history
 
 ### Backend
@@ -69,12 +72,12 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `OrderStatus`
 - Current-user orders endpoints:
   - `POST /orders`
-  - `GET /orders`
-  - `GET /orders/:id`
+  - `GET /orders/me`
+  - `GET /orders/me/:id`
 - Admin orders endpoints:
-  - `GET /admin/orders`
-  - `GET /admin/orders/:id`
-  - `PATCH /admin/orders/:id/status`
+  - `GET /orders/admin`
+  - `GET /orders/admin/:id`
+  - `PATCH /orders/admin/:id`
 - Order items snapshot:
   - plant name
   - plant cover image
@@ -87,6 +90,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Checkout/order creation reality:
   - storefront checkout currently happens through the existing cart modal flow
   - order creation requires an authenticated current user
+  - guest checkout is not currently supported as a real persisted flow and must not be faked in UI or API
   - customer email is taken from the authenticated account, not from an arbitrary checkout field
 
 ### Auth/session architecture

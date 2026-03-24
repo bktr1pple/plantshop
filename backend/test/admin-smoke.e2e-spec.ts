@@ -470,12 +470,12 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
       ],
     });
 
-    const listRes = await agent.get('/orders');
+    const listRes = await agent.get('/orders/me');
     expect(listRes.status).toBe(200);
     const listBody = listRes.body as OrderSummaryResponse[];
     expect(listBody.some((order) => order.id === createdOrder.id)).toBe(true);
 
-    const detailRes = await agent.get(`/orders/${createdOrder.id}`);
+    const detailRes = await agent.get(`/orders/me/${createdOrder.id}`);
     expect(detailRes.status).toBe(200);
     const detailBody = detailRes.body as OrderDetailResponse;
     expect(detailBody).toMatchObject({
@@ -526,13 +526,13 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
     const adminAgent = request.agent(httpServer);
     await loginAs(adminAgent, adminEmail, password);
 
-    const adminListRes = await adminAgent.get('/admin/orders');
+    const adminListRes = await adminAgent.get('/orders/admin');
     expect(adminListRes.status).toBe(200);
     const adminList = adminListRes.body as OrderSummaryResponse[];
     expect(adminList.some((order) => order.id === createdOrder.id)).toBe(true);
 
     const adminDetailRes = await adminAgent.get(
-      `/admin/orders/${createdOrder.id}`,
+      `/orders/admin/${createdOrder.id}`,
     );
     expect(adminDetailRes.status).toBe(200);
     const adminDetail = adminDetailRes.body as OrderDetailResponse;
@@ -543,7 +543,7 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
     });
 
     const updateRes = await adminAgent
-      .patch(`/admin/orders/${createdOrder.id}/status`)
+      .patch(`/orders/admin/${createdOrder.id}`)
       .send({
         status: 'SHIPPED',
       });

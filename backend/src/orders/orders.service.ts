@@ -113,66 +113,68 @@ export class OrdersService {
     const mergedItems = this.mergeItems(dto.items);
     const plantIds = mergedItems.map((item) => item.plantId);
 
-    const plants = await this.prisma.plant.findMany({
-      where: { id: { in: plantIds } },
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        images: true,
-      },
-    });
+    const createdOrder = await this.prisma.$transaction(async (tx) => {
+      const plants = await tx.plant.findMany({
+        where: { id: { in: plantIds } },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          images: true,
+        },
+      });
 
-    if (plants.length !== plantIds.length) {
-      const existingIds = new Set(plants.map((plant) => plant.id));
-      const missingId = plantIds.find((id) => !existingIds.has(id));
-      throw new NotFoundException(
-        `Plant with id ${missingId ?? 'unknown'} not found`,
-      );
-    }
-
-    const plantMap = new Map(plants.map((plant) => [plant.id, plant]));
-    const orderItems = mergedItems.map(({ plantId, quantity }) => {
-      const plant = plantMap.get(plantId);
-
-      if (!plant) {
-        throw new NotFoundException(`Plant with id ${plantId} not found`);
+      if (plants.length !== plantIds.length) {
+        const existingIds = new Set(plants.map((plant) => plant.id));
+        const missingId = plantIds.find((id) => !existingIds.has(id));
+        throw new NotFoundException(
+          `Plant with id ${missingId ?? 'unknown'} not found`,
+        );
       }
 
-      const [coverImage] = parsePlantImages(plant.images);
-      const unitPrice = plant.price;
-      const lineTotal = unitPrice * quantity;
+      const plantMap = new Map(plants.map((plant) => [plant.id, plant]));
+      const orderItems = mergedItems.map(({ plantId, quantity }) => {
+        const plant = plantMap.get(plantId);
 
-      return {
-        plantId: plant.id,
-        plantName: plant.name,
-        plantImage: coverImage ?? null,
-        unitPrice,
-        quantity,
-        lineTotal,
-      };
-    });
+        if (!plant) {
+          throw new NotFoundException(`Plant with id ${plantId} not found`);
+        }
 
-    const totalAmount = orderItems.reduce(
-      (sum, item) => sum + item.lineTotal,
-      0,
-    );
+        const [coverImage] = parsePlantImages(plant.images);
+        const unitPrice = plant.price;
+        const lineTotal = unitPrice * quantity;
 
-    const createdOrder = await this.prisma.order.create({
-      data: {
-        userId: user.userId,
-        status: OrderStatus.PENDING,
-        customerName: normalizeRequiredText(dto.customerName),
-        customerEmail: user.email,
-        customerPhone: normalizeRequiredText(dto.customerPhone),
-        deliveryAddress: normalizeRequiredText(dto.deliveryAddress),
-        note: normalizeOptionalText(dto.note),
-        totalAmount,
-        items: {
-          create: orderItems,
+        return {
+          plantId: plant.id,
+          plantName: plant.name,
+          plantImage: coverImage ?? null,
+          unitPrice,
+          quantity,
+          lineTotal,
+        };
+      });
+
+      const totalAmount = orderItems.reduce(
+        (sum, item) => sum + item.lineTotal,
+        0,
+      );
+
+      return tx.order.create({
+        data: {
+          userId: user.userId,
+          status: OrderStatus.PENDING,
+          customerName: normalizeRequiredText(dto.customerName),
+          customerEmail: user.email,
+          customerPhone: normalizeRequiredText(dto.customerPhone),
+          deliveryAddress: normalizeRequiredText(dto.deliveryAddress),
+          note: normalizeOptionalText(dto.note),
+          totalAmount,
+          items: {
+            create: orderItems,
+          },
         },
-      },
-      select: orderDetailSelect,
+        select: orderDetailSelect,
+      });
     });
 
     return mapOrderDetail(createdOrder);

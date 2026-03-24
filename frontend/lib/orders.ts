@@ -169,7 +169,7 @@ export async function createCurrentUserOrder(
 }
 
 export async function listCurrentUserOrders(): Promise<OrderSummary[]> {
-  const { res, unauthorized } = await fetchWithRefresh('/orders');
+  const { res, unauthorized } = await fetchWithRefresh('/orders/me');
 
   if (unauthorized) {
     throw new OrdersApiError(
@@ -197,7 +197,7 @@ export async function listCurrentUserOrders(): Promise<OrderSummary[]> {
 
 export async function getCurrentUserOrder(id: number): Promise<OrderDetail> {
   const { res, unauthorized, temporaryFailure } = await fetchWithRefresh(
-    `/orders/${id}`,
+    `/orders/me/${id}`,
   );
 
   if (unauthorized) {
@@ -232,7 +232,7 @@ export async function getCurrentUserOrder(id: number): Promise<OrderDetail> {
 }
 
 export async function listAdminOrders(): Promise<OrderSummary[]> {
-  const res = await fetch(`${API_URL}/admin/orders`, {
+  const res = await fetch(`${API_URL}/orders/admin`, {
     credentials: 'include',
     cache: 'no-store',
   });
@@ -248,7 +248,7 @@ export async function listAdminOrders(): Promise<OrderSummary[]> {
 }
 
 export async function getAdminOrder(id: number): Promise<OrderDetail> {
-  const res = await fetch(`${API_URL}/admin/orders/${id}`, {
+  const res = await fetch(`${API_URL}/orders/admin/${id}`, {
     credentials: 'include',
     cache: 'no-store',
   });
@@ -270,7 +270,7 @@ export async function updateAdminOrderStatus(
   id: number,
   status: OrderStatus,
 ): Promise<OrderDetail> {
-  const res = await fetch(`${API_URL}/admin/orders/${id}/status`, {
+  const res = await fetch(`${API_URL}/orders/admin/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',

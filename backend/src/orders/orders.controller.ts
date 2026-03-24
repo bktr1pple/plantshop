@@ -35,13 +35,13 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get()
+  @Get('me')
   listCurrentUserOrders(@Req() req: AuthenticatedRequest) {
     return this.ordersService.listForUser(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':id')
+  @Get('me/:id')
   getCurrentUserOrder(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,

@@ -7,6 +7,7 @@ import { OrdersService } from './orders.service';
 describe('OrdersService', () => {
   let service: OrdersService;
   let prismaMock: {
+    $transaction: jest.Mock;
     plant: {
       findMany: jest.Mock;
     };
@@ -21,6 +22,7 @@ describe('OrdersService', () => {
 
   beforeEach(async () => {
     prismaMock = {
+      $transaction: jest.fn(),
       plant: {
         findMany: jest.fn(),
       },
@@ -32,6 +34,20 @@ describe('OrdersService', () => {
         update: jest.fn(),
       },
     };
+    prismaMock.$transaction.mockImplementation(
+      (
+        callback: (tx: {
+          plant: typeof prismaMock.plant;
+          order: typeof prismaMock.order;
+        }) => unknown,
+      ) =>
+        Promise.resolve(
+          callback({
+            plant: prismaMock.plant,
+            order: prismaMock.order,
+          }),
+        ),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -125,6 +141,7 @@ describe('OrdersService', () => {
         },
       }),
     );
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       id: 15,
       totalAmount: 240,

@@ -150,7 +150,7 @@ describe('CartModal', () => {
     );
     expect(mockClearCart).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(mockRouterPush).toHaveBeenCalledWith('/dashboard/orders?orderId=77');
+    expect(mockRouterPush).toHaveBeenCalledWith('/dashboard/orders/77');
     expect(mockAddNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'success',
