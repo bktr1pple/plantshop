@@ -7,6 +7,8 @@ import cookieParser from 'cookie-parser';
 import type { RequestHandler } from 'express';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import type { SendMailInput } from '../src/mail/mail.service';
+import { MailService } from '../src/mail/mail.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 const runRealStackSmoke = process.env.RUN_REAL_STACK_SMOKE === '1';
@@ -53,6 +55,25 @@ type OrderDetailResponse = OrderSummaryResponse & {
     lineTotal: number;
   }>;
 };
+type LoginResponseBody =
+  | { status: 'ok' }
+  | {
+      status: 'verification_required';
+      email: string;
+      waitSeconds?: number;
+      message: string;
+    }
+  | {
+      status: 'challenge_required';
+      email: string;
+      challengeId: number;
+      waitSeconds?: number;
+      message: string;
+    }
+  | {
+      status: 'error';
+      message: string;
+    };
 
 function isRecaptchaRequest(input: unknown): boolean {
   if (typeof input === 'string') {
@@ -83,6 +104,7 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
   let originalSiteName = 'Plant Shop';
   let httpServer: HttpServer;
   let bootstrapped = false;
+  const sentMails: SendMailInput[] = [];
 
   function createSmokePreconditionError(cause: unknown): Error {
     const databaseUrl =
@@ -116,6 +138,12 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
 
       return originalFetch(input, init);
     });
+    jest
+      .spyOn(MailService.prototype, 'sendMail')
+      .mockImplementation((input) => {
+        sentMails.push(input);
+        return Promise.resolve();
+      });
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -172,6 +200,7 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
         password: hashedPassword,
         name: 'Smoke Admin',
         role: 'ADMIN',
+        emailVerifiedAt: new Date(),
       },
     });
 
@@ -181,6 +210,7 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
         password: hashedPassword,
         name: 'Smoke User',
         role: 'USER',
+        emailVerifiedAt: new Date(),
       },
     });
 
@@ -234,16 +264,18 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
   });
 
   async function loginAs(agent: Agent, email: string, rawPassword: string) {
-    const res = await agent.post('/auth/login').send({
+    const initialResponse = await agent.post('/auth/login').send({
       email,
       password: rawPassword,
       captchaToken: 'real-stack-smoke',
     });
 
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    const response = await completeLoginIfNeeded(agent, email, initialResponse);
 
-    const setCookieHeader = res.headers['set-cookie'];
+    expect([200, 201]).toContain(response.status);
+    expect(response.body).toEqual({ status: 'ok' });
+
+    const setCookieHeader = response.headers['set-cookie'];
     const setCookie: string[] = Array.isArray(setCookieHeader)
       ? setCookieHeader.filter(
           (cookie): cookie is string => typeof cookie === 'string',
@@ -255,6 +287,93 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
     expect(
       setCookie.some((cookie) => cookie.startsWith('refresh_token=')),
     ).toBe(true);
+    expect(
+      setCookie.some((cookie) => cookie.startsWith('trusted_login=')),
+    ).toBe(true);
+  }
+
+  function getLatestMail(to: string, subject: string): SendMailInput {
+    const mail = [...sentMails]
+      .reverse()
+      .find((item) => item.to === to && item.subject === subject);
+
+    expect(mail).toBeDefined();
+    return mail!;
+  }
+
+  function extractTokenFromMail(text: string, path: string): string {
+    const line = text
+      .split('\n')
+      .map((value) => value.trim())
+      .find((value) => value.includes(path));
+
+    expect(line).toBeDefined();
+
+    const url = new URL(line!);
+    const token = url.searchParams.get('token');
+
+    expect(token).toBeTruthy();
+    return token!;
+  }
+
+  function extractLoginCode(text: string): string {
+    const match = text.match(/\b(\d{6})\b/);
+
+    expect(match).not.toBeNull();
+    return match![1];
+  }
+
+  async function completeLoginIfNeeded(
+    agent: Agent,
+    email: string,
+    response: request.Response,
+  ): Promise<request.Response> {
+    const body = response.body as LoginResponseBody;
+
+    if (body?.status === 'verification_required') {
+      const verifyMail = getLatestMail(
+        email,
+        'Підтвердження email для PlantShop',
+      );
+      const token = extractTokenFromMail(verifyMail.text, '/verify-email');
+      const verifyResponse = await request(httpServer)
+        .post('/auth/verify-email')
+        .send({
+          token,
+        });
+
+      expect([200, 201]).toContain(verifyResponse.status);
+      expect(verifyResponse.body).toMatchObject({
+        status: 'ok',
+        email,
+      });
+
+      const retriedLogin = await agent.post('/auth/login').send({
+        email,
+        password,
+        captchaToken: 'real-stack-smoke',
+      });
+
+      return completeLoginIfNeeded(agent, email, retriedLogin);
+    }
+
+    if (body?.status === 'challenge_required') {
+      const challengeMail = getLatestMail(
+        email,
+        'Код підтвердження входу PlantShop',
+      );
+      const code = extractLoginCode(challengeMail.text);
+      const challengeResponse = await agent
+        .post('/auth/login-challenge/verify')
+        .send({
+          challengeId: body.challengeId,
+          code,
+        });
+
+      return challengeResponse;
+    }
+
+    return response;
   }
 
   async function createOrderAs(agent: Agent) {
