@@ -570,7 +570,7 @@ export default function SettingsPage() {
             'Для безпеки ми завершили поточну сесію. Увійдіть знову з новим паролем.',
           duration: 3500,
         });
-        router.push('/?auth=login');
+        router.push('/');
         router.refresh();
       } finally {
         setIsChangingPassword(false);

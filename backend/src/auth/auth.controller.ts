@@ -15,7 +15,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
 import type { VerifiedAccessTokenPayload } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -316,13 +316,57 @@ export class AuthController {
     });
   }
 
-  private clearAuthCookies(res: Response) {
+  private clearSessionCookies(res: Response) {
     const domain = this.getCookieDomain();
     const opts = { path: '/', domain };
 
     res.clearCookie('access_token', opts);
     res.clearCookie('refresh_token', opts);
+  }
+
+  private clearTrustedLoginCookie(res: Response) {
+    const domain = this.getCookieDomain();
+    const opts = { path: '/', domain };
+
     res.clearCookie('trusted_login', opts);
+  }
+
+  private clearAllAuthCookies(res: Response) {
+    this.clearSessionCookies(res);
+    this.clearTrustedLoginCookie(res);
+  }
+
+  private async establishTrustedSession(params: {
+    res: Response;
+    userId: number;
+    email: string;
+    role: UserRole;
+    userAgentSummary: string | null;
+    trustedLoginToken?: string;
+  }) {
+    const trustedLoginToken =
+      params.trustedLoginToken ??
+      this.loginChallengeService.generateTrustedLoginToken();
+    const trustedContextHash =
+      this.loginChallengeService.hashTrustedLoginToken(trustedLoginToken);
+    const tokens = await this.authService.login(
+      params.userId,
+      params.email,
+      params.role,
+      {
+        trustedContextHash,
+        userAgentSummary: params.userAgentSummary,
+      },
+    );
+
+    await this.loginChallengeService.rememberTrustedContext({
+      userId: params.userId,
+      trustedLoginToken,
+      userAgentSummary: params.userAgentSummary,
+    });
+
+    this.setAuthCookies(params.res, tokens);
+    this.setTrustedLoginCookie(params.res, trustedLoginToken);
   }
 
   private async resolveCurrentUser(
@@ -352,7 +396,7 @@ export class AuthController {
             payload = this.authService.verifyAccessToken(newTokens.accessToken);
           } catch (error) {
             if (error instanceof UnauthorizedException) {
-              this.clearAuthCookies(res);
+              this.clearSessionCookies(res);
               throw new UnauthorizedException('Invalid refresh token');
             }
 
@@ -361,7 +405,7 @@ export class AuthController {
             );
           }
         } else {
-          this.clearAuthCookies(res);
+          this.clearSessionCookies(res);
           throw new UnauthorizedException('Invalid access token');
         }
       }
@@ -372,7 +416,7 @@ export class AuthController {
         payload = this.authService.verifyAccessToken(newTokens.accessToken);
       } catch (error) {
         if (error instanceof UnauthorizedException) {
-          this.clearAuthCookies(res);
+          this.clearSessionCookies(res);
           throw new UnauthorizedException('Invalid refresh token');
         }
 
@@ -383,7 +427,7 @@ export class AuthController {
     }
 
     if (!payload?.sub && !payload?.userId) {
-      this.clearAuthCookies(res);
+      this.clearSessionCookies(res);
       throw new UnauthorizedException('User not found in token');
     }
 
@@ -395,7 +439,7 @@ export class AuthController {
     });
 
     if (!user) {
-      this.clearAuthCookies(res);
+      this.clearSessionCookies(res);
       throw new UnauthorizedException('User not found');
     }
 
@@ -430,31 +474,50 @@ export class AuthController {
       };
     }
 
-    const user = await this.authService.register(
+    const registration = await this.authService.register(
       dto.email,
       dto.password,
       dto.name,
     );
 
-    const sendResult = await this.emailSecurityService.sendEmailVerification(
-      {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        emailVerifiedAt: user.emailVerifiedAt,
-      },
-      { resent: !user.created },
-    );
+    if (registration.kind === 'legacy_unverified_user') {
+      const sendResult = await this.emailSecurityService.sendEmailVerification(
+        {
+          id: registration.user.id,
+          email: registration.user.email,
+          role: registration.user.role,
+          emailVerifiedAt: registration.user.emailVerifiedAt,
+        },
+        { resent: true },
+      );
+
+      return {
+        status: 'verification_required',
+        email: registration.user.email,
+        resent: true,
+        waitSeconds:
+          sendResult.status === 'cooldown' ? sendResult.waitSeconds : undefined,
+        message:
+          'Для цього email уже є незавершена реєстрація. Ми надіслали або щойно повторили лист підтвердження.',
+      };
+    }
+
+    if (registration.rawToken) {
+      await this.emailSecurityService.sendPendingRegistrationEmail({
+        email: registration.email,
+        rawToken: registration.rawToken,
+        resent: registration.reusedExisting,
+      });
+    }
 
     return {
       status: 'verification_required',
-      email: user.email,
-      resent: !user.created,
-      waitSeconds:
-        sendResult.status === 'cooldown' ? sendResult.waitSeconds : undefined,
-      message: user.created
-        ? 'Ми надіслали лист для підтвердження email. Завершіть верифікацію, щоб увійти.'
-        : 'Для цього email вже існує неверифікований акаунт. Ми оновили лист підтвердження.',
+      email: registration.email,
+      resent: registration.reusedExisting,
+      waitSeconds: registration.waitSeconds,
+      message: registration.reusedExisting
+        ? 'Для цього email уже є незавершена реєстрація. Ми надіслали або щойно повторили лист підтвердження.'
+        : 'Ми надіслали лист для підтвердження email. Після підтвердження акаунт буде створено остаточно.',
     };
   }
 
@@ -475,6 +538,39 @@ export class AuthController {
 
     const user = await this.authService.validateUser(dto.email, dto.password);
     if (!user) {
+      const pendingRegistration =
+        await this.authService.validatePendingRegistration(
+          dto.email,
+          dto.password,
+        );
+
+      if (pendingRegistration) {
+        const resendResult = await this.authService.resendPendingRegistration(
+          dto.email,
+        );
+
+        if (resendResult.status === 'queued' && resendResult.rawToken) {
+          await this.emailSecurityService.sendPendingRegistrationEmail({
+            email: dto.email,
+            rawToken: resendResult.rawToken,
+            resent: true,
+          });
+        }
+
+        this.clearSessionCookies(res);
+
+        return {
+          status: 'verification_required',
+          email: dto.email,
+          waitSeconds:
+            resendResult.status === 'cooldown'
+              ? resendResult.waitSeconds
+              : undefined,
+          message:
+            'Перш ніж увійти, підтвердіть email і завершіть створення акаунта.',
+        };
+      }
+
       return { status: 'error', message: 'Невірний email або пароль' };
     }
 
@@ -489,7 +585,7 @@ export class AuthController {
         { resent: true },
       );
 
-      this.clearAuthCookies(res);
+      this.clearSessionCookies(res);
 
       return {
         status: 'verification_required',
@@ -519,7 +615,10 @@ export class AuthController {
         ip: this.getClientIp(req),
       });
 
-      this.clearAuthCookies(res);
+      this.clearSessionCookies(res);
+      if (cookies.trusted_login) {
+        this.clearTrustedLoginCookie(res);
+      }
 
       return {
         status: 'challenge_required',
@@ -532,27 +631,36 @@ export class AuthController {
       };
     }
 
-    const trustedLoginToken =
-      this.loginChallengeService.generateTrustedLoginToken();
-    const trustedContextHash =
-      this.loginChallengeService.hashTrustedLoginToken(trustedLoginToken);
-    const tokens = await this.authService.login(
-      user.id,
-      user.email,
-      user.role,
-      {
-        trustedContextHash,
-        userAgentSummary: context.userAgentSummary,
-      },
-    );
+    await this.establishTrustedSession({
+      res,
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      userAgentSummary: context.userAgentSummary,
+      trustedLoginToken: cookies.trusted_login?.trim() || undefined,
+    });
 
-    this.setAuthCookies(res, tokens);
-    this.setTrustedLoginCookie(res, trustedLoginToken);
     return { status: 'ok' };
   }
 
   @Post('verify-email')
   async verifyEmail(@Body() dto: VerifyEmailDto) {
+    const pendingResult =
+      await this.authService.consumePendingRegistrationToken(dto.token);
+
+    if (pendingResult.status === 'verified') {
+      return {
+        status: 'ok',
+        email: pendingResult.email,
+        message:
+          'Email успішно підтверджено. Акаунт створено, тепер ви можете увійти.',
+      };
+    }
+
+    if (pendingResult.error !== 'TOKEN_INVALID') {
+      throwTokenStateError(pendingResult.error);
+    }
+
     const result = await this.emailSecurityService.verifyEmailToken(dto.token);
 
     if (result.status === 'error') {
@@ -568,9 +676,29 @@ export class AuthController {
 
   @Post('resend-verification-email')
   async resendVerificationEmail(@Body() dto: ResendVerificationEmailDto) {
-    const result = await this.emailSecurityService.resendVerificationForEmail(
+    const pendingResult = await this.authService.resendPendingRegistration(
       dto.email,
     );
+
+    let result: { status: 'ok' | 'cooldown'; waitSeconds?: number };
+
+    if (pendingResult.status === 'queued' && pendingResult.rawToken) {
+      await this.emailSecurityService.sendPendingRegistrationEmail({
+        email: dto.email,
+        rawToken: pendingResult.rawToken,
+        resent: true,
+      });
+      result = { status: 'ok' };
+    } else if (pendingResult.status === 'cooldown') {
+      result = {
+        status: 'cooldown',
+        waitSeconds: pendingResult.waitSeconds,
+      };
+    } else {
+      result = await this.emailSecurityService.resendVerificationForEmail(
+        dto.email,
+      );
+    }
 
     return {
       status: 'ok',
@@ -608,6 +736,7 @@ export class AuthController {
       async (tx, userId) => {
         await this.authService.updatePassword(userId, dto.newPassword, tx);
         await this.authService.logoutAll(userId, tx);
+        await this.loginChallengeService.revokeTrustedContexts(userId, tx);
       },
     );
 
@@ -615,7 +744,7 @@ export class AuthController {
       throwTokenStateError(result.error as TokenStateError);
     }
 
-    this.clearAuthCookies(res);
+    this.clearAllAuthCookies(res);
 
     return {
       status: 'ok',
@@ -652,9 +781,13 @@ export class AuthController {
         tx,
       );
       await this.authService.logoutAll(currentUser.id, tx);
+      await this.loginChallengeService.revokeTrustedContexts(
+        currentUser.id,
+        tx,
+      );
     });
 
-    this.clearAuthCookies(res);
+    this.clearAllAuthCookies(res);
 
     return {
       status: 'ok',
@@ -679,25 +812,15 @@ export class AuthController {
     }
 
     const verifiedUser = result.user;
-    const trustedLoginToken =
-      this.loginChallengeService.generateTrustedLoginToken();
-    const trustedContextHash =
-      this.loginChallengeService.hashTrustedLoginToken(trustedLoginToken);
-
-    const tokens = await this.authService.login(
-      verifiedUser!.id,
-      verifiedUser!.email,
-      verifiedUser!.role,
-      {
-        trustedContextHash,
-        userAgentSummary:
-          result.userAgentSummary ??
-          this.loginChallengeService.summarizeUserAgent(this.getUserAgent(req)),
-      },
-    );
-
-    this.setAuthCookies(res, tokens);
-    this.setTrustedLoginCookie(res, trustedLoginToken);
+    await this.establishTrustedSession({
+      res,
+      userId: verifiedUser!.id,
+      email: verifiedUser!.email,
+      role: verifiedUser!.role,
+      userAgentSummary:
+        result.userAgentSummary ??
+        this.loginChallengeService.summarizeUserAgent(this.getUserAgent(req)),
+    });
 
     return { status: 'ok' };
   }
@@ -710,7 +833,7 @@ export class AuthController {
       await this.authService.revokeRefreshToken(rt);
     }
 
-    this.clearAuthCookies(res);
+    this.clearSessionCookies(res);
 
     return { status: 'ok' };
   }

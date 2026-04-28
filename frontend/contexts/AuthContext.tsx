@@ -12,6 +12,10 @@ import React, {
 
 import { useNotification } from '@/app/components/NotificationSystem';
 import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
+import {
+  verifyLoginChallenge,
+  type SecurityErrorCode,
+} from '@/lib/auth-security';
 import { useRouter } from 'next/navigation';
 
 export type UserRole = 'USER' | 'ADMIN';
@@ -47,6 +51,7 @@ export interface AuthActionResult {
   email?: string;
   challengeId?: number;
   waitSeconds?: number;
+  errorCode?: SecurityErrorCode;
 }
 
 interface AuthContextType {
@@ -62,6 +67,10 @@ interface AuthContextType {
     password: string,
     name: string,
     captchaToken: string,
+  ) => Promise<AuthActionResult>;
+  completeLoginChallenge: (
+    challengeId: number,
+    code: string,
   ) => Promise<AuthActionResult>;
   logout: () => Promise<boolean>;
   checkAuth: () => Promise<boolean>;
@@ -365,6 +374,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
+  const completeLoginChallenge = async (
+    challengeId: number,
+    code: string,
+  ): Promise<AuthActionResult> => {
+    try {
+      setIsLoading(true);
+
+      const result = await verifyLoginChallenge({
+        challengeId,
+        code,
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          status: 'error',
+          message: result.message,
+          errorCode: result.errorCode,
+        };
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const authStatus = await checkAuthStatus();
+
+      if (authStatus === 'authenticated') {
+        return {
+          success: true,
+          status: 'ok',
+          message: result.message,
+        };
+      }
+
+      if (authStatus === 'unauthorized') {
+        setUser(null);
+        return {
+          success: false,
+          status: 'error',
+          message: 'Сесію не вдалося підтвердити після перевірки коду.',
+        };
+      }
+
+      return {
+        success: false,
+        status: 'error',
+        message:
+          'Код підтверджено, але не вдалося перевірити сесію через тимчасову помилку мережі.',
+        errorCode: 'TEMPORARILY_UNAVAILABLE',
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -372,6 +434,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         register,
+        completeLoginChallenge,
         logout,
         checkAuth,
         ensureAuthAndGo,

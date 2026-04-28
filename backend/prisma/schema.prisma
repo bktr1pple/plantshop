@@ -20,28 +20,29 @@ model Plant {
 }
 
 model User {
-  id                Int            @id @default(autoincrement())
-  email             String         @unique
-  emailVerifiedAt   DateTime?
-  password          String
-  name              String?
-  phone             String?
-  address           String?
-  bio               String?        @db.Text
-  emailNotifications Boolean       @default(true)
-  orderUpdates      Boolean        @default(true)
-  careReminders     Boolean        @default(true)
-  promotional       Boolean        @default(false)
-  profileVisibility String         @default("friends")
-  dataSharing       Boolean        @default(false)
-  personalizedAds   Boolean        @default(false)
-  role              UserRole       @default(USER)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  refreshTokens     RefreshToken[]
+  id                 Int                  @id @default(autoincrement())
+  email              String               @unique
+  emailVerifiedAt    DateTime?
+  password           String
+  name               String?
+  phone              String?
+  address            String?
+  bio                String?              @db.Text
+  emailNotifications Boolean              @default(true)
+  orderUpdates       Boolean              @default(true)
+  careReminders      Boolean              @default(true)
+  promotional        Boolean              @default(false)
+  profileVisibility  String               @default("friends")
+  dataSharing        Boolean              @default(false)
+  personalizedAds    Boolean              @default(false)
+  role               UserRole             @default(USER)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  refreshTokens      RefreshToken[]
+  trustedLoginContexts TrustedLoginContext[]
   verificationTokens VerificationToken[]
-  loginChallenges   LoginChallenge[]
-  orders            Order[]
+  loginChallenges    LoginChallenge[]
+  orders             Order[]
 }
 
 enum UserRole {
@@ -100,6 +101,34 @@ model LoginChallenge {
 
   @@index([userId, expiresAt])
   @@index([userId, consumedAt])
+}
+
+model TrustedLoginContext {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash        String   @unique
+  userAgentSummary String?
+  expiresAt        DateTime
+  lastUsedAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model PendingRegistration {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  tokenHash    String   @unique
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@index([consumedAt])
 }
 
 model SiteSettings {

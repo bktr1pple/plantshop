@@ -295,7 +295,7 @@ describe('Dashboard settings page', () => {
         }),
       ),
     );
-    expect(mockPush).toHaveBeenCalledWith('/?auth=login');
+    expect(mockPush).toHaveBeenCalledWith('/');
     expect(mockRefresh).toHaveBeenCalled();
   });
 });

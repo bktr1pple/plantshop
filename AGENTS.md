@@ -30,7 +30,8 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 ### Frontend
 - Main app lives in `frontend/app`.
 - Public storefront routes include `/`, `/plants`, `/about`, `/contact`, `/care`, `/pots`, `/landscape-design`, `/convert`, `/dashboard`, `/dashboard/orders`, `/dashboard/settings`, `/signin`, `/register`, `/logout`.
-- Public auth/security routes also include `/verify-email`, `/verify-login-code`, `/forgot-password`, `/reset-password`.
+- Public auth/security routes also include `/verify-email` and `/reset-password`.
+- Legacy compatibility entrypoints `/forgot-password` and `/verify-login-code` currently redirect back into the native auth modal flow instead of rendering detached standalone UX.
 - Global unmatched routes should resolve through `frontend/app/not-found.tsx` instead of falling back to the default gray framework "Not Found" screen.
 - Orders dashboard also has a deep-link detail entrypoint under `/dashboard/orders/[id]`, which resolves to the real persisted order detail view.
 - Admin routes live under `frontend/app/admin`:
@@ -96,7 +97,8 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - customer email is taken from the authenticated account, not from an arbitrary checkout field
 
 ### Auth/session architecture
-- Registration now creates a real user with `emailVerifiedAt = null`, sends a verification email, and returns `verification_required` without auth cookies.
+- Registration now creates or updates a `PendingRegistration` record, sends a verification email, and returns `verification_required` without auth cookies.
+- A real `User` row is created only after successful `POST /auth/verify-email`.
 - Backend auth endpoints:
   - `POST /auth/register`
   - `POST /auth/login`
@@ -114,18 +116,26 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `refresh_token`
   - `trusted_login`
 - Frontend auth bootstrap performs a real `/auth/me` check on mount.
+- Frontend auth modal is the native surface for:
+  - login
+  - registration
+  - forgot-password request
+  - login challenge code entry
+  - inline verification-required guidance/resend
 - Frontend distinguishes:
   - authenticated
   - unauthorized
   - temporarily unavailable auth backend
 - Login for an unverified account does not issue auth cookies; it returns `verification_required`.
 - Login from an unrecognized context does not issue auth cookies until a successful email challenge verification.
+- Login challenge completion is now native and inline inside the auth modal; it must not depend on public URL params like `challengeId` or `email`.
 - Temporary auth/backend/network failures must not be treated as confirmed logout.
 - Backend `/auth/me` should distinguish confirmed unauthorized refresh failures from transient auth/backend failures; transient refresh or auth infrastructure failures should surface as unavailable rather than forcing a false logout.
 - Current client-side cabinet fetches outside `/auth/*` may confirm session state through `/auth/me` and retry once after confirmed authenticated recovery; auth endpoints themselves must not recurse through the same recovery path.
 - Frontend logout is confirmed-only:
   - success path clears local auth state only after confirmed backend logout or confirmed unauthorized follow-up
   - ambiguous logout failure must preserve user state and surface an honest error/unavailable signal
+- `/logout` should redirect to the plain homepage after confirmed logout; it must not intentionally reopen the auth modal.
 - Route protection is enforced both:
   - server-side in `frontend/proxy.ts`
   - backend-side on protected endpoints
@@ -136,9 +146,11 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `frontend/proxy.ts` remains security-sensitive and must still be changed only in a narrowly scoped auth-policy pass
 - Current trusted-login reality:
   - `trusted_login` is a long-lived httpOnly cookie with an opaque random token
-  - the backend validates it only via a hash match against an active `RefreshToken.trustedContextHash`
+  - the backend validates it via a hash match against a stable `TrustedLoginContext` record, not only against the current refresh-session lifecycle
   - `userAgentSummary` must also be compatible before the context is treated as recognized
   - if those checks fail, login falls back to email challenge instead of trusting the cookie
+  - normal logout clears session cookies but preserves trusted-login recognition for the same browser context
+  - password reset and dashboard password change revoke both refresh sessions and trusted-login contexts, then clear all auth cookies
 
 ### Role/admin model
 - Role model is already implemented in the database and auth payloads.
@@ -208,6 +220,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 
 ## Current product decisions already implemented
 - Registration must not create a fake authenticated session before email verification succeeds.
+- Registration must not create a real `User` row before email ownership is verified; use `PendingRegistration` instead.
 - Frontend must not fake authenticated state after registration.
 - `/dashboard` and `/admin` must not remain accessible if auth verification fails.
 - Current-user dashboard settings are real and use the authenticated `/auth/me` read/update contract.
@@ -222,6 +235,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Media uploads are real backend-managed files, not fake blob-only frontend state.
 - Logout UX must not claim success before backend truth confirms session termination.
 - Forgot-password public UX must stay non-enumerating.
+- Normal forgot-password UX should live inside the auth modal, not in a detached standalone page.
 - Reset-password and dashboard change-password must revoke refresh sessions and clear auth cookies on success.
 - Current access tokens are still short-lived stateless JWTs; after password reset/change they naturally expire on their normal TTL, because a token-version redesign is still out of scope.
 - Validation is enabled globally in NestJS via `ValidationPipe` with compatibility-safe settings:
@@ -392,6 +406,7 @@ When auditing or reviewing this repository, prioritize:
 - Frontend tests currently cover:
   - admin shell
   - `AuthContext` auth/logout semantics
+  - auth modal inline login/register/forgot-password/challenge UX
   - auth-security client helpers
   - cart-to-order creation wiring
   - dashboard overview latest-order summary state

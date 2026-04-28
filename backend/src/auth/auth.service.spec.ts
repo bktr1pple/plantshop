@@ -2,6 +2,7 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 
@@ -18,11 +19,17 @@ describe('AuthService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    pendingRegistration: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
     refreshToken: {
       create: jest.Mock;
       findMany: jest.Mock;
       deleteMany: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
   let jwtServiceMock: {
     sign: jest.Mock;
@@ -37,11 +44,20 @@ describe('AuthService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      pendingRegistration: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
       refreshToken: {
         create: jest.fn(),
         findMany: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      $transaction: jest.fn(
+        async (callback: (tx: typeof prismaMock) => Promise<unknown>) =>
+          callback(prismaMock),
+      ),
     };
 
     jwtServiceMock = {
@@ -72,16 +88,9 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  it('register створює нового користувача з emailVerifiedAt = null', async () => {
+  it('register створює pending registration замість реального User', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
-    prismaMock.user.create.mockResolvedValue({
-      id: 1,
-      email: 'user@example.com',
-      name: 'User',
-      role: 'USER',
-      createdAt: new Date(),
-      emailVerifiedAt: null,
-    });
+    prismaMock.pendingRegistration.findUnique.mockResolvedValue(null);
     jest.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
 
     const result = await service.register(
@@ -90,49 +99,56 @@ describe('AuthService', () => {
       'User',
     );
 
-    expect(prismaMock.user.create).toHaveBeenCalledWith({
-      data: {
-        email: 'user@example.com',
-        password: 'hashed-password',
-        name: 'User',
-        role: 'USER',
-        emailVerifiedAt: null,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        emailVerifiedAt: true,
-      },
-    });
-    expect(result.created).toBe(true);
+    const createCalls = prismaMock.pendingRegistration.create.mock
+      .calls as Array<
+      [
+        {
+          data: {
+            email: string;
+            passwordHash: string;
+            name: string | null;
+            tokenHash: string;
+            expiresAt: Date;
+          };
+        },
+      ]
+    >;
+    const createArgs = createCalls[0]?.[0];
+
+    expect(createArgs?.data.email).toBe('user@example.com');
+    expect(createArgs?.data.passwordHash).toBe('hashed-password');
+    expect(createArgs?.data.name).toBe('User');
+    expect(typeof createArgs?.data.tokenHash).toBe('string');
+    expect(createArgs?.data.expiresAt).toBeInstanceOf(Date);
+    expect(result.kind).toBe('pending_registration');
+    expect(result.email).toBe('user@example.com');
+    expect(result.reusedExisting).toBe(false);
+    expect(typeof result.rawToken).toBe('string');
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
   });
 
-  it('register не створює дубль для вже існуючого неверифікованого email', async () => {
-    const createdAt = new Date();
+  it('register повертає legacy unverified user без дубля', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 4,
       email: 'user@example.com',
       name: 'Existing',
       role: 'USER',
-      createdAt,
       emailVerifiedAt: null,
     });
 
     await expect(
       service.register('user@example.com', 'password123', 'User'),
     ).resolves.toEqual({
-      id: 4,
-      email: 'user@example.com',
-      name: 'Existing',
-      role: 'USER',
-      createdAt,
-      emailVerifiedAt: null,
-      created: false,
+      kind: 'legacy_unverified_user',
+      user: {
+        id: 4,
+        email: 'user@example.com',
+        name: 'Existing',
+        role: 'USER',
+        emailVerifiedAt: null,
+      },
     });
-    expect(prismaMock.user.create).not.toHaveBeenCalled();
+    expect(prismaMock.pendingRegistration.create).not.toHaveBeenCalled();
   });
 
   it('register кидає ConflictException для вже верифікованого email', async () => {
@@ -161,6 +177,120 @@ describe('AuthService', () => {
       email: 'user@example.com',
       password: 'hashed-password',
     });
+  });
+
+  it('validatePendingRegistration повертає pending user лише для валідного пароля', async () => {
+    prismaMock.pendingRegistration.findUnique.mockResolvedValue({
+      id: 7,
+      email: 'user@example.com',
+      name: 'Pending',
+      passwordHash: 'hashed-password',
+      expiresAt: new Date(Date.now() + 60_000),
+      consumedAt: null,
+    });
+    jest.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+    await expect(
+      service.validatePendingRegistration('user@example.com', 'password123'),
+    ).resolves.toEqual({
+      id: 7,
+      email: 'user@example.com',
+      name: 'Pending',
+    });
+  });
+
+  it('resendPendingRegistration створює новий token для активної незавершеної реєстрації', async () => {
+    prismaMock.pendingRegistration.findUnique.mockResolvedValue({
+      id: 9,
+      email: 'user@example.com',
+      name: 'Pending',
+      tokenHash: 'old-token-hash',
+      passwordHash: 'hashed-password',
+      expiresAt: new Date(Date.now() + 60_000),
+      consumedAt: null,
+      updatedAt: new Date(Date.now() - 120_000),
+    });
+
+    const result = await service.resendPendingRegistration('user@example.com');
+
+    const updateCalls = prismaMock.pendingRegistration.update.mock
+      .calls as Array<
+      [
+        {
+          where: { id: number };
+          data: {
+            tokenHash: string;
+            expiresAt: Date;
+            consumedAt: null;
+          };
+        },
+      ]
+    >;
+    const updateArgs = updateCalls[0]?.[0];
+
+    expect(result.status).toBe('queued');
+    expect(typeof result.rawToken).toBe('string');
+    expect(updateArgs?.where.id).toBe(9);
+    expect(typeof updateArgs?.data.tokenHash).toBe('string');
+    expect(updateArgs?.data.expiresAt).toBeInstanceOf(Date);
+    expect(updateArgs?.data.consumedAt).toBeNull();
+  });
+
+  it('consumePendingRegistrationToken створює реального User лише після verify token', async () => {
+    const rawToken = 'a'.repeat(64);
+    prismaMock.pendingRegistration.findUnique.mockResolvedValue({
+      id: 11,
+      email: 'pending@example.com',
+      name: 'Pending User',
+      passwordHash: 'hashed-password',
+      tokenHash: createHash('sha256').update(rawToken).digest('hex'),
+      expiresAt: new Date(Date.now() + 60_000),
+      consumedAt: null,
+    });
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue({ id: 21 });
+
+    await expect(
+      service.consumePendingRegistrationToken(rawToken),
+    ).resolves.toEqual({
+      status: 'verified',
+      email: 'pending@example.com',
+      userId: 21,
+    });
+    const userCreateCalls = prismaMock.user.create.mock.calls as Array<
+      [
+        {
+          data: {
+            email: string;
+            password: string;
+            name: string | null;
+            role: string;
+            emailVerifiedAt: Date;
+          };
+          select: { id: true };
+        },
+      ]
+    >;
+    const pendingUpdateCalls = prismaMock.pendingRegistration.update.mock
+      .calls as Array<
+      [
+        {
+          where: { id: number };
+          data: { consumedAt: Date };
+        },
+      ]
+    >;
+    const userCreateArgs = userCreateCalls[0]?.[0];
+    const pendingUpdateArgs = pendingUpdateCalls[0]?.[0];
+
+    expect(userCreateArgs?.data.email).toBe('pending@example.com');
+    expect(userCreateArgs?.data.password).toBe('hashed-password');
+    expect(userCreateArgs?.data.name).toBe('Pending User');
+    expect(userCreateArgs?.data.role).toBe('USER');
+    expect(userCreateArgs?.data.emailVerifiedAt).toBeInstanceOf(Date);
+    expect(userCreateArgs?.select).toEqual({ id: true });
+    expect(pendingUpdateArgs?.where.id).toBe(11);
+    expect(pendingUpdateArgs?.data.consumedAt).toBeInstanceOf(Date);
   });
 
   it('login видає токени і зберігає trusted context metadata', async () => {

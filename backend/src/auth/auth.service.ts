@@ -6,8 +6,9 @@ import {
 import type { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { addSeconds } from 'date-fns';
+import { addHours, addSeconds } from 'date-fns';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, randomBytes } from 'crypto';
 import {
   getJwtAccessExpiresIn,
   getJwtRefreshExpiresIn,
@@ -26,6 +27,42 @@ export interface AuthSessionTokens {
   refreshToken: string;
 }
 
+export type PendingRegistrationError =
+  | 'TOKEN_INVALID'
+  | 'TOKEN_EXPIRED'
+  | 'TOKEN_CONSUMED';
+
+export type RegisterResult =
+  | {
+      kind: 'pending_registration';
+      email: string;
+      name: string | null;
+      rawToken?: string;
+      waitSeconds?: number;
+      reusedExisting: boolean;
+    }
+  | {
+      kind: 'legacy_unverified_user';
+      user: {
+        id: number;
+        email: string;
+        name: string | null;
+        role: UserRole;
+        emailVerifiedAt: Date | null;
+      };
+    };
+
+export type PendingRegistrationVerificationResult =
+  | {
+      status: 'verified';
+      email: string;
+      userId: number;
+    }
+  | {
+      status: 'error';
+      error: PendingRegistrationError;
+    };
+
 interface LoginSessionOptions {
   trustedContextHash?: string | null;
   userAgentSummary?: string | null;
@@ -35,6 +72,22 @@ const jwtAccessSecret = getRequiredEnv('JWT_ACCESS_SECRET');
 const jwtRefreshSecret = getRequiredEnv('JWT_REFRESH_SECRET');
 const jwtAccessExpiresIn = getJwtAccessExpiresIn();
 const jwtRefreshExpiresIn = getJwtRefreshExpiresIn();
+const PENDING_REGISTRATION_TTL_HOURS = 24;
+const PENDING_REGISTRATION_COOLDOWN_MS = 60_000;
+
+function hashOpaqueValue(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function buildOpaqueToken(): string {
+  return randomBytes(32).toString('hex');
+}
+
+function buildWaitSeconds(updatedAt: Date): number {
+  const waitMs =
+    PENDING_REGISTRATION_COOLDOWN_MS - (Date.now() - updatedAt.getTime());
+  return Math.max(1, Math.ceil(waitMs / 1000));
+}
 
 function isTokenExpiredError(error: unknown): error is { name: string } {
   return (
@@ -60,49 +113,101 @@ export class AuthService {
     return bcrypt.hash(password, this.getSaltRounds());
   }
 
-  async register(email: string, password: string, name?: string) {
-    const exists = await this.prisma.user.findUnique({ where: { email } });
-
-    if (exists?.emailVerifiedAt) {
-      throw new ConflictException('Обліковий запис з таким email вже існує');
-    }
-
-    if (exists) {
-      return {
-        id: exists.id,
-        email: exists.email,
-        name: exists.name,
-        role: exists.role,
-        createdAt: exists.createdAt,
-        emailVerifiedAt: exists.emailVerifiedAt,
-        created: false,
-      };
-    }
-
-    const hashed = await this.hashPassword(password);
-
-    const createdUser = await this.prisma.user.create({
-      data: {
-        email,
-        password: hashed,
-        name,
-        role: 'USER',
-        emailVerifiedAt: null,
-      },
+  async register(
+    email: string,
+    password: string,
+    name?: string,
+  ): Promise<RegisterResult> {
+    const normalizedName = name?.trim() || null;
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
-        createdAt: true,
         emailVerifiedAt: true,
       },
     });
 
-    return {
-      ...createdUser,
-      created: true,
-    };
+    if (existingUser?.emailVerifiedAt) {
+      throw new ConflictException('Обліковий запис з таким email вже існує');
+    }
+
+    if (existingUser) {
+      return {
+        kind: 'legacy_unverified_user',
+        user: existingUser,
+      };
+    }
+
+    const hashedPassword = await this.hashPassword(password);
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingPending = await tx.pendingRegistration.findUnique({
+        where: { email },
+      });
+      const expiresAt = addHours(now, PENDING_REGISTRATION_TTL_HOURS);
+
+      if (
+        existingPending &&
+        existingPending.consumedAt === null &&
+        existingPending.expiresAt > now &&
+        now.getTime() - existingPending.updatedAt.getTime() <
+          PENDING_REGISTRATION_COOLDOWN_MS
+      ) {
+        return {
+          kind: 'pending_registration' as const,
+          email,
+          name: existingPending.name,
+          waitSeconds: buildWaitSeconds(existingPending.updatedAt),
+          reusedExisting: true,
+        };
+      }
+
+      const rawToken = buildOpaqueToken();
+      const tokenHash = hashOpaqueValue(rawToken);
+
+      if (existingPending) {
+        await tx.pendingRegistration.update({
+          where: { id: existingPending.id },
+          data: {
+            passwordHash: hashedPassword,
+            name: normalizedName,
+            tokenHash,
+            expiresAt,
+            consumedAt: null,
+          },
+        });
+
+        return {
+          kind: 'pending_registration' as const,
+          email,
+          name: normalizedName,
+          rawToken,
+          reusedExisting: true,
+        };
+      }
+
+      await tx.pendingRegistration.create({
+        data: {
+          email,
+          passwordHash: hashedPassword,
+          name: normalizedName,
+          tokenHash,
+          expiresAt,
+        },
+      });
+
+      return {
+        kind: 'pending_registration' as const,
+        email,
+        name: normalizedName,
+        rawToken,
+        reusedExisting: false,
+      };
+    });
   }
 
   async validateUser(email: string, password: string) {
@@ -111,6 +216,160 @@ export class AuthService {
 
     const valid = await bcrypt.compare(password, user.password);
     return valid ? user : null;
+  }
+
+  async validatePendingRegistration(email: string, password: string) {
+    const pending = await this.prisma.pendingRegistration.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        passwordHash: true,
+        expiresAt: true,
+        consumedAt: true,
+      },
+    });
+
+    if (!pending || pending.consumedAt || pending.expiresAt <= new Date()) {
+      return null;
+    }
+
+    const valid = await bcrypt.compare(password, pending.passwordHash);
+    if (!valid) {
+      return null;
+    }
+
+    return {
+      id: pending.id,
+      email: pending.email,
+      name: pending.name,
+    };
+  }
+
+  async resendPendingRegistration(email: string): Promise<{
+    status: 'queued' | 'cooldown' | 'noop';
+    rawToken?: string;
+    waitSeconds?: number;
+  }> {
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      const pending = await tx.pendingRegistration.findUnique({
+        where: { email },
+      });
+
+      if (!pending || pending.consumedAt) {
+        return { status: 'noop' as const };
+      }
+
+      if (
+        pending.expiresAt > now &&
+        now.getTime() - pending.updatedAt.getTime() <
+          PENDING_REGISTRATION_COOLDOWN_MS
+      ) {
+        return {
+          status: 'cooldown' as const,
+          waitSeconds: buildWaitSeconds(pending.updatedAt),
+        };
+      }
+
+      const rawToken = buildOpaqueToken();
+      const tokenHash = hashOpaqueValue(rawToken);
+
+      await tx.pendingRegistration.update({
+        where: { id: pending.id },
+        data: {
+          tokenHash,
+          expiresAt: addHours(now, PENDING_REGISTRATION_TTL_HOURS),
+          consumedAt: null,
+        },
+      });
+
+      return {
+        status: 'queued' as const,
+        rawToken,
+      };
+    });
+  }
+
+  async consumePendingRegistrationToken(
+    rawToken: string,
+  ): Promise<PendingRegistrationVerificationResult> {
+    const tokenHash = hashOpaqueValue(rawToken);
+    const pending = await this.prisma.pendingRegistration.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!pending) {
+      return { status: 'error', error: 'TOKEN_INVALID' };
+    }
+
+    if (pending.consumedAt) {
+      return { status: 'error', error: 'TOKEN_CONSUMED' };
+    }
+
+    if (pending.expiresAt <= new Date()) {
+      return { status: 'error', error: 'TOKEN_EXPIRED' };
+    }
+
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findUnique({
+        where: { email: pending.email },
+        select: {
+          id: true,
+          email: true,
+          emailVerifiedAt: true,
+        },
+      });
+
+      let userId: number;
+
+      if (existingUser) {
+        userId = existingUser.id;
+
+        if (!existingUser.emailVerifiedAt) {
+          await tx.user.update({
+            where: { id: existingUser.id },
+            data: {
+              emailVerifiedAt: now,
+              password: pending.passwordHash,
+              name: pending.name,
+            },
+          });
+        }
+      } else {
+        const createdUser = await tx.user.create({
+          data: {
+            email: pending.email,
+            password: pending.passwordHash,
+            name: pending.name,
+            role: 'USER',
+            emailVerifiedAt: now,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        userId = createdUser.id;
+      }
+
+      await tx.pendingRegistration.update({
+        where: { id: pending.id },
+        data: {
+          consumedAt: now,
+        },
+      });
+
+      return {
+        status: 'verified' as const,
+        email: pending.email,
+        userId,
+      };
+    });
   }
 
   async verifyCurrentPassword(userId: number, password: string) {

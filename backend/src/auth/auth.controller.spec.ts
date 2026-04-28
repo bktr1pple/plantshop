@@ -24,6 +24,9 @@ describe('AuthController', () => {
     register: jest.Mock;
     login: jest.Mock;
     validateUser: jest.Mock;
+    validatePendingRegistration: jest.Mock;
+    resendPendingRegistration: jest.Mock;
+    consumePendingRegistrationToken: jest.Mock;
     revokeRefreshToken: jest.Mock;
     refresh: jest.Mock;
     verifyAccessToken: jest.Mock;
@@ -40,6 +43,7 @@ describe('AuthController', () => {
   };
   let emailSecurityMock: {
     sendEmailVerification: jest.Mock;
+    sendPendingRegistrationEmail: jest.Mock;
     verifyEmailToken: jest.Mock;
     resendVerificationForEmail: jest.Mock;
     createPasswordReset: jest.Mock;
@@ -51,6 +55,8 @@ describe('AuthController', () => {
     generateTrustedLoginToken: jest.Mock;
     hashTrustedLoginToken: jest.Mock;
     summarizeUserAgent: jest.Mock;
+    rememberTrustedContext: jest.Mock;
+    revokeTrustedContexts: jest.Mock;
     verifyChallenge: jest.Mock;
   };
 
@@ -59,6 +65,9 @@ describe('AuthController', () => {
       register: jest.fn(),
       login: jest.fn(),
       validateUser: jest.fn(),
+      validatePendingRegistration: jest.fn(),
+      resendPendingRegistration: jest.fn(),
+      consumePendingRegistrationToken: jest.fn(),
       revokeRefreshToken: jest.fn(),
       refresh: jest.fn(),
       verifyAccessToken: jest.fn(),
@@ -80,6 +89,7 @@ describe('AuthController', () => {
 
     emailSecurityMock = {
       sendEmailVerification: jest.fn(),
+      sendPendingRegistrationEmail: jest.fn(),
       verifyEmailToken: jest.fn(),
       resendVerificationForEmail: jest.fn(),
       createPasswordReset: jest.fn(),
@@ -92,6 +102,8 @@ describe('AuthController', () => {
       generateTrustedLoginToken: jest.fn(),
       hashTrustedLoginToken: jest.fn(),
       summarizeUserAgent: jest.fn(),
+      rememberTrustedContext: jest.fn(),
+      revokeTrustedContexts: jest.fn(),
       verifyChallenge: jest.fn(),
     };
 
@@ -144,23 +156,19 @@ describe('AuthController', () => {
     expect(authServiceMock.register).not.toHaveBeenCalled();
   });
 
-  it('register створює або перевикористовує unverified user і повертає verification_required без cookies', async () => {
+  it('register створює pending registration і повертає verification_required без cookies', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ success: true }),
     }) as typeof fetch;
     authServiceMock.register.mockResolvedValue({
-      id: 1,
+      kind: 'pending_registration',
       email: 'user@example.com',
       name: 'User',
-      role: 'USER',
-      created: true,
-      emailVerifiedAt: null,
+      rawToken: 'raw-token',
+      reusedExisting: false,
     });
-    emailSecurityMock.sendEmailVerification.mockResolvedValue({
-      status: 'sent',
-      resent: false,
-    });
+    emailSecurityMock.sendPendingRegistrationEmail.mockResolvedValue(undefined);
 
     await expect(
       controller.register({
@@ -175,9 +183,15 @@ describe('AuthController', () => {
       resent: false,
       waitSeconds: undefined,
       message:
-        'Ми надіслали лист для підтвердження email. Завершіть верифікацію, щоб увійти.',
+        'Ми надіслали лист для підтвердження email. Після підтвердження акаунт буде створено остаточно.',
     });
-    expect(emailSecurityMock.sendEmailVerification).toHaveBeenCalled();
+    expect(emailSecurityMock.sendPendingRegistrationEmail).toHaveBeenCalledWith(
+      {
+        email: 'user@example.com',
+        rawToken: 'raw-token',
+        resent: false,
+      },
+    );
     expect(authServiceMock.login).not.toHaveBeenCalled();
   });
 
@@ -216,7 +230,52 @@ describe('AuthController', () => {
         'Перш ніж увійти, підтвердіть email. Ми надіслали або щойно повторили лист підтвердження.',
     });
     expect(res.cookie).not.toHaveBeenCalled();
-    expect(res.clearCookie).toHaveBeenCalledTimes(3);
+    expect(res.clearCookie).toHaveBeenCalledTimes(2);
+  });
+
+  it('login повертає verification_required для pending registration без створеного User', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    }) as typeof fetch;
+    authServiceMock.validateUser.mockResolvedValue(null);
+    authServiceMock.validatePendingRegistration.mockResolvedValue({
+      id: 7,
+      email: 'pending@example.com',
+      name: 'Pending',
+    });
+    authServiceMock.resendPendingRegistration.mockResolvedValue({
+      status: 'queued',
+      rawToken: 'pending-token',
+    });
+    emailSecurityMock.sendPendingRegistrationEmail.mockResolvedValue(undefined);
+    const res = createResponseMock();
+
+    await expect(
+      controller.login(
+        {
+          email: 'pending@example.com',
+          password: 'password123',
+          captchaToken: 'captcha-token',
+        },
+        { cookies: {}, get: jest.fn() } as unknown as Request,
+        res as Response,
+      ),
+    ).resolves.toEqual({
+      status: 'verification_required',
+      email: 'pending@example.com',
+      waitSeconds: undefined,
+      message:
+        'Перш ніж увійти, підтвердіть email і завершіть створення акаунта.',
+    });
+    expect(emailSecurityMock.sendPendingRegistrationEmail).toHaveBeenCalledWith(
+      {
+        email: 'pending@example.com',
+        rawToken: 'pending-token',
+        resent: true,
+      },
+    );
+    expect(res.clearCookie).toHaveBeenCalledTimes(2);
   });
 
   it('login повертає challenge_required без auth cookies для невпізнаного контексту', async () => {
@@ -289,6 +348,7 @@ describe('AuthController', () => {
       'trusted-token',
     );
     loginChallengeMock.hashTrustedLoginToken.mockReturnValue('trusted-hash');
+    loginChallengeMock.rememberTrustedContext.mockResolvedValue(undefined);
     authServiceMock.login.mockResolvedValue({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -320,10 +380,36 @@ describe('AuthController', () => {
         userAgentSummary: 'chrome:macos:desktop',
       },
     );
+    expect(loginChallengeMock.rememberTrustedContext).toHaveBeenCalledWith({
+      userId: 1,
+      trustedLoginToken: 'trusted-token',
+      userAgentSummary: 'chrome:macos:desktop',
+    });
     expect(res.cookie).toHaveBeenCalledTimes(3);
   });
 
+  it('verify-email завершує pending registration і створює акаунт лише після токена', async () => {
+    authServiceMock.consumePendingRegistrationToken.mockResolvedValue({
+      status: 'verified',
+      email: 'user@example.com',
+      userId: 11,
+    });
+
+    await expect(
+      controller.verifyEmail({ token: 'a'.repeat(32) }),
+    ).resolves.toEqual({
+      status: 'ok',
+      email: 'user@example.com',
+      message:
+        'Email успішно підтверджено. Акаунт створено, тепер ви можете увійти.',
+    });
+  });
+
   it('verify-email мапить TOKEN_CONSUMED у ConflictException body', async () => {
+    authServiceMock.consumePendingRegistrationToken.mockResolvedValue({
+      status: 'error',
+      error: 'TOKEN_INVALID',
+    });
     emailSecurityMock.verifyEmailToken.mockResolvedValue({
       status: 'error',
       error: 'TOKEN_CONSUMED',
@@ -339,6 +425,7 @@ describe('AuthController', () => {
       status: 'consumed',
       userId: 5,
     });
+    loginChallengeMock.revokeTrustedContexts.mockResolvedValue(undefined);
     const res = createResponseMock();
 
     await expect(
@@ -409,6 +496,7 @@ describe('AuthController', () => {
       'trusted-token',
     );
     loginChallengeMock.hashTrustedLoginToken.mockReturnValue('trusted-hash');
+    loginChallengeMock.rememberTrustedContext.mockResolvedValue(undefined);
     authServiceMock.login.mockResolvedValue({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -422,10 +510,11 @@ describe('AuthController', () => {
         res as Response,
       ),
     ).resolves.toEqual({ status: 'ok' });
+    expect(loginChallengeMock.rememberTrustedContext).toHaveBeenCalled();
     expect(res.cookie).toHaveBeenCalledTimes(3);
   });
 
-  it('logout відкликає refresh token і чистить всі auth cookies', async () => {
+  it('logout відкликає refresh token і чистить лише session cookies', async () => {
     authServiceMock.revokeRefreshToken.mockResolvedValue(true);
     const res = createResponseMock();
 
@@ -441,7 +530,7 @@ describe('AuthController', () => {
     expect(authServiceMock.revokeRefreshToken).toHaveBeenCalledWith(
       'refresh-token',
     );
-    expect(res.clearCookie).toHaveBeenCalledTimes(3);
+    expect(res.clearCookie).toHaveBeenCalledTimes(2);
   });
 
   it('me робить refresh по refresh_token і повертає користувача', async () => {

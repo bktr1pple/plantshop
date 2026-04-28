@@ -84,7 +84,11 @@ export default function Navbar() {
   useEffect(() => {
     const authParam = searchParams.get('auth');
 
-    if (authParam === 'login' || authParam === 'register') {
+    if (
+      authParam === 'login' ||
+      authParam === 'register' ||
+      authParam === 'forgot-password'
+    ) {
       setActiveTab(authParam);
       setShowAuth(true);
     }
@@ -155,7 +159,10 @@ export default function Navbar() {
             totalItems={totalItems}
             wishlistItems={wishlistCount}
             onThemeToggle={toggleTheme}
-            onAuthOpen={() => setShowAuth(true)}
+            onAuthOpen={() => {
+              setActiveTab('login');
+              setShowAuth(true);
+            }}
             onCartOpen={openCartModal}
             onWishlistOpen={openWishlistModal}
             onSearchOpen={() => setSearchOpen(true)}
@@ -177,6 +184,7 @@ export default function Navbar() {
         onClose={() => setOpen(false)}
         onThemeToggle={toggleTheme}
         onAuthOpen={() => {
+          setActiveTab('login');
           setShowAuth(true);
           setOpen(false);
         }}

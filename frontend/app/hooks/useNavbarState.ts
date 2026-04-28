@@ -3,10 +3,12 @@
 
 import { useState, useCallback } from 'react';
 
+export type AuthModalTab = 'login' | 'register' | 'forgot-password';
+
 export function useNavbarState() {
   const [open, setOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [activeTab, setActiveTab] = useState<AuthModalTab>('login');
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeMobileSubmenu, setActiveMobileSubmenu] = useState<string | null>(null);

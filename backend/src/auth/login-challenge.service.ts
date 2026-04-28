@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { UserRole } from '@prisma/client';
+import type { Prisma, UserRole } from '@prisma/client';
 import { addMinutes } from 'date-fns';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
@@ -10,6 +10,7 @@ import { buildLoginChallengeTemplate } from '../mail/mail.templates';
 const LOGIN_CHALLENGE_TTL_MINUTES = 10;
 const LOGIN_CHALLENGE_COOLDOWN_MS = 60_000;
 const LOGIN_CHALLENGE_MAX_ATTEMPTS = 5;
+const TRUSTED_LOGIN_TTL_DAYS = 60;
 
 export type ChallengeError =
   | 'TOKEN_INVALID'
@@ -37,6 +38,8 @@ export interface VerifiedChallengeResult {
   user?: ChallengeUser;
   userAgentSummary?: string | null;
 }
+
+type PrismaExecutor = Prisma.TransactionClient | PrismaService;
 
 function hashOpaqueValue(value: string): string {
   return createHash('sha256').update(value).digest('hex');
@@ -71,6 +74,20 @@ function summarizeUserAgent(raw: string | undefined): string {
       : 'desktop';
 
   return `${browser}:${os}:${device}`;
+}
+
+function areUserAgentsCompatible(
+  stored: string | null | undefined,
+  current: string,
+): boolean {
+  if (!stored) {
+    return true;
+  }
+
+  const [storedBrowser, storedOs] = stored.split(':');
+  const [currentBrowser, currentOs] = current.split(':');
+
+  return storedBrowser === currentBrowser && storedOs === currentOs;
 }
 
 function resolveIp(raw: string | string[] | undefined): string | null {
@@ -122,6 +139,45 @@ export class LoginChallengeService {
     return hashOpaqueValue(token);
   }
 
+  async rememberTrustedContext(
+    params: {
+      userId: number;
+      trustedLoginToken: string;
+      userAgentSummary: string | null;
+    },
+    prisma: PrismaExecutor = this.prisma,
+  ): Promise<void> {
+    const tokenHash = hashOpaqueValue(params.trustedLoginToken);
+    const expiresAt = addMinutes(new Date(), TRUSTED_LOGIN_TTL_DAYS * 24 * 60);
+
+    await prisma.trustedLoginContext.deleteMany({
+      where: {
+        OR: [
+          { userId: params.userId, expiresAt: { lte: new Date() } },
+          { tokenHash },
+        ],
+      },
+    });
+
+    await prisma.trustedLoginContext.create({
+      data: {
+        userId: params.userId,
+        tokenHash,
+        userAgentSummary: params.userAgentSummary,
+        expiresAt,
+      },
+    });
+  }
+
+  async revokeTrustedContexts(
+    userId: number,
+    prisma: PrismaExecutor = this.prisma,
+  ): Promise<void> {
+    await prisma.trustedLoginContext.deleteMany({
+      where: { userId },
+    });
+  }
+
   async isRecognizedContext(params: {
     userId: number;
     trustedLoginToken?: string;
@@ -143,10 +199,10 @@ export class LoginChallengeService {
     }
 
     const trustedContextHash = hashOpaqueValue(trustedLoginToken);
-    const activeToken = await this.prisma.refreshToken.findFirst({
+    const activeToken = await this.prisma.trustedLoginContext.findFirst({
       where: {
         userId: params.userId,
-        trustedContextHash,
+        tokenHash: trustedContextHash,
         expiresAt: {
           gt: new Date(),
         },
@@ -165,8 +221,7 @@ export class LoginChallengeService {
     }
 
     if (
-      activeToken.userAgentSummary &&
-      activeToken.userAgentSummary !== userAgentSummary
+      !areUserAgentsCompatible(activeToken.userAgentSummary, userAgentSummary)
     ) {
       return {
         recognized: false,
@@ -174,6 +229,14 @@ export class LoginChallengeService {
         trustedContextHash: null,
       };
     }
+
+    await this.prisma.trustedLoginContext.update({
+      where: { id: activeToken.id },
+      data: {
+        lastUsedAt: new Date(),
+        expiresAt: addMinutes(new Date(), TRUSTED_LOGIN_TTL_DAYS * 24 * 60),
+      },
+    });
 
     return {
       recognized: true,

@@ -154,6 +154,32 @@ export class EmailSecurityService {
     });
   }
 
+  async sendPendingRegistrationEmail(params: {
+    email: string;
+    rawToken: string;
+    resent?: boolean;
+  }): Promise<void> {
+    const template = buildVerifyEmailTemplate({
+      verifyUrl: createVerificationUrl(params.rawToken),
+      expiresInHours: EMAIL_VERIFY_TTL_HOURS,
+    });
+
+    try {
+      await this.mailService.sendMail({
+        to: params.email,
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
+      });
+    } catch {
+      throw new ServiceUnavailableException({
+        error: 'TEMPORARILY_UNAVAILABLE',
+        message:
+          'Не вдалося надіслати лист підтвердження. Спробуйте ще раз трохи пізніше.',
+      });
+    }
+  }
+
   async sendEmailVerification(
     user: SecurityUser,
     options?: { resent?: boolean },
