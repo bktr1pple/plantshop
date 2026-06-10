@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Test and coverage artifacts
+coverage/
+test-results/
+playwright-report/
+.nyc_output/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+~$*
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local generated documents and reports
+output/
+*.zip
+plantshop_analysis_report.*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

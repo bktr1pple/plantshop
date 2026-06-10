@@ -1,0 +1,210 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Plant {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  images      String?  @db.Text
+  orderItems  OrderItem[]
+}
+
+model User {
+  id                 Int                  @id @default(autoincrement())
+  email              String               @unique
+  emailVerifiedAt    DateTime?
+  password           String
+  name               String?
+  phone              String?
+  address            String?
+  bio                String?              @db.Text
+  emailNotifications Boolean              @default(true)
+  orderUpdates       Boolean              @default(true)
+  careReminders      Boolean              @default(true)
+  promotional        Boolean              @default(false)
+  profileVisibility  String               @default("friends")
+  dataSharing        Boolean              @default(false)
+  personalizedAds    Boolean              @default(false)
+  role               UserRole             @default(USER)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  refreshTokens      RefreshToken[]
+  trustedLoginContexts TrustedLoginContext[]
+  verificationTokens VerificationToken[]
+  loginChallenges    LoginChallenge[]
+  orders             Order[]
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model RefreshToken {
+  id                 Int      @id @default(autoincrement())
+  jti                String   @unique
+  tokenDigest        String   @unique
+  familyId           String
+  trustedContextHash String?
+  userAgentSummary   String?
+  userId             Int
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  replacedByTokenId  Int?
+  lastUsedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId, expiresAt])
+  @@index([userId, familyId])
+  @@index([familyId, revokedAt])
+  @@index([trustedContextHash])
+}
+
+enum VerificationTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+model VerificationToken {
+  id          Int                   @id @default(autoincrement())
+  userId      Int
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        VerificationTokenType
+  tokenHash   String
+  targetEmail String?
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime              @default(now())
+
+  @@index([userId, type, expiresAt])
+  @@index([userId, type, consumedAt])
+}
+
+model LoginChallenge {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash         String
+  contextHash      String
+  ipHash           String?
+  userAgentSummary String?
+  attemptCount     Int      @default(0)
+  maxAttempts      Int      @default(5)
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([userId, consumedAt])
+}
+
+model TrustedLoginContext {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash        String   @unique
+  userAgentSummary String?
+  expiresAt        DateTime
+  lastUsedAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model PendingRegistration {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  tokenHash    String   @unique
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@index([consumedAt])
+}
+
+model SiteSettings {
+  id                  Int      @id @default(1)
+  siteName            String   @default("PlantShop")
+  siteTagline         String   @default("PlantShop — турбота про ваш зелений простір")
+  heroTitleLine1      String   @default("Природа")
+  heroTitleLine2      String   @default("у сучасному")
+  heroTitleLine3      String   @default("дизайні")
+  heroSubtitle        String   @db.Text
+  heroPrimaryCtaLabel String   @default("До каталогу")
+  heroPrimaryCtaHref  String   @default("/plants")
+  contactIntro        String   @db.Text
+  footerDescription   String   @db.Text
+  footerCtaLabel      String   @default("Зв'язатися з нами")
+  footerCtaHref       String   @default("/contact")
+  contactPhoneDisplay String   @default("+38 (067) 123-45-67")
+  contactPhoneHref    String   @default("tel:+380671234567")
+  contactEmail        String   @default("hello@plantshop.ua")
+  contactAddress      String   @default("м. Київ, вул. Зелена, 123")
+  showroomHours       String   @db.Text
+  messengerLabel      String   @default("Telegram / Viber")
+  messengerUrl        String   @default("#")
+  facebookUrl         String   @default("https://facebook.com")
+  instagramUrl        String   @default("https://instagram.com")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  userId          Int
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          OrderStatus @default(PENDING)
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  deliveryAddress String      @db.Text
+  note            String?     @db.Text
+  totalAmount     Float
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  items           OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  plantId    Int?
+  plant      Plant?   @relation(fields: [plantId], references: [id], onDelete: SetNull)
+  plantName  String
+  plantImage String?  @db.Text
+  unitPrice  Float
+  quantity   Int
+  lineTotal  Float
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+  @@index([plantId])
+}

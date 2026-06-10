@@ -1,0 +1,201 @@
+// components/layout/Navbar.tsx - UPDATED
+'use client';
+
+import { useCallback, useEffect, useRef } from "react";
+import { LazyMotion, m, domAnimation } from "framer-motion";
+
+// Hooks
+import { useNavbarState } from '@/app/hooks/useNavbarState';
+import { useTheme } from '@/components/ThemeContext';
+import { useCart } from '@/contexts/CartContext';
+import { useScrollEffect } from '@/app/hooks/useScrollEffect';
+
+// Components
+import { DesktopNavigation } from './layout/DesktopNavigation';
+import { MobileNavigation } from './layout/MobileNavigation';
+import { SearchModal } from './layout/SearchModal';
+import { AuthModal } from './layout/AuthModal';
+import { CartModal } from '@/components/CartModal';
+
+// Animations
+import { navVariants } from '@/app/animations/navbar';
+
+import { useSearchParams, useRouter } from 'next/navigation';
+
+// Constants
+import { NAV_LINKS, POPULAR_SEARCHES } from '@/app/constants/navigation';
+
+// Optimized motion components
+const MotionNav = m.nav;
+
+export default function Navbar() {
+  const {
+    open,
+    setOpen,
+    showAuth,
+    setShowAuth,
+    activeTab,
+    setActiveTab,
+    scrolled,
+    setScrolled,
+    searchOpen,
+    setSearchOpen,
+    activeMobileSubmenu,
+    cartModalOpen,
+    setCartModalOpen,
+    openCartModal,
+    toggleMobileSubmenu,
+  } = useNavbarState();
+
+  const { theme, toggleTheme, isAnimating, isLoaded } = useTheme();
+  const { totalItems } = useCart();
+
+  // Refs for click outside detection
+  const mobileMenuRef = useRef<HTMLDivElement>(null!);
+  const authModalRef = useRef<HTMLDivElement>(null!);
+  const searchModalRef = useRef<HTMLDivElement>(null!);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const handleCloseAuth = useCallback(() => {
+    setShowAuth(false);
+
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+
+      if (params.has('auth')) {
+        params.delete('auth');
+        const qs = params.toString();
+        router.replace(qs ? `${currentPath}?${qs}` : currentPath);
+      }
+    }
+  }, [router, setShowAuth]);
+
+
+  useEffect(() => {
+    const authParam = searchParams.get('auth');
+
+    if (
+      authParam === 'login' ||
+      authParam === 'register' ||
+      authParam === 'forgot-password'
+    ) {
+      setActiveTab(authParam);
+      setShowAuth(true);
+    }
+  }, [searchParams, setActiveTab, setShowAuth]);
+
+  useScrollEffect(setScrolled);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      if (open && mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
+        setOpen(false);
+      }
+
+      if (showAuth && authModalRef.current && !authModalRef.current.contains(target)) {
+        handleCloseAuth();
+      }
+
+      if (searchOpen && searchModalRef.current && !searchModalRef.current.contains(target)) {
+        setSearchOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, showAuth, searchOpen, setOpen, setShowAuth, setSearchOpen, handleCloseAuth]);
+
+  useEffect(() => {
+    if (open || showAuth || searchOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [open, showAuth, searchOpen]);
+
+  return (
+    <LazyMotion features={domAnimation} strict>
+      <CartModal 
+        isOpen={cartModalOpen} 
+        onClose={() => setCartModalOpen(false)} 
+      />
+
+      <MotionNav
+        variants={navVariants}
+        initial="hidden"
+        animate="visible"
+        className={`fixed top-0 left-0 w-full z-50 border-b transition-all duration-500 ease-out ${
+          scrolled 
+            ? "bg-white/95 dark:bg-gray-900/95 shadow-lg border-gray-200/50 dark:border-gray-700/50 py-2" 
+            : "bg-white/85 dark:bg-gray-900/85 border-transparent py-3 lg:py-4"
+        }`}
+        style={{ willChange: 'transform, opacity' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <DesktopNavigation
+            links={NAV_LINKS}
+            theme={theme}
+            isAnimating={isAnimating}
+            totalItems={totalItems}
+            onThemeToggle={toggleTheme}
+            onAuthOpen={() => {
+              setActiveTab('login');
+              setShowAuth(true);
+            }}
+            onCartOpen={openCartModal}
+            onSearchOpen={() => setSearchOpen(true)}
+            onMenuOpen={() => setOpen(true)}
+            isThemeLoaded={isLoaded}
+          />
+        </div>
+      </MotionNav>
+
+      <MobileNavigation
+        open={open}
+        links={NAV_LINKS}
+        theme={theme}
+        isAnimating={isAnimating}
+        totalItems={totalItems}
+        activeMobileSubmenu={activeMobileSubmenu}
+        mobileMenuRef={mobileMenuRef}
+        onClose={() => setOpen(false)}
+        onThemeToggle={toggleTheme}
+        onAuthOpen={() => {
+          setActiveTab('login');
+          setShowAuth(true);
+          setOpen(false);
+        }}
+        onSearchOpen={() => {
+          setSearchOpen(true);
+          setOpen(false);
+        }}
+        onCartOpen={openCartModal}
+        onSubmenuToggle={toggleMobileSubmenu}
+      />
+
+      <SearchModal
+        searchOpen={searchOpen}
+        searchModalRef={searchModalRef}
+        popularSearches={POPULAR_SEARCHES}
+        onClose={() => setSearchOpen(false)}
+      />
+
+      <AuthModal
+        showAuth={showAuth}
+        activeTab={activeTab}
+        authModalRef={authModalRef}
+        onClose={handleCloseAuth}
+        onTabChange={setActiveTab}
+      />
+    </LazyMotion>
+  );
+}
