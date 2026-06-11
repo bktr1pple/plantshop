@@ -15,6 +15,7 @@ export interface PlantsPaginationMeta {
   totalPages: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+  search?: string | null;
 }
 
 export interface PaginatedPlantsResponse {

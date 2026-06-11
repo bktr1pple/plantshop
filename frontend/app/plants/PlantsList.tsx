@@ -24,6 +24,8 @@ const MotionButton = m.button;
 type Props = {
   plants: Plant[];
   pagination: PlantsPaginationMeta;
+  searchTerm?: string;
+  hasLoadError?: boolean;
 };
 type OptimizedImageProps = Omit<React.ComponentProps<typeof Image>, 'src' | 'alt'> & {
   src: string;
@@ -49,7 +51,7 @@ function getVisiblePages(currentPage: number, totalPages: number) {
   return Array.from(pages).sort((a, b) => a - b);
 }
 
-function getPageHref(page: number, limit: number) {
+function getPageHref(page: number, limit: number, searchTerm?: string) {
   const params = new URLSearchParams();
 
   if (page > 1) {
@@ -58,6 +60,10 @@ function getPageHref(page: number, limit: number) {
 
   if (limit !== 12) {
     params.set('limit', String(limit));
+  }
+
+  if (searchTerm) {
+    params.set('search', searchTerm);
   }
 
   const query = params.toString();
@@ -108,7 +114,12 @@ const useMobile = () => {
   return isMobile;
 };
 
-export default function PlantsList({ plants, pagination }: Props) {
+export default function PlantsList({
+  plants,
+  pagination,
+  searchTerm = '',
+  hasLoadError = false,
+}: Props) {
   const { addToCart } = useCart();
 
   const [plantItems, setPlantItems] = useState<Plant[]>(plants);
@@ -411,14 +422,43 @@ export default function PlantsList({ plants, pagination }: Props) {
               <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
                 Добірка кімнатних, садових і декоративних рослин для дому, офісу та ландшафтних рішень.
               </p>
-              <p className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400">
-                Показано {plantItems.length} з {pagination.totalItems} позицій
-              </p>
+              {!hasLoadError && (
+                <p className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400">
+                  {searchTerm
+                    ? `Результати пошуку за запитом «${searchTerm}»: ${pagination.totalItems}`
+                    : `Показано ${plantItems.length} з ${pagination.totalItems} позицій`}
+                </p>
+              )}
+              {searchTerm && !hasLoadError && (
+                <Link
+                  href="/plants"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                >
+                  <X size={14} />
+                  Скинути пошук
+                </Link>
+              )}
             </MotionDiv>
           </div>
 
           {/* Plants Grid */}
-          {plantItems.length > 0 ? (
+          {hasLoadError ? (
+            <div className="rounded-3xl border border-rose-200 bg-rose-50/80 px-6 py-16 text-center shadow-sm dark:border-rose-900/50 dark:bg-rose-950/20">
+              <div className="mb-4 text-5xl">⚠️</div>
+              <h2 className="mb-2 text-2xl font-bold text-rose-800 dark:text-rose-200">
+                Не вдалося завантажити каталог
+              </h2>
+              <p className="mx-auto max-w-xl text-rose-700 dark:text-rose-300">
+                Сервер каталогу тимчасово недоступний. Оновіть сторінку за хвилину або поверніться пізніше.
+              </p>
+              <Link
+                href={getPageHref(currentPage, pagination.limit, searchTerm)}
+                className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+              >
+                Спробувати ще раз
+              </Link>
+            </div>
+          ) : plantItems.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {plantItems.map((plant, i) => (
                 <MotionArticle
@@ -478,19 +518,29 @@ export default function PlantsList({ plants, pagination }: Props) {
                 Рослини не знайдено
               </h2>
               <p className="mx-auto max-w-xl text-gray-600 dark:text-gray-300">
-                Каталог порожній або для вибраної сторінки немає товарів. Поверніться на першу сторінку або додайте рослини через адмін-панель.
+                {searchTerm
+                  ? `За запитом «${searchTerm}» нічого не знайдено. Спробуйте інше слово або перегляньте весь каталог.`
+                  : 'Каталог порожній або для вибраної сторінки немає товарів. Поверніться на першу сторінку.'}
               </p>
+              {searchTerm && (
+                <Link
+                  href="/plants"
+                  className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                >
+                  Переглянути весь каталог
+                </Link>
+              )}
             </div>
           )}
 
-          {pagination.totalPages > 1 && (
+          {!hasLoadError && pagination.totalPages > 1 && (
             <nav
               aria-label="Пагінація каталогу рослин"
               className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:flex-row"
             >
               {currentPage > 1 ? (
                 <Link
-                  href={getPageHref(currentPage - 1, pagination.limit)}
+                  href={getPageHref(currentPage - 1, pagination.limit, searchTerm)}
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-gray-700 dark:text-gray-200 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
                 >
                   <ChevronLeft size={16} />
@@ -517,7 +567,7 @@ export default function PlantsList({ plants, pagination }: Props) {
                         </span>
                       )}
                       <Link
-                        href={getPageHref(page, pagination.limit)}
+                        href={getPageHref(page, pagination.limit, searchTerm)}
                         aria-current={isActive ? 'page' : undefined}
                         className={`inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition ${
                           isActive
@@ -534,7 +584,7 @@ export default function PlantsList({ plants, pagination }: Props) {
 
               {currentPage < pagination.totalPages ? (
                 <Link
-                  href={getPageHref(currentPage + 1, pagination.limit)}
+                  href={getPageHref(currentPage + 1, pagination.limit, searchTerm)}
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-gray-700 dark:text-gray-200 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
                 >
                   Наступна
