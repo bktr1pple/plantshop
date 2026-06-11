@@ -265,6 +265,8 @@ export class AuthController {
     private readonly loginChallengeService: LoginChallengeService,
   ) {}
 
+  private hasWarnedMissingCookieDomain = false;
+
   private getCookieDomainValue(): string | undefined {
     const domain = process.env.DOMAIN_COOKIE?.trim();
     return domain || undefined;
@@ -273,9 +275,12 @@ export class AuthController {
   private getCookieDomain(): string | undefined {
     const domain = this.getCookieDomainValue();
     if (!domain) {
-      console.warn(
-        '⚠️ DOMAIN_COOKIE is not set. Cookies will be set without domain.',
-      );
+      if (!this.hasWarnedMissingCookieDomain) {
+        this.hasWarnedMissingCookieDomain = true;
+        console.warn(
+          '⚠️ DOMAIN_COOKIE is not set. Cookies will be set without domain.',
+        );
+      }
       return undefined;
     }
 

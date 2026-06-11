@@ -612,10 +612,17 @@ const server = createServer(async (req, res) => {
         Number.parseInt(url.searchParams.get('limit') ?? '12', 10) || 12,
       ),
     );
-    const totalItems = state.plants.length;
+    const search = (url.searchParams.get('search') ?? '').trim().slice(0, 100);
+    const matchingPlants = search
+      ? state.plants.filter((plant) => {
+          const haystack = `${plant.name} ${plant.description ?? ''}`.toLowerCase();
+          return haystack.includes(search.toLowerCase());
+        })
+      : state.plants;
+    const totalItems = matchingPlants.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / limit));
     const start = (page - 1) * limit;
-    const items = state.plants.slice(start, start + limit);
+    const items = matchingPlants.slice(start, start + limit);
 
     sendJson(req, res, 200, {
       items,
@@ -626,6 +633,7 @@ const server = createServer(async (req, res) => {
         totalPages,
         hasPreviousPage: page > 1,
         hasNextPage: page < totalPages,
+        search: search || null,
       },
     });
     return;
