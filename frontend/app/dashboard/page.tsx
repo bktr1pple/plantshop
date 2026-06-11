@@ -6,7 +6,6 @@ import { m as motion, LazyMotion, domAnimation } from 'framer-motion';
 import {
   Settings,
   LogOut,
-  ShoppingBag,
   Sprout,
   MessageCircle,
   ArrowRight,
@@ -177,25 +176,50 @@ export default function DashboardPage() {
             <Card className="p-5 sm:p-6">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                  Ваш кабінет
+                  Ваш профіль
                 </h2>
+                <button
+                  onClick={handleSettings}
+                  className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                >
+                  Редагувати
+                </button>
               </div>
 
-              <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
-                    <ShoppingBag className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-semibold">Профіль і замовлення синхронізовані з вашим акаунтом</p>
-                    <p className="text-sky-700/90 dark:text-sky-100/90">
-                      Дані профілю, налаштування сповіщень та історія замовлень
-                      зберігаються у вашому акаунті й доступні з будь-якого
-                      пристрою після входу.
-                    </p>
-                  </div>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3 dark:border-gray-800 dark:bg-gray-950/30">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                    Імʼя
+                  </dt>
+                  <dd className="mt-1 font-medium text-gray-900 dark:text-gray-50">
+                    {user?.name || 'Не вказано'}
+                  </dd>
                 </div>
-              </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3 dark:border-gray-800 dark:bg-gray-950/30">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                    Email
+                  </dt>
+                  <dd className="mt-1 break-all font-medium text-gray-900 dark:text-gray-50">
+                    {user?.email || '—'}
+                  </dd>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3 dark:border-gray-800 dark:bg-gray-950/30">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                    Телефон
+                  </dt>
+                  <dd className="mt-1 font-medium text-gray-900 dark:text-gray-50">
+                    {user?.phone || 'Не вказано'}
+                  </dd>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3 dark:border-gray-800 dark:bg-gray-950/30">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                    Адреса доставки
+                  </dt>
+                  <dd className="mt-1 font-medium text-gray-900 dark:text-gray-50">
+                    {user?.address || 'Не вказано'}
+                  </dd>
+                </div>
+              </dl>
 
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
@@ -221,21 +245,21 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-1">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                    Що доступно зараз
+                    Потрібна допомога?
                   </h2>
                   <p className="text-base text-gray-600 dark:text-gray-400">
-                    Можна оновлювати профіль, переглядати історію замовлень,
-                    відкривати каталог і виходити з акаунта.
+                    Маєте питання щодо замовлення, доставки або догляду за
+                    рослинами — напишіть нам, і ми допоможемо.
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={handleSettings}
+                onClick={() => router.push('/contact')}
                 className="mt-4 inline-flex w-fit items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-base font-medium text-white shadow-sm transition hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
               >
                 <MessageCircle className="h-4 w-4" />
-                Переглянути налаштування
+                Звʼязатися з нами
               </button>
             </Card>
           </section>

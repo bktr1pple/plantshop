@@ -250,6 +250,8 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Frontend must not fake authenticated state after registration.
 - `/dashboard` and `/admin` must not remain accessible if auth verification fails.
 - Current-user dashboard settings are real and use the authenticated `/auth/me` read/update contract.
+- The dashboard settings UI intentionally surfaces only effective controls: profile fields, email-notification preferences, and password change. The persisted `profileVisibility`/`dataSharing`/`personalizedAds` columns remain in the backend contract but must not be re-exposed as UI controls until real features consume them; account data export/deletion is offered as a manual request through `/contact`, not as fake disabled buttons.
+- The settings form syncs from a refreshed `user` only when the user has no unsaved edits (snapshot compare against the last synced user), so background `/auth/me` refreshes must not wipe in-progress form input.
 - Authenticated users can create real orders through the persisted current-user `/orders` contract.
 - `/dashboard/orders` is real and must reflect persisted current-user order history/details rather than mocked or unavailable state.
 - `/admin/orders` is a real admin area for order inspection and status updates.

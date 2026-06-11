@@ -36,24 +36,32 @@ vi.mock('@/app/components/NotificationSystem', () => ({
   }),
 }));
 
+function createMockUser() {
+  return {
+    id: 1,
+    email: 'user@example.com',
+    name: 'Користувач',
+    phone: '+380671234567',
+    address: 'Київ',
+    bio: 'Люблю рослини',
+    emailNotifications: true,
+    orderUpdates: true,
+    careReminders: true,
+    promotional: false,
+    profileVisibility: 'friends',
+    dataSharing: false,
+    personalizedAds: false,
+    role: 'USER',
+  };
+}
+
+// Стабільна референція user між рендерами (як стан реального AuthContext);
+// тест оновлює її через mockCheckAuth, імітуючи повторний /auth/me.
+let mockUser: ReturnType<typeof createMockUser> = createMockUser();
+
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: {
-      id: 1,
-      email: 'user@example.com',
-      name: 'Користувач',
-      phone: '+380671234567',
-      address: 'Київ',
-      bio: 'Люблю рослини',
-      emailNotifications: true,
-      orderUpdates: true,
-      careReminders: true,
-      promotional: false,
-      profileVisibility: 'friends',
-      dataSharing: false,
-      personalizedAds: false,
-      role: 'USER',
-    },
+    user: mockUser,
     checkAuth: mockCheckAuth,
     isLoading: false,
   }),
@@ -69,6 +77,23 @@ vi.mock('@/lib/auth-security', () => ({
     code ? `mapped:${code}` : fallback,
 }));
 
+const savedUserResponse = {
+  id: 1,
+  email: 'user@example.com',
+  name: 'Оновлений користувач',
+  phone: '+380501112233',
+  address: 'Львів',
+  bio: 'Колекціоную фікуси',
+  emailNotifications: true,
+  orderUpdates: false,
+  careReminders: true,
+  promotional: true,
+  profileVisibility: 'friends',
+  dataSharing: false,
+  personalizedAds: false,
+  role: 'USER',
+} as const;
+
 describe('Dashboard settings page', () => {
   beforeEach(() => {
     mockAddNotification.mockReset();
@@ -76,7 +101,12 @@ describe('Dashboard settings page', () => {
     mockChangePassword.mockReset();
     mockPush.mockReset();
     mockRefresh.mockReset();
-    mockCheckAuth.mockResolvedValue(true);
+    mockUser = createMockUser();
+    // Повторний /auth/me після save повертає оновленого користувача.
+    mockCheckAuth.mockImplementation(async () => {
+      mockUser = { ...savedUserResponse };
+      return true;
+    });
     mockFetchWithRefresh.mockReset();
     mockFetchWithRefresh.mockResolvedValue({
       unauthorized: false,
@@ -84,22 +114,7 @@ describe('Dashboard settings page', () => {
       res: {
         ok: true,
         json: async () => ({
-          user: {
-            id: 1,
-            email: 'user@example.com',
-            name: 'Оновлений користувач',
-            phone: '+380501112233',
-            address: 'Львів',
-            bio: 'Колекціоную фікуси',
-            emailNotifications: true,
-            orderUpdates: false,
-            careReminders: true,
-            promotional: true,
-            profileVisibility: 'private',
-            dataSharing: true,
-            personalizedAds: true,
-            role: 'USER',
-          },
+          user: { ...savedUserResponse },
         }),
       },
     });
@@ -127,28 +142,16 @@ describe('Dashboard settings page', () => {
     expect(saveButton).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Сповіщення' }));
-    let orderUpdatesToggle: HTMLButtonElement | undefined;
+    let orderUpdatesToggle: HTMLElement | undefined;
     await waitFor(() => {
       orderUpdatesToggle = screen
-        .getAllByRole('button')
-        .find((button) =>
-          button.textContent?.includes('Оновлення замовлень'),
-        ) as HTMLButtonElement | undefined;
+        .getAllByRole('switch')
+        .find((toggle) =>
+          toggle.textContent?.includes('Оновлення замовлень'),
+        );
       expect(orderUpdatesToggle).toBeTruthy();
     });
     fireEvent.click(orderUpdatesToggle!);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Конфіденційність' }));
-    let profilePrivateButton: HTMLButtonElement | undefined;
-    await waitFor(() => {
-      profilePrivateButton = screen
-        .getAllByRole('button')
-        .find((button) =>
-          button.textContent?.includes('Приватний'),
-        ) as HTMLButtonElement | undefined;
-      expect(profilePrivateButton).toBeTruthy();
-    });
-    fireEvent.click(profilePrivateButton!);
 
     fireEvent.click(saveButton);
 
@@ -166,9 +169,16 @@ describe('Dashboard settings page', () => {
       string,
       { body: string },
     ];
-    expect(JSON.parse(requestInit.body)).toMatchObject({
-      profileVisibility: 'private',
+    const parsedBody = JSON.parse(requestInit.body) as Record<string, unknown>;
+    expect(parsedBody).toMatchObject({
+      name: 'Оновлений користувач',
+      phone: '+380501112233',
+      orderUpdates: false,
     });
+    // Фейкових privacy-контролів більше немає — PATCH їх не надсилає.
+    expect(parsedBody).not.toHaveProperty('profileVisibility');
+    expect(parsedBody).not.toHaveProperty('dataSharing');
+    expect(parsedBody).not.toHaveProperty('personalizedAds');
 
     await waitFor(() => expect(mockCheckAuth).toHaveBeenCalled());
     expect(mockAddNotification).toHaveBeenCalledWith(
@@ -262,7 +272,7 @@ describe('Dashboard settings page', () => {
 
     render(<SettingsPage />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Конфіденційність' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Безпека' }));
 
     const currentPasswordInput = await screen.findByLabelText('Поточний пароль');
     const newPasswordInput = await screen.findByLabelText('Новий пароль');
