@@ -1,6 +1,24 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ClipboardList, Leaf, Map, MessageCircle, Sprout } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Ландшафтний дизайн і озеленення просторів",
+  description:
+    "Послуги озеленення від PlantShop: консультація, план озеленення, добір рослин з каталогу та супровід після висадки — для квартир, офісів і ділянок.",
+  alternates: {
+    canonical: "/landscape-design",
+  },
+  openGraph: {
+    type: "website",
+    url: "/landscape-design",
+    title: "Ландшафтний дизайн і озеленення просторів | PlantShop",
+    description:
+      "Консультація, план озеленення, добір рослин і супровід після висадки — для квартир, офісів і ділянок.",
+    images: ["/images/plants-bg.jpg"],
+  },
+};
 
 const services = [
   {
