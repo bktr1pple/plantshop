@@ -1,0 +1,17 @@
+{
+  "name": "plantshop",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "scripts": {
+    "dev": "node tools/run-project.mjs dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "start": "node tools/run-project.mjs prod",
+    "prod": "npm run build && npm start",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "test": "npm --prefix backend test -- --runInBand && npm --prefix frontend test"
+  }
+}

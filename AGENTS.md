@@ -5,6 +5,13 @@ This repository is a real product codebase with two main applications:
 - `frontend`: Next.js 16.2.7 App Router storefront and admin UI (native Next.js, no Vinext)
 - `backend`: NestJS 11.1.26 API with Prisma 7.8/MySQL
 
+Root orchestration is available through `package.json`:
+- `npm run dev` starts frontend and backend development servers together
+- `npm run build` builds both applications
+- `npm start` starts existing production builds
+- `npm run prod` builds and starts both applications in production mode
+- `npm run install:all` installs frontend and backend dependencies
+
 The repository is no longer a starter/demo state. It already contains:
 - real cookie-based auth/session flow
 - real email verification / password reset / login challenge security flows
