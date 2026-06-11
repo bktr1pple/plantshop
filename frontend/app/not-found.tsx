@@ -3,7 +3,7 @@ import { ArrowLeft, Home, SearchX, Sprout } from 'lucide-react';
 
 export default function NotFound() {
   return (
-    <section className="bg-gradient-to-b from-slate-50 to-white px-4 py-12 dark:from-slate-950 dark:to-slate-900 md:py-20">
+    <main className="bg-gradient-to-b from-slate-50 to-white px-4 py-12 dark:from-slate-950 dark:to-slate-900 md:py-20">
       <div className="mx-auto max-w-4xl">
         <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950">
           <div className="grid gap-0 md:grid-cols-[0.95fr_1.05fr]">
@@ -102,6 +102,6 @@ export default function NotFound() {
           </div>
         </div>
       </div>
-    </section>
+    </main>
   );
 }
