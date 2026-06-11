@@ -330,13 +330,20 @@ export default function ContactPage() {
             </Link>
           </div>
 
-          <a href={settings.messengerUrl} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900/90">
-            <MessageCircle className="h-5 w-5 text-emerald-600" />
-            <span>
-              <span className="block text-sm font-semibold">Месенджери</span>
-              <span className="text-sm text-slate-600 dark:text-slate-300">{settings.messengerLabel}</span>
-            </span>
-          </a>
+          {settings.messengerUrl && settings.messengerUrl !== "#" && (
+            <a
+              href={settings.messengerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900/90"
+            >
+              <MessageCircle className="h-5 w-5 text-emerald-600" />
+              <span>
+                <span className="block text-sm font-semibold">Месенджери</span>
+                <span className="text-sm text-slate-600 dark:text-slate-300">{settings.messengerLabel}</span>
+              </span>
+            </a>
+          )}
         </aside>
       </main>
     </div>

@@ -17,10 +17,6 @@ import {
   updateAdminSiteSettings,
 } from '@/lib/admin-api';
 
-function hoursToTextarea(value: string): string {
-  return value;
-}
-
 type SettingsSectionProps = {
   title: string;
   description: string;
@@ -70,7 +66,6 @@ export function SiteSettingsManager() {
         setForm({
           ...defaultSiteSettings,
           ...data,
-          showroomHours: hoursToTextarea(data.showroomHours),
         });
       } catch (error) {
         addNotification({
