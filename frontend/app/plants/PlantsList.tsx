@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Plant, PlantsPaginationMeta } from '../types/plant';
 
 import { formatPrice } from '@/lib/format-price';
+import { getPlantPath } from '@/lib/plant-slug';
 import PlantCardImage from './PlantCardImage';
 import CardAddToCartButton from './CardAddToCartButton';
 
@@ -122,7 +123,7 @@ export default function PlantsList({
                 <div className="p-3 sm:p-4">
                   <h3 className="text-base font-bold text-gray-900 dark:text-white line-clamp-1 mb-1">
                     <Link
-                      href={`/plants/${plant.id}`}
+                      href={getPlantPath(plant)}
                       className="after:absolute after:inset-0 after:content-[''] hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
                     >
                       {plant.name}

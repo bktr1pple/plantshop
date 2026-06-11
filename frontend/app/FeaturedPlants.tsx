@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, Sprout } from 'lucide-react';
 import type { Plant } from '@/app/types/plant';
 import { formatPrice } from '@/lib/format-price';
+import { getPlantPath } from '@/lib/plant-slug';
 import PlantCardImage from '@/app/plants/PlantCardImage';
 import CardAddToCartButton from '@/app/plants/CardAddToCartButton';
 
@@ -61,7 +62,7 @@ export default function FeaturedPlants({ plants }: { plants: Plant[] }) {
               <div className="p-3 sm:p-4">
                 <h3 className="line-clamp-1 text-sm font-bold text-gray-900 dark:text-white sm:text-base">
                   <Link
-                    href={`/plants/${plant.id}`}
+                    href={getPlantPath(plant)}
                     className="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-emerald-700 dark:hover:text-emerald-300"
                   >
                     {plant.name}

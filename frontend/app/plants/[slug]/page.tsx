@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import JsonLd from '@/components/JsonLd';
-import { fetchServerPlant } from '@/lib/server-api';
+import { fetchServerPlant, fetchServerPlants } from '@/lib/server-api';
 import { formatPrice } from '@/lib/format-price';
+import { findPlantBySlug, getPlantPath } from '@/lib/plant-slug';
 import { buildOpenGraph, toAbsoluteImageUrl, toMetaDescription } from '@/lib/seo';
 import { absoluteUrl } from '@/lib/site-url';
 import type { Plant } from '@/app/types/plant';
@@ -15,46 +16,55 @@ import PlantGallery from './PlantGallery';
 export const revalidate = 300;
 
 type PlantPageProps = {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 };
 
-function parsePlantId(rawId: string): number | null {
-  if (!/^\d+$/.test(rawId)) {
-    return null;
+type ResolvedPlant = {
+  plant: Plant;
+  // false → URL не канонічний (старий numeric id), сторінка має редиректити
+  isCanonical: boolean;
+};
+
+async function resolvePlant(rawSlug: string): Promise<ResolvedPlant | null> {
+  const decoded = decodeURIComponent(rawSlug);
+
+  // Старі URL виду /plants/25: знаходимо рослину за id і редиректимо
+  // на канонічний слаг, щоб уже проіндексовані посилання не зникли.
+  if (/^\d+$/.test(decoded)) {
+    const id = Number(decoded);
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return null;
+    }
+
+    const plant = await fetchServerPlant(id, { revalidate: 300 });
+    return plant ? { plant, isCanonical: false } : null;
   }
 
-  const id = Number(rawId);
-  return Number.isSafeInteger(id) && id > 0 ? id : null;
-}
-
-async function loadPlant(rawId: string): Promise<Plant | null> {
-  const id = parsePlantId(rawId);
-
-  if (id === null) {
-    return null;
-  }
-
-  return fetchServerPlant(id, { revalidate: 300 });
+  const plants = await fetchServerPlants({ revalidate: 300 });
+  const plant = findPlantBySlug(plants, decoded);
+  return plant ? { plant, isCanonical: true } : null;
 }
 
 export async function generateMetadata({
   params,
 }: PlantPageProps): Promise<Metadata> {
-  const { id } = await params;
-  const plant = await loadPlant(id);
+  const { slug } = await params;
+  const resolved = await resolvePlant(slug);
 
-  if (!plant) {
+  if (!resolved) {
     return {
       title: 'Рослину не знайдено',
       robots: { index: false, follow: false },
     };
   }
 
+  const { plant } = resolved;
   const description = toMetaDescription(
     plant.description,
     `Купити ${plant.name} у PlantShop — ціна ${formatPrice(plant.price)}, доставка по Україні. Преміум рослини для дому, офісу та саду.`,
   );
-  const canonicalPath = `/plants/${plant.id}`;
+  const canonicalPath = getPlantPath(plant);
   const coverImage = plant.images?.[0];
 
   return {
@@ -78,11 +88,17 @@ export async function generateMetadata({
 }
 
 export default async function PlantPage({ params }: PlantPageProps) {
-  const { id } = await params;
-  const plant = await loadPlant(id);
+  const { slug } = await params;
+  const resolved = await resolvePlant(slug);
 
-  if (!plant) {
+  if (!resolved) {
     notFound();
+  }
+
+  const { plant, isCanonical } = resolved;
+
+  if (!isCanonical) {
+    permanentRedirect(getPlantPath(plant));
   }
 
   const images = plant.images?.length
@@ -90,6 +106,7 @@ export default async function PlantPage({ params }: PlantPageProps) {
     : ['/images/placeholder.jpg'];
   const descriptionText =
     plant.description?.trim() || 'Опис рослини поки не додано.';
+  const canonicalUrl = absoluteUrl(getPlantPath(plant));
 
   const productJsonLd = {
     '@context': 'https://schema.org',
@@ -102,7 +119,7 @@ export default async function PlantPage({ params }: PlantPageProps) {
     ),
     offers: {
       '@type': 'Offer',
-      url: absoluteUrl(`/plants/${plant.id}`),
+      url: canonicalUrl,
       price: plant.price,
       priceCurrency: 'UAH',
       availability: 'https://schema.org/InStock',
@@ -129,7 +146,7 @@ export default async function PlantPage({ params }: PlantPageProps) {
         '@type': 'ListItem',
         position: 3,
         name: plant.name,
-        item: absoluteUrl(`/plants/${plant.id}`),
+        item: canonicalUrl,
       },
     ],
   };
