@@ -2,7 +2,7 @@
 'use client';
 
 import Link from "next/link";
-import { X, Search, ShoppingBag, ChevronRight, Sparkles, User, LogOut, Settings, Package, ShieldCheck } from "lucide-react";
+import { X, Search, ShoppingBag, ChevronRight, Sparkles, User, LogOut, Settings, Package, ShieldCheck, Sun, Moon } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { NavLink } from '@/app/types/navigation';
@@ -20,7 +20,7 @@ interface MobileNavigationProps {
   activeMobileSubmenu: string | null;
   mobileMenuRef: React.RefObject<HTMLDivElement>;
   onClose: () => void;
-  onThemeToggle: () => void;
+  onThemeToggle: (event?: React.MouseEvent) => void;
   onAuthOpen: () => void;
   onSearchOpen: () => void;
   onCartOpen: () => void;
@@ -30,10 +30,13 @@ interface MobileNavigationProps {
 export function MobileNavigation({
   open,
   links,
+  theme,
+  isAnimating,
   totalItems,
   activeMobileSubmenu,
   mobileMenuRef,
   onClose,
+  onThemeToggle,
   onAuthOpen,
   onSearchOpen,
   onCartOpen,
@@ -84,6 +87,19 @@ export function MobileNavigation({
             {totalItems}
           </span>
         )}
+      </button>
+
+      <button
+        onClick={(event) => onThemeToggle(event)}
+        disabled={isAnimating}
+        className="flex flex-col items-center p-3 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 disabled:opacity-60"
+      >
+        {hasHydrated && theme === 'dark' ? (
+          <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+        ) : (
+          <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400 mb-1" />
+        )}
+        <span className="text-xs text-gray-600 dark:text-gray-400">Тема</span>
       </button>
     </>
   );
@@ -164,7 +180,7 @@ export function MobileNavigation({
               )}
 
               {/* Quick Actions */}
-              <div className="grid grid-cols-2 gap-2 mb-6">
+              <div className="grid grid-cols-3 gap-2 mb-6">
                 {mobileButtons}
               </div>
 

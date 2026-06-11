@@ -5,20 +5,28 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
+type ThemeToggleOrigin = Pick<React.MouseEvent, 'clientX' | 'clientY'>;
+
 interface ThemeContextType {
   theme: Theme;
-  toggleTheme: () => void;
+  toggleTheme: (origin?: ThemeToggleOrigin) => void;
   isAnimating: boolean;
   isLoaded: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const THEME_ANIMATION_MS = 450;
-
 function getStoredTheme(): Theme | null {
   const savedTheme = localStorage.getItem('theme');
   return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : null;
+}
+
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+};
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -34,11 +42,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const initialTheme = savedTheme ?? systemTheme;
 
-    if (initialTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', initialTheme === 'dark');
 
     const timeout = window.setTimeout(() => {
       setTheme(initialTheme);
@@ -48,22 +52,57 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timeout);
   }, []);
 
-  const toggleTheme = () => {
+  const toggleTheme = (origin?: ThemeToggleOrigin) => {
     if (isAnimating || !isLoaded) return;
 
-    setIsAnimating(true);
     const newTheme: Theme = theme === 'light' ? 'dark' : 'light';
+    const applyTheme = () => {
+      document.documentElement.classList.toggle('dark', newTheme === 'dark');
+      setTheme(newTheme);
+      localStorage.setItem('theme', newTheme);
+    };
 
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
+    const doc = document as DocumentWithViewTransition;
+    const root = document.documentElement;
 
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    // На час перемикання глушимо елементні CSS-transitions: інакше кожен
+    // елемент з transition-colors стартує власну анімацію одночасно зі
+    // зміною класу .dark (головне джерело лагів на слабких пристроях).
+    const muteTransitions = () => root.setAttribute('data-theme-switching', '');
+    const unmuteTransitions = () =>
+      root.removeAttribute('data-theme-switching');
+
+    // Хвиля по всій сторінці через View Transitions: браузер анімує один
+    // знімок сторінки на композиторі (clip-path коло з точки кліку) замість
+    // тисяч одночасних CSS-transitions — швидко навіть на слабких пристроях.
+    if (!doc.startViewTransition || prefersReducedMotion()) {
+      muteTransitions();
+      applyTheme();
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(unmuteTransitions);
+      });
+      return;
     }
 
-    setTimeout(() => setIsAnimating(false), THEME_ANIMATION_MS);
+    const x = origin?.clientX ?? window.innerWidth / 2;
+    const y = origin?.clientY ?? 0;
+    // Радіус до найдальшого кута, щоб коло гарантовано накрило вʼюпорт.
+    const radius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    root.style.setProperty('--theme-reveal-x', `${x}px`);
+    root.style.setProperty('--theme-reveal-y', `${y}px`);
+    root.style.setProperty('--theme-reveal-radius', `${radius}px`);
+
+    setIsAnimating(true);
+    muteTransitions();
+    const transition = doc.startViewTransition(applyTheme);
+    transition.finished.finally(() => {
+      unmuteTransitions();
+      setIsAnimating(false);
+    });
   };
 
   return (

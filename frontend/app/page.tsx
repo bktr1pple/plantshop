@@ -1,11 +1,33 @@
 import type { Metadata } from "next";
 import JsonLd from "@/components/JsonLd";
 import HomeContent from "./HomeContent";
+import FeaturedPlants from "./FeaturedPlants";
 import { fetchServerPublicSiteSettings } from "@/lib/server-api";
 import { buildOpenGraph, toMetaDescription } from "@/lib/seo";
 import { absoluteUrl, getSiteUrl } from "@/lib/site-url";
+import type { PaginatedPlantsResponse, Plant } from "@/app/types/plant";
 
 export const revalidate = 300;
+
+const INTERNAL_API_URL =
+  process.env.INTERNAL_API_URL ?? "http://localhost:3001";
+
+async function fetchFeaturedPlants(): Promise<Plant[]> {
+  try {
+    const res = await fetch(`${INTERNAL_API_URL}/plants?page=1&limit=8`, {
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = (await res.json()) as Partial<PaginatedPlantsResponse>;
+    return Array.isArray(data.items) ? data.items : [];
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await fetchServerPublicSiteSettings({ revalidate: 300 });
@@ -33,7 +55,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const settings = await fetchServerPublicSiteSettings({ revalidate: 300 });
+  const [settings, featuredPlants] = await Promise.all([
+    fetchServerPublicSiteSettings({ revalidate: 300 }),
+    fetchFeaturedPlants(),
+  ]);
   const siteUrl = getSiteUrl();
   const telephone = settings.contactPhoneHref.replace(/^tel:/, "");
 
@@ -81,7 +106,9 @@ export default async function HomePage() {
     <>
       <JsonLd data={webSiteJsonLd} />
       <JsonLd data={localBusinessJsonLd} />
-      <HomeContent />
+      <HomeContent
+        featuredPlants={<FeaturedPlants plants={featuredPlants} />}
+      />
     </>
   );
 }

@@ -66,6 +66,12 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - home (`app/page.tsx` → `app/HomeContent.tsx`) and contact (`app/contact/page.tsx` → `ContactContent.tsx`) are split into server metadata/JSON-LD wrappers + client content components
   - exactly one `<main>` landmark per page: `ClientWrapper` renders a plain `<div>` wrapper, pages own their `<main>`
 - Public `SiteSettings` content is server-rendered: root layout fetches settings with `revalidate: 300` and passes `initialSettings` into `SiteSettingsProvider`; the client still refreshes on mount.
+- Theme switching performance contract:
+  - the page-wide "wave" effect is implemented through the View Transitions API in `frontend/components/ThemeContext.tsx`: `toggleTheme(origin?)` receives the click coordinates, sets `--theme-reveal-*` CSS vars and runs a compositor-driven `clip-path: circle()` reveal (CSS in `globals.css`); browsers without View Transitions or with `prefers-reduced-motion` switch instantly
+  - while switching, `html[data-theme-switching]` mutes all element-level CSS transitions; universal `* { transition: ... }` rules are forbidden — they caused page-wide jank on `.dark` toggle
+  - the old full-screen blurred ripple overlay (`EnhancedThemeRipple`) and dead theme/animation components (`ThemeRipple`, `ThemeToggle`, `MobileThemeToggle`, `Particles`, `SafeScrollSection`, `TextReveal`, `StatCard`, `useSafeScroll`) were removed and must not be reintroduced
+- Homepage composition: `app/page.tsx` (server) also fetches `GET /plants?page=1&limit=8` (revalidate 300) and renders the server `app/FeaturedPlants.tsx` section into `HomeContent` as a slot prop; hero counters with fabricated metrics were replaced by honest value pills — fake numbers must not return. Hero background spots are static radial-gradients (no `filter: blur` layers), the hero carousel is a CSS opacity crossfade paused in background tabs, and the mouse-parallax springs were removed for performance.
+- `prefers-reduced-motion: reduce` is honored globally in `globals.css` (animations/transitions/scroll-behavior collapse to near-zero).
 - Current authenticated dashboard reality:
   - `/dashboard/settings` is real and persists current-user profile/preferences through `PATCH /auth/me`
   - `/dashboard/orders` is real and loads persisted current-user order history/details from the backend
