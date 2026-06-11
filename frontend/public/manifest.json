@@ -1,5 +1,5 @@
 {
-  "name": "Plant Shop - Преміум рослини",
+  "name": "PlantShop — преміум рослини",
   "short_name": "PlantShop",
   "description": "Ексклюзивні рослини, професійний догляд та авторські рішення для створення ідеального простору",
   "theme_color": "#10b981",
@@ -59,20 +59,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable any"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/mobile-1.png",
-      "sizes": "375x667",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/desktop-1.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
     }
   ]
 }

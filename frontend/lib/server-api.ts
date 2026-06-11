@@ -23,10 +23,16 @@ export async function fetchServerPlants(): Promise<Plant[]> {
   }
 }
 
-export async function fetchServerPublicSiteSettings(): Promise<SiteSettings> {
+export async function fetchServerPublicSiteSettings(
+  options?: { revalidate?: number },
+): Promise<SiteSettings> {
   try {
+    // Без revalidate лишається no-store (admin-флоу потребує свіжих даних);
+    // публічний layout передає revalidate, щоб сторінки могли бути static/ISR.
     const res = await fetch(`${INTERNAL_API_URL}/site-settings/public`, {
-      cache: 'no-store',
+      ...(options?.revalidate !== undefined
+        ? { next: { revalidate: options.revalidate } }
+        : { cache: 'no-store' }),
     });
 
     if (!res.ok) {

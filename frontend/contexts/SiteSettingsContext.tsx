@@ -21,10 +21,16 @@ const SiteSettingsContext = createContext<SiteSettingsContextValue | undefined>(
 
 export function SiteSettingsProvider({
   children,
+  initialSettings,
 }: {
   children: React.ReactNode;
+  initialSettings?: SiteSettings;
 }) {
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings);
+  // initialSettings приходять із серверного рендера (root layout), щоб
+  // реальний контент потрапляв у HTML-відповідь, а не лише після гідрації.
+  const [settings, setSettings] = useState<SiteSettings>(
+    initialSettings ?? defaultSiteSettings,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshSettings = useCallback(async () => {
