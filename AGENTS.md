@@ -185,6 +185,9 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `GET /plants?all=true`, returns the full array for server/admin flows that need the whole catalog
   - `GET /plants/:id`
 - Public `/plants` storefront uses URL pagination with `page` and `limit`; the current default page size is `12`.
+- `GET /plants` also accepts an optional `search` query parameter (trimmed, max 100 chars) that filters by name/description substring; `meta.search` echoes the applied term or `null`.
+- The navbar search modal performs a real catalog search by navigating to `/plants?search=<term>`; popular-search chips use the same real navigation.
+- `/plants` distinguishes three honest states: results, empty (including an explicit no-results-for-search state with a reset link), and a dedicated load-error state when the backend fetch fails (it must not be presented as an empty catalog).
 - Admin-only write endpoints:
   - `POST /plants`
   - `PATCH /plants/:id`
@@ -241,6 +244,12 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - `admin-test` is not a production admin area and should not be reintroduced as if it were one.
 - `/about`, `/care`, `/pots`, and `/convert` are not active storefront routes and must not be linked or documented as implemented pages.
 - Wishlist functionality is not part of the current product surface and must not be reintroduced as a fake client-only feature.
+- Catalog categories are not implemented: navigation/footer must not present fake category links that all point to the same `/plants` page. The navbar "Рослини" item links directly to `/plants` without a submenu.
+- The auth modal must not show a "remember me" control: session lifetime is fixed by backend cookie TTLs and trusted-login recognition, and there is no backend contract for it.
+- Newsletter subscription is not implemented; the footer offers an honest mailto contact instead of a disabled form.
+- The `/contact` messenger block is hidden until `messengerUrl` is configured to a real URL (default `#` means "not configured").
+- Client-side password validation mirrors backend DTOs: registration and new passwords require 8+ chars with at least one letter and one digit and no spaces; checkout phone input mirrors the `CreateOrderDto` phone pattern.
+- Dashboard/cart/system UI copy must stay user-facing Ukrainian without engineering jargon ("backend", "endpoints", "без моків" etc. are not allowed in storefront copy).
 - `/plants` read endpoints stay public.
 - `/plants` write endpoints require authenticated `ADMIN`.
 - Site settings are editable through the admin UI and are consumed by public pages.
@@ -329,7 +338,8 @@ When auditing or reviewing this repository, prioritize:
 - Backend env expectations:
   - `PORT=3001`
   - `FRONTEND_URL=http://localhost:3000`
-  - `PUBLIC_API_URL=http://localhost:3001` for media URLs
+  - `PUBLIC_API_URL=http://localhost:3001` for media URLs (the only supported variable; the old `BACKEND_PUBLIC_URL` alias was removed)
+  - `BCRYPT_SALT_ROUNDS` is optional and defaults to `12`
   - required secrets/env:
     - `JWT_ACCESS_SECRET`
     - `JWT_REFRESH_SECRET`
@@ -349,6 +359,8 @@ When auditing or reviewing this repository, prioritize:
 - Do not hardcode production domains/secrets in source code.
 - Treat `.env.example` as the documentation contract for new environments.
 - If `.env.example` disagrees with runtime code, that is a real issue and should be called out.
+- Frontend `.env.example` documents only variables the code actually reads: `NEXT_PUBLIC_API_URL`, `INTERNAL_API_URL`, `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`.
+- Deployment is documented in root `DEPLOYMENT.md` (Ubuntu/Debian, nvm Node 24.16.0, MySQL 8, `prisma migrate deploy`, PM2 or systemd, nginx with `/uploads` served through the backend, certbot HTTPS, first-admin promotion, backups).
 
 ## Auth/session rules
 - Preserve backend-driven session creation only after a verified login or a successfully completed login challenge.
@@ -417,6 +429,8 @@ When auditing or reviewing this repository, prioritize:
   - media storage/service/controller, including path traversal and magic-byte checks
   - site settings service/controller/DTO URL policies
   - unsafe request Origin validation
+- Backend `test:e2e` runs Jest through `node --experimental-vm-modules` because the generated Prisma 7 client performs a dynamic `import()` during bootstrap; without the flag the real-stack smoke fails with `ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING_FLAG`.
+- The smoke logout assertion checks revocation semantics (`revokedAt` set on active refresh tokens), not row deletion.
 - Backend `test:e2e` now includes an opt-in real HTTP smoke suite in `backend/test/admin-smoke.e2e-spec.ts` for:
   - real login
   - real cookies
@@ -448,10 +462,13 @@ When auditing or reviewing this repository, prioritize:
   - plants admin manager
   - media uploader
   - dashboard settings current-user persistence and password-change flow
+  - navbar search modal real navigation
   - browser admin access
   - browser user-cabinet smoke flow
   - browser plants smoke flow
   - browser settings smoke flow
+  - browser mobile-viewport smoke flow (`frontend/e2e/mobile-smoke.spec.ts`: homepage + mobile menu, catalog search, honest empty search state)
+- The e2e mock backend (`frontend/e2e/mock-backend.mjs`) mirrors the real `GET /plants` contract including the `search` parameter and `meta.search`.
 - Keep app/runtime TS config and test TS config separated. Production build must not depend on test-only files.
 
 ## Verification rules
