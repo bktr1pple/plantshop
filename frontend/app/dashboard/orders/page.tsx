@@ -182,7 +182,7 @@ function OrdersContent() {
                 Мої замовлення
               </h1>
               <p className="mt-1 text-sm text-gray-600 sm:text-base dark:text-gray-300">
-                Реальна історія покупок поточного акаунта з backend-backed деталями.
+                Історія покупок вашого акаунта з деталями кожного замовлення.
               </p>
             </div>
 
@@ -230,7 +230,7 @@ function OrdersContent() {
                 У вас ще немає замовлень
               </h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Коли ви оформите перше реальне замовлення з кошика, воно зʼявиться тут.
+                Коли ви оформите перше замовлення з кошика, воно зʼявиться тут.
               </p>
               <Link
                 href="/plants"

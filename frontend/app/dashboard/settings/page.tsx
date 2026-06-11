@@ -353,8 +353,12 @@ export default function SettingsPage() {
       return 'Поточний пароль має містити щонайменше 6 символів.';
     }
 
-    if (passwordForm.newPassword.length < 6) {
-      return 'Новий пароль має містити щонайменше 6 символів.';
+    if (passwordForm.newPassword.length < 8) {
+      return 'Новий пароль має містити щонайменше 8 символів.';
+    }
+
+    if (!/^(?=\S+$)(?=.*\p{L})(?=.*\d).+$/u.test(passwordForm.newPassword)) {
+      return 'Новий пароль має містити щонайменше одну літеру, одну цифру і не містити пробілів.';
     }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -615,7 +619,7 @@ export default function SettingsPage() {
 
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 ring-1 ring-sky-100 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-800/50">
-                Профіль і налаштування акаунта зберігаються на backend
+                Зміни зберігаються у вашому акаунті
               </span>
               <button
                 type="button"
@@ -800,7 +804,7 @@ export default function SettingsPage() {
                       description="Оберіть, які повідомлення ви хочете отримувати від PlantShop."
                     >
                       <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                        Ці налаштування зберігаються для поточного акаунта й застосовуються як налаштування сповіщень.
+                        Налаштування сповіщень діють для вашого акаунта на всіх пристроях.
                       </div>
                       <div className="space-y-3">
                         <ToggleRow
@@ -869,7 +873,7 @@ export default function SettingsPage() {
                       description="Керуйте тим, хто бачить інформацію про вас, та налаштуйте безпеку входу."
                     >
                       <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                        Параметри конфіденційності зберігаються для поточного акаунта. Зміна пароля тепер підтверджується backend і після успіху завершує поточні сесії.
+                        Після зміни пароля всі активні сесії буде завершено з міркувань безпеки — потрібно буде увійти знову.
                       </div>
                       <div className="space-y-6">
                         <div className="space-y-3">
@@ -1001,7 +1005,7 @@ export default function SettingsPage() {
                             </p>
                           ) : (
                             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                              Після успішної зміни пароля backend завершить поточні refresh-сесії, тому потрібно буде увійти знову.
+                              Новий пароль: щонайменше 8 символів, з літерою та цифрою. Після зміни потрібно буде увійти знову.
                             </p>
                           )}
                           <div className="flex flex-wrap gap-3">
@@ -1044,7 +1048,7 @@ export default function SettingsPage() {
                       description="Експортуйте свої дані або керуйте акаунтом."
                     >
                       <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
-                        Експорт даних і видалення акаунта ще не підключені до backend, тому ці дії лишаються недоступними.
+                        Експорт даних і видалення акаунта поки що недоступні. Якщо це потрібно — напишіть нам через сторінку контактів.
                       </div>
                       <div className="space-y-6">
                         <div className="space-y-3">

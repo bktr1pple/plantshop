@@ -150,9 +150,8 @@ export default function DashboardPage() {
                 Вітаємо, {displayName}
               </h1>
               <p className="max-w-xl text-base text-gray-600 dark:text-gray-400">
-                Тут показано тільки те, що реально підключено. Налаштування
-                профілю вже зберігаються на backend, а розділ замовлень тепер
-                показує реальну історію покупок поточного акаунта без моків.
+                Керуйте профілем, переглядайте історію замовлень і налаштовуйте
+                сповіщення — все в одному місці.
               </p>
             </div>
 
@@ -178,11 +177,8 @@ export default function DashboardPage() {
             <Card className="p-5 sm:p-6">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                  Статус кабінету
+                  Ваш кабінет
                 </h2>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  Частково підключено до backend
-                </span>
               </div>
 
               <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200">
@@ -191,11 +187,11 @@ export default function DashboardPage() {
                     <ShoppingBag className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <p className="font-semibold">Профіль і замовлення працюють через backend</p>
+                    <p className="font-semibold">Профіль і замовлення синхронізовані з вашим акаунтом</p>
                     <p className="text-sky-700/90 dark:text-sky-100/90">
-                      Профіль, сповіщення та історія замовлень уже підключені
-                      до реальних current-user backend endpoints. На overview ми
-                      все ще не показуємо фейкові метрики або вигадані списки.
+                      Дані профілю, налаштування сповіщень та історія замовлень
+                      зберігаються у вашому акаунті й доступні з будь-якого
+                      пристрою після входу.
                     </p>
                   </div>
                 </div>
@@ -260,7 +256,7 @@ export default function DashboardPage() {
 
               {isOrdersLoading ? (
                 <p className="py-4 text-base text-gray-500 dark:text-gray-400">
-                  Завантажуємо реальну історію замовлень...
+                  Завантажуємо історію замовлень...
                 </p>
               ) : ordersError ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-base text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/20 dark:text-amber-200">
@@ -339,7 +335,7 @@ export default function DashboardPage() {
                     У вас ще немає замовлень
                   </p>
                   <p className="mt-1">
-                    Перше реальне замовлення з кошика з&apos;явиться тут після оформлення.
+                    Перше замовлення з кошика з&apos;явиться тут після оформлення.
                   </p>
                 </div>
               )}
