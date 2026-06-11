@@ -33,6 +33,7 @@ export class PlantController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('all') all?: string,
+    @Query('search') search?: string,
   ) {
     if (all === 'true') {
       return this.plantService.findAll();
@@ -41,6 +42,7 @@ export class PlantController {
     return this.plantService.findPaginated({
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
+      search: typeof search === 'string' ? search : undefined,
     });
   }
 

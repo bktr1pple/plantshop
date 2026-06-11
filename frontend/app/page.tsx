@@ -26,7 +26,6 @@ import {
   Sprout,
   Trees,
   ArrowRight,
-  Play,
   Star,
   Shield,
   Truck,
@@ -58,6 +57,7 @@ interface DirectionItem {
   description: string;
   tag: string;
   icon: ReactNode;
+  href: string;
 }
 
 interface BenefitItem {
@@ -114,6 +114,7 @@ const directions: DirectionItem[] = [
       "Створюємо затишні зелені куточки, які підкреслюють стиль інтерʼєру й покращують самопочуття.",
     tag: "Квартири • будинки • тераси",
     icon: <Home className="w-6 h-6" />,
+    href: "/landscape-design",
   },
   {
     title: "Для офісу",
@@ -121,6 +122,7 @@ const directions: DirectionItem[] = [
       "Озеленення робочих просторів, reception-зон та переговорних для сучасного бізнесу.",
     tag: "Офіси • коворкінги • HoReCa",
     icon: <Building2 className="w-6 h-6" />,
+    href: "/landscape-design",
   },
   {
     title: "Для подарунків",
@@ -128,6 +130,7 @@ const directions: DirectionItem[] = [
       "Преміальні рослини та композиції, які хочеться дарувати й отримувати.",
     tag: "Подарункові сети • композиції",
     icon: <Gift className="w-6 h-6" />,
+    href: "/plants",
   },
 ];
 
@@ -557,12 +560,14 @@ const HeroSection = ({
               <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform duration-300" />
             </Link>
 
-            <button className="group inline-flex items-center justify-center gap-2 bg-transparent border border-white/40 text-white font-semibold py-3 sm:py-3 px-5 sm:px-6 rounded-xl sm:rounded-2xl backdrop-blur-md hover:bg-white/10 hover:border-white/60 transition-all duration-300 hover:-translate-y-1 min-w-[140px] sm:min-w-[150px]">
-              <Play className="w-3 h-3" />
+            <Link
+              href="/landscape-design"
+              className="group inline-flex items-center justify-center gap-2 bg-transparent border border-white/40 text-white font-semibold py-3 sm:py-3 px-5 sm:px-6 rounded-xl sm:rounded-2xl backdrop-blur-md hover:bg-white/10 hover:border-white/60 transition-all duration-300 hover:-translate-y-1 min-w-[140px] sm:min-w-[150px]"
+            >
               <span className="text-sm sm:text-base whitespace-nowrap">
-                Відео тур
+                Наші послуги
               </span>
-            </button>
+            </Link>
           </MotionDiv>
 
           {/* Stats */}
@@ -731,10 +736,13 @@ const DirectionsSection: React.FC = () => (
                 {item.description}
               </p>
 
-              <div className="relative mt-auto flex items-center gap-2 text-sm font-medium text-emerald-700 transition-colors group-hover:text-emerald-600 dark:text-emerald-400 dark:group-hover:text-emerald-300">
+              <Link
+                href={item.href}
+                className="relative mt-auto flex items-center gap-2 text-sm font-medium text-emerald-700 transition-colors group-hover:text-emerald-600 dark:text-emerald-400 dark:group-hover:text-emerald-300"
+              >
                 <span>Дізнатись більше</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </div>
+              </Link>
             </m.article>
           ))}
         </m.div>

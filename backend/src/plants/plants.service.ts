@@ -11,7 +11,19 @@ import { parsePlantImages, stringifyPlantImages } from './plant-images';
 export type PlantsPaginationOptions = {
   page?: number;
   limit?: number;
+  search?: string;
 };
+
+const MAX_SEARCH_LENGTH = 100;
+
+function normalizeSearchTerm(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return trimmed.slice(0, MAX_SEARCH_LENGTH);
+}
 
 function normalizePositiveInteger(
   value: number | undefined,
@@ -87,10 +99,20 @@ export class PlantsService {
     const page = normalizePositiveInteger(options.page, 1);
     const limit = normalizePositiveInteger(options.limit, 12, 48);
     const skip = (page - 1) * limit;
+    const search = normalizeSearchTerm(options.search);
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search } },
+            { description: { contains: search } },
+          ],
+        }
+      : undefined;
 
     const [totalItems, plants] = await this.prisma.$transaction([
-      this.prisma.plant.count(),
+      this.prisma.plant.count({ where }),
       this.prisma.plant.findMany({
+        where,
         orderBy: { updatedAt: 'desc' },
         skip,
         take: limit,
@@ -108,6 +130,7 @@ export class PlantsService {
         totalPages,
         hasPreviousPage: page > 1,
         hasNextPage: page < totalPages,
+        search: search ?? null,
       },
     };
   }

@@ -196,9 +196,7 @@ export async function listCurrentUserOrders(): Promise<OrderSummary[]> {
 }
 
 export async function getCurrentUserOrder(id: number): Promise<OrderDetail> {
-  const { res, unauthorized, temporaryFailure } = await fetchWithRefresh(
-    `/orders/me/${id}`,
-  );
+  const { res, unauthorized } = await fetchWithRefresh(`/orders/me/${id}`);
 
   if (unauthorized) {
     throw new OrdersApiError(
@@ -211,13 +209,6 @@ export async function getCurrentUserOrder(id: number): Promise<OrderDetail> {
     throw new OrdersApiError(
       'Не вдалося завантажити деталі замовлення.',
       'unavailable',
-    );
-  }
-
-  if (!res.ok && temporaryFailure) {
-    throw new OrdersApiError(
-      await parseErrorResponse(res, 'Не вдалося завантажити замовлення.'),
-      statusFromResponse(res),
     );
   }
 

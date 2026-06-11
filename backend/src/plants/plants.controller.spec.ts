@@ -67,6 +67,32 @@ describe('PlantController', () => {
     expect(plantsServiceMock.findPaginated).toHaveBeenCalledWith({
       page: 2,
       limit: 8,
+      search: undefined,
+    });
+  });
+
+  it('findAll прокидує search у сервіс', async () => {
+    const paginatedResult = {
+      items: [],
+      meta: {
+        page: 1,
+        limit: 12,
+        totalItems: 0,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+        search: 'монстера',
+      },
+    };
+    plantsServiceMock.findPaginated.mockResolvedValue(paginatedResult);
+
+    await expect(
+      controller.findAll(undefined, undefined, undefined, 'монстера'),
+    ).resolves.toEqual(paginatedResult);
+    expect(plantsServiceMock.findPaginated).toHaveBeenCalledWith({
+      page: undefined,
+      limit: undefined,
+      search: 'монстера',
     });
   });
 

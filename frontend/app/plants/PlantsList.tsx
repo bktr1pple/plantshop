@@ -8,20 +8,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Maximize2,
-  Pencil,
-  Trash2,
-  ShieldCheck,
-  Plus,
-  Save,
 } from 'lucide-react';
 import Image, { type ImageLoader } from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 import type { Plant, PlantsPaginationMeta } from '../types/plant';
 
-import { useNotification } from '@/app/components/NotificationSystem';
 import { useCart } from '@/contexts/CartContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/format-price';
 
 // Optimized motion components
@@ -32,91 +24,19 @@ const MotionButton = m.button;
 type Props = {
   plants: Plant[];
   pagination: PlantsPaginationMeta;
+  searchTerm?: string;
+  hasLoadError?: boolean;
 };
 type OptimizedImageProps = Omit<React.ComponentProps<typeof Image>, 'src' | 'alt'> & {
   src: string;
   alt: string;
   priority?: boolean;
 };
-type PlantFormState = {
-  name: string;
-  description: string;
-  price: string;
-  images: string;
-};
-type PlantMutationResponse = Omit<Plant, 'images'> & {
-  images?: string[] | string | null;
-};
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const remoteImageLoader: ImageLoader = ({ src }) => src;
-
-const createEmptyPlantForm = (): PlantFormState => ({
-  name: '',
-  description: '',
-  price: '',
-  images: '',
-});
-
-function parseImagesInput(value: string): string[] {
-  return value
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 function isRemoteImageUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
-}
-
-function normalizePlant(plant: PlantMutationResponse): Plant {
-  let images: string[] = [];
-
-  if (Array.isArray(plant.images)) {
-    images = plant.images.filter((item): item is string => typeof item === 'string');
-  } else if (typeof plant.images === 'string') {
-    try {
-      const parsed = JSON.parse(plant.images) as unknown;
-      if (Array.isArray(parsed)) {
-        images = parsed.filter((item): item is string => typeof item === 'string');
-      }
-    } catch {
-      images = [];
-    }
-  }
-
-  return {
-    ...plant,
-    description: plant.description ?? null,
-    images,
-  };
-}
-
-async function readJsonSafely(res: Response): Promise<unknown | null> {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
-function getApiMessage(data: unknown, fallback: string): string {
-  if (!data || typeof data !== 'object') {
-    return fallback;
-  }
-
-  const message = (data as { message?: unknown }).message;
-
-  if (typeof message === 'string') {
-    return message;
-  }
-
-  if (Array.isArray(message)) {
-    const joined = message.filter((item): item is string => typeof item === 'string').join(', ');
-    return joined || fallback;
-  }
-
-  return fallback;
 }
 
 function getVisiblePages(currentPage: number, totalPages: number) {
@@ -131,7 +51,7 @@ function getVisiblePages(currentPage: number, totalPages: number) {
   return Array.from(pages).sort((a, b) => a - b);
 }
 
-function getPageHref(page: number, limit: number) {
+function getPageHref(page: number, limit: number, searchTerm?: string) {
   const params = new URLSearchParams();
 
   if (page > 1) {
@@ -140,6 +60,10 @@ function getPageHref(page: number, limit: number) {
 
   if (limit !== 12) {
     params.set('limit', String(limit));
+  }
+
+  if (searchTerm) {
+    params.set('search', searchTerm);
   }
 
   const query = params.toString();
@@ -190,12 +114,13 @@ const useMobile = () => {
   return isMobile;
 };
 
-export default function PlantsList({ plants, pagination }: Props) {
-  const { user } = useAuth();
+export default function PlantsList({
+  plants,
+  pagination,
+  searchTerm = '',
+  hasLoadError = false,
+}: Props) {
   const { addToCart } = useCart();
-  const { addNotification } = useNotification();
-  const router = useRouter();
-  const pathname = usePathname();
 
   const [plantItems, setPlantItems] = useState<Plant[]>(plants);
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
@@ -204,14 +129,8 @@ export default function PlantsList({ plants, pagination }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [newPlantForm, setNewPlantForm] = useState<PlantFormState>(createEmptyPlantForm);
-  const [editPlantForm, setEditPlantForm] = useState<PlantFormState>(createEmptyPlantForm);
-  const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
-  const [isEditingSelectedPlant, setIsEditingSelectedPlant] = useState(false);
-  
+
   const isMobile = useMobile();
-  const isAdmin = user?.role === 'ADMIN';
-  const canManagePlants = isAdmin && pathname.startsWith('/admin');
   const currentPage = Math.min(
     Math.max(1, pagination.page),
     Math.max(1, pagination.totalPages),
@@ -242,13 +161,11 @@ export default function PlantsList({ plants, pagination }: Props) {
     setImageLoadErrors(new Set());
     setIsModalOpen(true);
     setIsFullscreen(false);
-    setIsEditingSelectedPlant(false);
   }, []);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setIsFullscreen(false);
-    setIsEditingSelectedPlant(false);
     setTimeout(() => {
       setSelectedPlant(null);
       setCurrentIndex(0);
@@ -356,220 +273,6 @@ export default function PlantsList({ plants, pagination }: Props) {
 
   const handleImageError = (index: number) => {
     setImageLoadErrors(prev => new Set(prev).add(index));
-  };
-
-  const handleCreateFormChange = (field: keyof PlantFormState, value: string) => {
-    setNewPlantForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleEditFormChange = (field: keyof PlantFormState, value: string) => {
-    setEditPlantForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleStartEditingPlant = useCallback(() => {
-    if (!selectedPlant) return;
-
-    setEditPlantForm({
-      name: selectedPlant.name,
-      description: selectedPlant.description ?? '',
-      price: selectedPlant.price.toString(),
-      images: selectedPlant.images?.join(', ') ?? '',
-    });
-    setIsEditingSelectedPlant(true);
-  }, [selectedPlant]);
-
-  const handleCreatePlant = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const name = newPlantForm.name.trim();
-    const price = Number(newPlantForm.price);
-
-    if (!name) {
-      addNotification({
-        type: 'error',
-        title: 'Не вдалося створити рослину',
-        message: 'Назва є обов’язковою.',
-      });
-      return;
-    }
-
-    if (!Number.isFinite(price) || price < 0) {
-      addNotification({
-        type: 'error',
-        title: 'Некоректна ціна',
-        message: 'Вкажіть коректну невід’ємну ціну.',
-      });
-      return;
-    }
-
-    setIsSubmittingAdmin(true);
-
-    try {
-      const res = await fetch(`${API_URL}/plants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name,
-          description: newPlantForm.description.trim() || undefined,
-          price,
-          images: parseImagesInput(newPlantForm.images),
-        }),
-      });
-
-      const data = await readJsonSafely(res);
-
-      if (!res.ok) {
-        addNotification({
-          type: res.status === 403 ? 'warning' : 'error',
-          title: 'Не вдалося створити рослину',
-          message: getApiMessage(data, 'Перевірте права доступу або спробуйте ще раз.'),
-        });
-        return;
-      }
-
-      const createdPlant = normalizePlant(data as PlantMutationResponse);
-      setPlantItems((prev) => [createdPlant, ...prev]);
-      setNewPlantForm(createEmptyPlantForm());
-      router.refresh();
-
-      addNotification({
-        type: 'success',
-        title: 'Рослину створено',
-        message: `${createdPlant.name} успішно додано до каталогу.`,
-      });
-    } catch {
-      addNotification({
-        type: 'error',
-        title: 'Сервер тимчасово недоступний',
-        message: 'Не вдалося створити рослину. Спробуйте ще раз пізніше.',
-      });
-    } finally {
-      setIsSubmittingAdmin(false);
-    }
-  };
-
-  const handleUpdatePlant = async () => {
-    if (!selectedPlant) return;
-
-    const name = editPlantForm.name.trim();
-    const price = Number(editPlantForm.price);
-
-    if (!name) {
-      addNotification({
-        type: 'error',
-        title: 'Не вдалося оновити рослину',
-        message: 'Назва є обов’язковою.',
-      });
-      return;
-    }
-
-    if (!Number.isFinite(price) || price < 0) {
-      addNotification({
-        type: 'error',
-        title: 'Некоректна ціна',
-        message: 'Вкажіть коректну невід’ємну ціну.',
-      });
-      return;
-    }
-
-    setIsSubmittingAdmin(true);
-
-    try {
-      const res = await fetch(`${API_URL}/plants/${selectedPlant.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name,
-          description: editPlantForm.description.trim() || undefined,
-          price,
-          images: parseImagesInput(editPlantForm.images),
-        }),
-      });
-
-      const data = await readJsonSafely(res);
-
-      if (!res.ok) {
-        addNotification({
-          type: res.status === 403 ? 'warning' : 'error',
-          title: 'Не вдалося оновити рослину',
-          message: getApiMessage(data, 'Перевірте права доступу або спробуйте ще раз.'),
-        });
-        return;
-      }
-
-      const updatedPlant = normalizePlant(data as PlantMutationResponse);
-      setPlantItems((prev) =>
-        prev.map((plant) => (plant.id === updatedPlant.id ? updatedPlant : plant)),
-      );
-      setSelectedPlant(updatedPlant);
-      setIsEditingSelectedPlant(false);
-      router.refresh();
-
-      addNotification({
-        type: 'success',
-        title: 'Рослину оновлено',
-        message: `${updatedPlant.name} успішно оновлено.`,
-      });
-    } catch {
-      addNotification({
-        type: 'error',
-        title: 'Сервер тимчасово недоступний',
-        message: 'Не вдалося оновити рослину. Спробуйте ще раз пізніше.',
-      });
-    } finally {
-      setIsSubmittingAdmin(false);
-    }
-  };
-
-  const handleDeletePlant = async () => {
-    if (!selectedPlant) return;
-
-    const shouldDelete = window.confirm(
-      `Видалити рослину "${selectedPlant.name}" з каталогу?`,
-    );
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    setIsSubmittingAdmin(true);
-
-    try {
-      const res = await fetch(`${API_URL}/plants/${selectedPlant.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      const data = await readJsonSafely(res);
-
-      if (!res.ok) {
-        addNotification({
-          type: res.status === 403 ? 'warning' : 'error',
-          title: 'Не вдалося видалити рослину',
-          message: getApiMessage(data, 'Перевірте права доступу або спробуйте ще раз.'),
-        });
-        return;
-      }
-
-      setPlantItems((prev) => prev.filter((plant) => plant.id !== selectedPlant.id));
-      addNotification({
-        type: 'success',
-        title: 'Рослину видалено',
-        message: `${selectedPlant.name} більше не відображається в каталозі.`,
-      });
-      closeModal();
-      router.refresh();
-    } catch {
-      addNotification({
-        type: 'error',
-        title: 'Сервер тимчасово недоступний',
-        message: 'Не вдалося видалити рослину. Спробуйте ще раз пізніше.',
-      });
-    } finally {
-      setIsSubmittingAdmin(false);
-    }
   };
 
   // Optimized thumbnails renderer
@@ -714,121 +417,48 @@ export default function PlantsList({ plants, pagination }: Props) {
               style={{ willChange: 'transform, opacity' }}
             >
               <h1 className="text-4xl sm:text-6xl font-bold mb-4 bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
-                {canManagePlants ? 'Адмін панель' : 'Каталог рослин PlantShop'}
+                Каталог рослин PlantShop
               </h1>
               <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-                {canManagePlants
-                  ? 'Керуйте каталогом рослин: створюйте нові позиції, редагуйте їх у модальному вікні та видаляйте непотрібні.'
-                  : 'Добірка кімнатних, садових і декоративних рослин для дому, офісу та ландшафтних рішень.'}
+                Добірка кімнатних, садових і декоративних рослин для дому, офісу та ландшафтних рішень.
               </p>
-              {!canManagePlants && (
+              {!hasLoadError && (
                 <p className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Показано {plantItems.length} з {pagination.totalItems} позицій
+                  {searchTerm
+                    ? `Результати пошуку за запитом «${searchTerm}»: ${pagination.totalItems}`
+                    : `Показано ${plantItems.length} з ${pagination.totalItems} позицій`}
                 </p>
+              )}
+              {searchTerm && !hasLoadError && (
+                <Link
+                  href="/plants"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                >
+                  <X size={14} />
+                  Скинути пошук
+                </Link>
               )}
             </MotionDiv>
           </div>
 
-          {canManagePlants && (
-            <MotionDiv
-              id="admin-plants-panel"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="mb-10 rounded-3xl border border-emerald-200/70 bg-white/90 p-5 shadow-xl backdrop-blur-xl dark:border-emerald-800/60 dark:bg-gray-800/90"
-            >
-              <div className="mb-5 flex items-start gap-3">
-                <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                  <ShieldCheck size={22} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Керування каталогом рослин
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    Тут доступне мінімальне керування: створення нової рослини, а редагування та видалення відкриваються в модальному вікні конкретної позиції.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleCreatePlant} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Назва
-                  </span>
-                  <input
-                    value={newPlantForm.name}
-                    onChange={(e) => handleCreateFormChange('name', e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                    placeholder="Наприклад, Туя Смарагд"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Ціна
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newPlantForm.price}
-                    onChange={(e) => handleCreateFormChange('price', e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                    placeholder="250"
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Опис
-                  </span>
-                  <textarea
-                    value={newPlantForm.description}
-                    onChange={(e) => handleCreateFormChange('description', e.target.value)}
-                    rows={3}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                    placeholder="Короткий опис рослини"
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                    URL зображень
-                  </span>
-                  <textarea
-                    value={newPlantForm.images}
-                    onChange={(e) => handleCreateFormChange('images', e.target.value)}
-                    rows={3}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                    placeholder="Одне або кілька URL через кому або з нового рядка"
-                  />
-                </label>
-
-                <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-                  <button
-                    type="submit"
-                    disabled={isSubmittingAdmin}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-5 py-3 font-semibold text-white shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Plus size={16} />
-                    {isSubmittingAdmin ? 'Збереження...' : 'Створити рослину'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setNewPlantForm(createEmptyPlantForm())}
-                    className="rounded-2xl border border-gray-200 px-5 py-3 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-                  >
-                    Очистити форму
-                  </button>
-                </div>
-              </form>
-            </MotionDiv>
-          )}
-
           {/* Plants Grid */}
-          {plantItems.length > 0 ? (
+          {hasLoadError ? (
+            <div className="rounded-3xl border border-rose-200 bg-rose-50/80 px-6 py-16 text-center shadow-sm dark:border-rose-900/50 dark:bg-rose-950/20">
+              <div className="mb-4 text-5xl">⚠️</div>
+              <h2 className="mb-2 text-2xl font-bold text-rose-800 dark:text-rose-200">
+                Не вдалося завантажити каталог
+              </h2>
+              <p className="mx-auto max-w-xl text-rose-700 dark:text-rose-300">
+                Сервер каталогу тимчасово недоступний. Оновіть сторінку за хвилину або поверніться пізніше.
+              </p>
+              <Link
+                href={getPageHref(currentPage, pagination.limit, searchTerm)}
+                className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+              >
+                Спробувати ще раз
+              </Link>
+            </div>
+          ) : plantItems.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {plantItems.map((plant, i) => (
                 <MotionArticle
@@ -888,19 +518,29 @@ export default function PlantsList({ plants, pagination }: Props) {
                 Рослини не знайдено
               </h2>
               <p className="mx-auto max-w-xl text-gray-600 dark:text-gray-300">
-                Каталог порожній або для вибраної сторінки немає товарів. Поверніться на першу сторінку або додайте рослини через адмін-панель.
+                {searchTerm
+                  ? `За запитом «${searchTerm}» нічого не знайдено. Спробуйте інше слово або перегляньте весь каталог.`
+                  : 'Каталог порожній або для вибраної сторінки немає товарів. Поверніться на першу сторінку.'}
               </p>
+              {searchTerm && (
+                <Link
+                  href="/plants"
+                  className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                >
+                  Переглянути весь каталог
+                </Link>
+              )}
             </div>
           )}
 
-          {!canManagePlants && pagination.totalPages > 1 && (
+          {!hasLoadError && pagination.totalPages > 1 && (
             <nav
               aria-label="Пагінація каталогу рослин"
               className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:flex-row"
             >
               {currentPage > 1 ? (
                 <Link
-                  href={getPageHref(currentPage - 1, pagination.limit)}
+                  href={getPageHref(currentPage - 1, pagination.limit, searchTerm)}
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-gray-700 dark:text-gray-200 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
                 >
                   <ChevronLeft size={16} />
@@ -927,7 +567,7 @@ export default function PlantsList({ plants, pagination }: Props) {
                         </span>
                       )}
                       <Link
-                        href={getPageHref(page, pagination.limit)}
+                        href={getPageHref(page, pagination.limit, searchTerm)}
                         aria-current={isActive ? 'page' : undefined}
                         className={`inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition ${
                           isActive
@@ -944,7 +584,7 @@ export default function PlantsList({ plants, pagination }: Props) {
 
               {currentPage < pagination.totalPages ? (
                 <Link
-                  href={getPageHref(currentPage + 1, pagination.limit)}
+                  href={getPageHref(currentPage + 1, pagination.limit, searchTerm)}
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-gray-700 dark:text-gray-200 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
                 >
                   Наступна
@@ -1125,90 +765,6 @@ export default function PlantsList({ plants, pagination }: Props) {
                         </MotionButton>
                       </div>
 
-                      {canManagePlants && (
-                        <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-900/10">
-                          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                            <ShieldCheck size={16} />
-                            Admin-дії
-                          </div>
-
-                          {isEditingSelectedPlant ? (
-                            <div className="space-y-3">
-                              <input
-                                value={editPlantForm.name}
-                                onChange={(e) => handleEditFormChange('name', e.target.value)}
-                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
-                                placeholder="Назва"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={editPlantForm.price}
-                                onChange={(e) => handleEditFormChange('price', e.target.value)}
-                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
-                                placeholder="Ціна"
-                              />
-                              <textarea
-                                rows={3}
-                                value={editPlantForm.description}
-                                onChange={(e) => handleEditFormChange('description', e.target.value)}
-                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
-                                placeholder="Опис"
-                              />
-                              <textarea
-                                rows={3}
-                                value={editPlantForm.images}
-                                onChange={(e) => handleEditFormChange('images', e.target.value)}
-                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-white"
-                                placeholder="URL зображень через кому або новий рядок"
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                <button
-                                  onClick={handleUpdatePlant}
-                                  disabled={isSubmittingAdmin}
-                                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                                >
-                                  <Save size={14} />
-                                  {isSubmittingAdmin ? 'Збереження...' : 'Зберегти зміни'}
-                                </button>
-                                <button
-                                  onClick={() => setIsEditingSelectedPlant(false)}
-                                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-white dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-                                >
-                                  Скасувати
-                                </button>
-                                <button
-                                  onClick={handleDeletePlant}
-                                  disabled={isSubmittingAdmin}
-                                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-900/40 dark:text-red-300 dark:hover:bg-red-900/20"
-                                >
-                                  <Trash2 size={14} />
-                                  Видалити
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={handleStartEditingPlant}
-                                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-gray-800"
-                              >
-                                <Pencil size={14} />
-                                Редагувати рослину
-                              </button>
-                              <button
-                                onClick={handleDeletePlant}
-                                disabled={isSubmittingAdmin}
-                                className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-900/40 dark:text-red-300 dark:hover:bg-red-900/20"
-                              >
-                                <Trash2 size={14} />
-                                Видалити
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </MotionDiv>

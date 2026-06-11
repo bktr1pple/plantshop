@@ -111,7 +111,9 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
       process.env.DATABASE_URL?.replace(/:[^:@/]+@/, ':***@') ?? 'undefined';
 
     const details =
-      cause instanceof Error ? cause.message : 'Unknown bootstrap error';
+      cause instanceof Error
+        ? `${cause.message}${cause.stack ? `\n${cause.stack}` : ''}`
+        : `Non-Error bootstrap failure: ${String(cause)}`;
 
     return new Error(
       [
@@ -454,14 +456,15 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
     const beforeLogoutMe = await agent.get('/auth/me');
     expect(beforeLogoutMe.status).toBe(200);
 
-    const persistedBeforeLogout = await prisma.refreshToken.count({
+    const activeBeforeLogout = await prisma.refreshToken.count({
       where: {
+        revokedAt: null,
         user: {
           email: userEmail,
         },
       },
     });
-    expect(persistedBeforeLogout).toBeGreaterThan(0);
+    expect(activeBeforeLogout).toBeGreaterThan(0);
 
     const logoutRes = await agent.post('/auth/logout');
     expect([200, 201]).toContain(logoutRes.status);
@@ -483,14 +486,15 @@ describeRealStackSmoke('Admin real-stack smoke', () => {
     const afterLogoutMe = await agent.get('/auth/me');
     expect(afterLogoutMe.status).toBe(401);
 
-    const persistedAfterLogout = await prisma.refreshToken.count({
+    const activeAfterLogout = await prisma.refreshToken.count({
       where: {
+        revokedAt: null,
         user: {
           email: userEmail,
         },
       },
     });
-    expect(persistedAfterLogout).toBeLessThan(persistedBeforeLogout);
+    expect(activeAfterLogout).toBeLessThan(activeBeforeLogout);
   });
 
   it('USER може оновити власні account settings через /auth/me і бачить persisted дані', async () => {

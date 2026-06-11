@@ -21,7 +21,6 @@ interface AuthFormState {
   name: string;
   email: string;
   password: string;
-  rememberMe: boolean;
 }
 
 interface ChallengeState {
@@ -50,7 +49,6 @@ function createInitialForm(): AuthFormState {
     name: '',
     email: '',
     password: '',
-    rememberMe: false,
   };
 }
 
@@ -127,7 +125,7 @@ export function AuthModal({
   }, [showAuth, activeTab, clearTransientState]);
 
   const handleInputChange = useCallback(
-    (field: keyof AuthFormState, value: string | boolean) => {
+    (field: keyof AuthFormState, value: string) => {
       if (localError) {
         setLocalError('');
       }
@@ -160,14 +158,28 @@ export function AuthModal({
       return false;
     }
 
-    if (!form.password || form.password.length < 6) {
-      setLocalError('Пароль повинен містити щонайменше 6 символів.');
+    if (!form.password) {
+      setLocalError('Введіть пароль.');
       return false;
     }
 
-    if (view === 'register' && (!form.name || form.name.trim().length < 2)) {
-      setLocalError("Ім'я повинно містити щонайменше 2 символи.");
-      return false;
+    if (view === 'register') {
+      if (form.password.length < 8) {
+        setLocalError('Пароль повинен містити щонайменше 8 символів.');
+        return false;
+      }
+
+      if (!/^(?=\S+$)(?=.*\p{L})(?=.*\d).+$/u.test(form.password)) {
+        setLocalError(
+          'Пароль має містити щонайменше одну літеру, одну цифру і не містити пробілів.',
+        );
+        return false;
+      }
+
+      if (!form.name || form.name.trim().length < 2) {
+        setLocalError("Ім'я повинно містити щонайменше 2 символи.");
+        return false;
+      }
     }
 
     if (!captchaToken) {
@@ -547,7 +559,11 @@ export function AuthModal({
                         <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                         <input
                           type="password"
-                          placeholder="Пароль"
+                          placeholder={
+                            view === 'register'
+                              ? 'Пароль (мін. 8 символів, літера і цифра)'
+                              : 'Пароль'
+                          }
                           value={form.password}
                           onChange={(event) =>
                             handleInputChange('password', event.target.value)
@@ -558,21 +574,7 @@ export function AuthModal({
                       </div>
 
                       {view === 'login' && (
-                        <div className="flex flex-col gap-2 text-sm text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
-                          <label className="flex cursor-pointer items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={form.rememberMe}
-                              onChange={(event) =>
-                                handleInputChange(
-                                  'rememberMe',
-                                  event.target.checked,
-                                )
-                              }
-                              className="h-4 w-4 rounded accent-emerald-500 focus:ring-2 focus:ring-emerald-200"
-                            />
-                            <span>Запам&apos;ятати мене</span>
-                          </label>
+                        <div className="flex justify-end text-sm">
                           <button
                             type="button"
                             onClick={() => {

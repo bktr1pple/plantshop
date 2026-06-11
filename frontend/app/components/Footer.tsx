@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import {
   Leaf,
   Mail,
   Users,
   Camera,
-  Send,
   ArrowRight,
   MessageCircle,
 } from "lucide-react";
@@ -15,7 +13,6 @@ import { useSiteSettings } from "@/contexts/SiteSettingsContext";
 
 export default function Footer() {
   const { settings } = useSiteSettings();
-  const [email, setEmail] = useState("");
 
   const footerLinks = {
     company: [
@@ -24,11 +21,8 @@ export default function Footer() {
     ],
     catalog: [
       { name: "Усі рослини", href: "/plants" },
-      { name: "Кімнатні рослини", href: "/plants" },
-      { name: "Садові рослини", href: "/plants" },
     ],
     services: [
-      { name: "Контакти", href: "/contact" },
       { name: "Озеленення просторів", href: "/landscape-design" },
       { name: "Підбір рослин", href: "/plants" },
     ],
@@ -67,31 +61,13 @@ export default function Footer() {
                 {settings.footerDescription}
               </p>
 
-              {/* Підписка на розсилку */}
+              {/* Контакт для новин */}
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Підпишіться на новини
+                  Будьте на зв&apos;язку
                 </h4>
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Ваш email"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-12 text-sm transition-all focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    disabled
-                  />
-                  <button
-                    type="button"
-                    disabled
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white transition-all hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Підписка на розсилку ще не підключена. Для новин і пропозицій
-                  напишіть нам на{" "}
+                  Для новин, пропозицій і запитань напишіть нам на{" "}
                   <a
                     href={`mailto:${settings.contactEmail}`}
                     className="font-medium text-emerald-600 dark:text-emerald-400"

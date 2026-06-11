@@ -61,8 +61,20 @@ function ResetPasswordContent() {
       <h1 className="mt-3 text-3xl font-semibold text-gray-900 dark:text-gray-50">
         Скидання пароля
       </h1>
-      <p className="mt-3 text-base text-gray-600 dark:text-gray-400">{message}</p>
+      <p
+        className={
+          'mt-3 text-base ' +
+          (status === 'error'
+            ? 'text-red-600 dark:text-red-400'
+            : status === 'success'
+              ? 'text-emerald-700 dark:text-emerald-300'
+              : 'text-gray-600 dark:text-gray-400')
+        }
+      >
+        {message}
+      </p>
 
+      {status !== 'success' && (
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -97,6 +109,7 @@ function ResetPasswordContent() {
           {status === 'loading' ? 'Оновлюємо...' : 'Оновити пароль'}
         </button>
       </form>
+      )}
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link

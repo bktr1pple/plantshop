@@ -272,10 +272,10 @@ describe('Dashboard settings page', () => {
       target: { value: 'old-password' },
     });
     fireEvent.change(newPasswordInput, {
-      target: { value: 'new-password' },
+      target: { value: 'new-password1' },
     });
     fireEvent.change(confirmPasswordInput, {
-      target: { value: 'new-password' },
+      target: { value: 'new-password1' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Змінити пароль' }));
@@ -283,8 +283,8 @@ describe('Dashboard settings page', () => {
     await waitFor(() =>
       expect(mockChangePassword).toHaveBeenCalledWith({
         currentPassword: 'old-password',
-        newPassword: 'new-password',
-        confirmPassword: 'new-password',
+        newPassword: 'new-password1',
+        confirmPassword: 'new-password1',
       }),
     );
     await waitFor(() =>

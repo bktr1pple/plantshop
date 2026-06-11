@@ -101,9 +101,12 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
     }));
   };
 
+  const trimmedPhone = checkout.customerPhone.trim();
+  const phoneIsValid = /^[+0-9\s\-()]{7,20}$/.test(trimmedPhone);
   const formIsValid =
     checkout.customerName.trim() &&
-    checkout.customerPhone.trim() &&
+    trimmedPhone &&
+    phoneIsValid &&
     checkout.deliveryAddress.trim();
 
   const handleCheckout = async () => {
@@ -122,9 +125,11 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
     if (!formIsValid) {
       addNotification({
         type: 'error',
-        title: 'Заповніть checkout-форму',
+        title: 'Заповніть форму замовлення',
         message:
-          'Для створення замовлення потрібні ім’я, телефон і адреса доставки.',
+          trimmedPhone && !phoneIsValid
+            ? 'Вкажіть коректний номер телефону (7–20 символів: цифри, +, дужки, дефіси).'
+            : 'Для створення замовлення потрібні ім’я, телефон і адреса доставки.',
       });
       return;
     }
@@ -314,8 +319,8 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
                     </p>
                     <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-100">
                       {user
-                        ? 'Замовлення буде створене у вашому акаунті тільки після підтвердження backend.'
-                        : 'Для реального оформлення замовлення потрібно увійти в акаунт.'}
+                        ? 'Замовлення буде збережено у вашому акаунті після підтвердження.'
+                        : 'Щоб оформити замовлення, увійдіть у свій акаунт.'}
                     </p>
                   </div>
                   {user ? (

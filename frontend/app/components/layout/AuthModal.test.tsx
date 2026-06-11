@@ -178,9 +178,12 @@ describe('AuthModal', () => {
     fireEvent.change(screen.getByPlaceholderText('Email'), {
       target: { value: 'new@example.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Пароль'), {
-      target: { value: 'password123' },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText('Пароль (мін. 8 символів, літера і цифра)'),
+      {
+        target: { value: 'password123' },
+      },
+    );
     fireEvent.click(screen.getByRole('button', { name: 'solve-captcha' }));
     fireEvent.click(screen.getByRole('button', { name: 'Продовжити' }));
 
@@ -191,6 +194,40 @@ describe('AuthModal', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('new@example.com')).toBeInTheDocument();
     expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it('блокує реєстрацію зі слабким паролем до запиту на backend', async () => {
+    render(
+      <AuthModal
+        showAuth
+        activeTab="register"
+        authModalRef={createRef<HTMLDivElement>()}
+        onClose={mockOnClose}
+        onTabChange={mockOnTabChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Ім'я"), {
+      target: { value: 'Новий користувач' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Email'), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText('Пароль (мін. 8 символів, літера і цифра)'),
+      {
+        target: { value: 'short1' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'solve-captcha' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Продовжити' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Пароль повинен містити щонайменше 8 символів.'),
+      ).toBeInTheDocument(),
+    );
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 
   it('показує форму реєстрації після перемикання з вкладки входу', () => {
@@ -208,7 +245,9 @@ describe('AuthModal', () => {
 
     expect(screen.getByPlaceholderText("Ім'я")).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Email')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Пароль')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Пароль (мін. 8 символів, літера і цифра)'),
+    ).toBeInTheDocument();
     expect(mockOnTabChange).toHaveBeenCalledWith('register');
   });
 });
