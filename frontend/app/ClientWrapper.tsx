@@ -12,15 +12,22 @@ import { SiteSettingsProvider } from '@/contexts/SiteSettingsContext';
 import PWAInstaller from '@/components/PWAInstaller';
 import { ThemeScript } from '@/app/components/ThemeScript';
 import NotificationProvider from './components/NotificationSystem';
+import type { SiteSettings } from '@/lib/site-settings';
 
-export default function ClientWrapper({ children }: { children: React.ReactNode }) {
+export default function ClientWrapper({
+  children,
+  initialSettings,
+}: {
+  children: React.ReactNode;
+  initialSettings?: SiteSettings;
+}) {
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith('/admin');
 
   return (
     <ThemeProvider>
       <NotificationProvider>
-        <SiteSettingsProvider>
+        <SiteSettingsProvider initialSettings={initialSettings}>
           <AuthProvider>
             <CartProvider>
               <EnhancedThemeRipple />
@@ -31,9 +38,10 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
                     <Navbar />
                   </Suspense>
                 )}
-                <main className={isAdminRoute ? 'min-h-screen' : 'flex-1'}>
+                {/* Landmark <main> рендерить кожна сторінка самостійно — тут лише обгортка */}
+                <div className={isAdminRoute ? 'min-h-screen' : 'flex-1'}>
                   {children}
-                </main>
+                </div>
                 {!isAdminRoute && <Footer />}
               </div>
               <ThemeScript />

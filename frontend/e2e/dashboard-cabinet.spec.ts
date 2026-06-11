@@ -10,7 +10,8 @@ async function openCartWithFirstPlant(page: Page) {
   await expect(page.getByText('Монстера Деліціоза')).toBeVisible();
 
   await page.getByRole('button', { name: 'Додати' }).first().click();
-  await page.getByRole('button', { name: 'Кошик' }).click();
+  // exact: картки каталогу тепер мають aria-label "Додати {назва} в кошик"
+  await page.getByRole('button', { name: 'Кошик', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: /Кошик/ })).toBeVisible();
 }

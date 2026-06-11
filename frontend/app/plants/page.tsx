@@ -1,4 +1,6 @@
+import type { Metadata } from 'next';
 import PlantsList from './PlantsList';
+import { buildOpenGraph } from '@/lib/seo';
 import type { PaginatedPlantsResponse, Plant } from '../types/plant';
 
 export const revalidate = 60; // ISR
@@ -32,6 +34,43 @@ function isPaginatedPlantsResponse(value: unknown): value is PaginatedPlantsResp
 
   const candidate = value as Partial<PaginatedPlantsResponse>;
   return Array.isArray(candidate.items) && Boolean(candidate.meta);
+}
+
+export async function generateMetadata({
+  searchParams,
+}: PlantsPageProps): Promise<Metadata> {
+  const resolvedSearchParams = await searchParams;
+  const page = parsePositiveInteger(resolvedSearchParams?.page, DEFAULT_PAGE);
+  const search = parseSearchTerm(resolvedSearchParams?.search);
+
+  // Результати пошуку — службові варіації URL, їх не індексуємо.
+  if (search) {
+    return {
+      title: `Пошук «${search}» у каталозі рослин`,
+      robots: { index: false, follow: true },
+    };
+  }
+
+  const isFirstPage = page <= 1;
+  const title = isFirstPage
+    ? 'Каталог рослин — купити кімнатні та садові рослини'
+    : `Каталог рослин — сторінка ${page}`;
+
+  return {
+    title,
+    description:
+      'Каталог преміум рослин PlantShop: кімнатні, садові й декоративні рослини для дому, офісу та ландшафтних рішень. Доставка по Україні.',
+    alternates: {
+      // Сторінка 1 канонічна на чистий /plants, решта — self-canonical.
+      canonical: isFirstPage ? '/plants' : `/plants?page=${page}`,
+    },
+    openGraph: buildOpenGraph({
+      url: isFirstPage ? '/plants' : `/plants?page=${page}`,
+      title: `${title} | PlantShop`,
+      description:
+        'Каталог преміум рослин PlantShop: кімнатні, садові й декоративні рослини для дому, офісу та ландшафтних рішень.',
+    }),
+  };
 }
 
 export default async function PlantsPage({ searchParams }: PlantsPageProps) {

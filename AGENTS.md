@@ -5,6 +5,13 @@ This repository is a real product codebase with two main applications:
 - `frontend`: Next.js 16.2.7 App Router storefront and admin UI (native Next.js, no Vinext)
 - `backend`: NestJS 11.1.26 API with Prisma 7.8/MySQL
 
+Root orchestration is available through `package.json`:
+- `npm run dev` starts frontend and backend development servers together
+- `npm run build` builds both applications
+- `npm start` starts existing production builds
+- `npm run prod` builds and starts both applications in production mode
+- `npm run install:all` installs frontend and backend dependencies
+
 The repository is no longer a starter/demo state. It already contains:
 - real cookie-based auth/session flow
 - real email verification / password reset / login challenge security flows
@@ -28,7 +35,9 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 
 ### Frontend
 - Main app lives in `frontend/app`.
-- Public storefront routes include `/`, `/plants`, `/contact`, `/landscape-design`, `/dashboard`, `/dashboard/orders`, `/dashboard/orders/[id]`, `/dashboard/settings`, `/signin`, `/register`, `/logout`.
+- Public storefront routes include `/`, `/plants`, `/plants/[id]`, `/contact`, `/landscape-design`, `/privacy-policy`, `/terms`, `/dashboard`, `/dashboard/orders`, `/dashboard/orders/[id]`, `/dashboard/settings`, `/signin`, `/register`, `/logout`.
+- `/plants/[id]` is a public server-rendered plant detail page (ISR `revalidate: 300`); invalid or missing ids resolve through `notFound()` to a real HTTP 404. Catalog cards link to detail pages; the old quick-view modal was removed.
+- `/privacy-policy` and `/terms` are server-rendered trust pages; their contact data comes from live `SiteSettings`.
 - Public auth/security routes also include `/verify-email` and `/reset-password`.
 - Legacy compatibility entrypoints `/forgot-password` and `/verify-login-code` currently redirect back into the native auth modal flow instead of rendering detached standalone UX.
 - Global unmatched routes should resolve through `frontend/app/not-found.tsx` instead of falling back to the default gray framework "Not Found" screen.
@@ -47,6 +56,16 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `frontend/contexts/AuthContext.tsx`
   - `frontend/contexts/SiteSettingsContext.tsx`
   - `frontend/contexts/CartContext.tsx`
+- SEO infrastructure (frontend):
+  - canonical site origin contract: `NEXT_PUBLIC_SITE_URL` via `frontend/lib/site-url.ts` (no hardcoded production domain anywhere)
+  - `frontend/app/robots.ts` allows public pages and disallows `/admin`, `/dashboard`, `/logout`, `/forbidden`, `/auth-unavailable` and auth-service routes
+  - `frontend/app/sitemap.ts` is dynamic (revalidate 3600): static public pages + all plant detail pages from `GET /plants?all=true` with `lastModified` from `updatedAt`
+  - metadata: root layout sets `metadataBase`, title template `%s | PlantShop`, `uk_UA` OpenGraph defaults; every public page has unique title/description and canonical; `/plants` pagination is self-canonical (page 1 → clean `/plants`), search results are `noindex,follow`; private/service routes carry `robots noindex,nofollow` metadata on top of robots.txt
+  - page-level `openGraph` objects replace layout defaults wholesale, so pages build OG through `buildOpenGraph()` in `frontend/lib/seo.ts` (keeps `locale`/`siteName`)
+  - JSON-LD is server-rendered via `frontend/components/JsonLd.tsx`: WebSite + LocalBusiness on `/` (from live SiteSettings), ContactPage on `/contact`, Product + Offer (UAH) + BreadcrumbList on `/plants/[id]`; fake ratings/reviews are forbidden
+  - home (`app/page.tsx` → `app/HomeContent.tsx`) and contact (`app/contact/page.tsx` → `ContactContent.tsx`) are split into server metadata/JSON-LD wrappers + client content components
+  - exactly one `<main>` landmark per page: `ClientWrapper` renders a plain `<div>` wrapper, pages own their `<main>`
+- Public `SiteSettings` content is server-rendered: root layout fetches settings with `revalidate: 300` and passes `initialSettings` into `SiteSettingsProvider`; the client still refreshes on mount.
 - Current authenticated dashboard reality:
   - `/dashboard/settings` is real and persists current-user profile/preferences through `PATCH /auth/me`
   - `/dashboard/orders` is real and loads persisted current-user order history/details from the backend
@@ -185,6 +204,7 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `GET /plants?all=true`, returns the full array for server/admin flows that need the whole catalog
   - `GET /plants/:id`
 - Public `/plants` storefront uses URL pagination with `page` and `limit`; the current default page size is `12`.
+- Each plant also has a public SEO-indexable detail page `/plants/[id]` built on `GET /plants/:id`; the public plant payload already includes `createdAt`/`updatedAt`, which sitemap `lastModified` relies on.
 - `GET /plants` also accepts an optional `search` query parameter (trimmed, max 100 chars) that filters by name/description substring; `meta.search` echoes the applied term or `null`.
 - The navbar search modal performs a real catalog search by navigating to `/plants?search=<term>`; popular-search chips use the same real navigation.
 - `/plants` distinguishes three honest states: results, empty (including an explicit no-results-for-search state with a reset link), and a dedicated load-error state when the backend fetch fails (it must not be presented as an empty catalog).
@@ -237,6 +257,8 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
 - Frontend must not fake authenticated state after registration.
 - `/dashboard` and `/admin` must not remain accessible if auth verification fails.
 - Current-user dashboard settings are real and use the authenticated `/auth/me` read/update contract.
+- The dashboard settings UI intentionally surfaces only effective controls: profile fields, email-notification preferences, and password change. The persisted `profileVisibility`/`dataSharing`/`personalizedAds` columns remain in the backend contract but must not be re-exposed as UI controls until real features consume them; account data export/deletion is offered as a manual request through `/contact`, not as fake disabled buttons.
+- The settings form syncs from a refreshed `user` only when the user has no unsaved edits (snapshot compare against the last synced user), so background `/auth/me` refreshes must not wipe in-progress form input.
 - Authenticated users can create real orders through the persisted current-user `/orders` contract.
 - `/dashboard/orders` is real and must reflect persisted current-user order history/details rather than mocked or unavailable state.
 - `/admin/orders` is a real admin area for order inspection and status updates.
@@ -335,6 +357,7 @@ When auditing or reviewing this repository, prioritize:
 - Frontend env expectations:
   - `NEXT_PUBLIC_API_URL=http://localhost:3001`
   - `INTERNAL_API_URL=http://localhost:3001`
+  - `NEXT_PUBLIC_SITE_URL=http://localhost:3000` (canonical public origin for SEO: metadataBase, canonical, sitemap, robots, JSON-LD; production must set the real HTTPS domain)
 - Backend env expectations:
   - `PORT=3001`
   - `FRONTEND_URL=http://localhost:3000`
@@ -359,7 +382,7 @@ When auditing or reviewing this repository, prioritize:
 - Do not hardcode production domains/secrets in source code.
 - Treat `.env.example` as the documentation contract for new environments.
 - If `.env.example` disagrees with runtime code, that is a real issue and should be called out.
-- Frontend `.env.example` documents only variables the code actually reads: `NEXT_PUBLIC_API_URL`, `INTERNAL_API_URL`, `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`.
+- Frontend `.env.example` documents only variables the code actually reads: `NEXT_PUBLIC_API_URL`, `INTERNAL_API_URL`, `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`, `NEXT_PUBLIC_SITE_URL`.
 - Deployment is documented in root `DEPLOYMENT.md` (Ubuntu/Debian, nvm Node 24.16.0, MySQL 8, `prisma migrate deploy`, PM2 or systemd, nginx with `/uploads` served through the backend, certbot HTTPS, first-admin promotion, backups).
 
 ## Auth/session rules

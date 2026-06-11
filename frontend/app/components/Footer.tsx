@@ -220,6 +220,18 @@ export default function Footer() {
 
               <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
                 <Link
+                  href="/privacy-policy"
+                  className="text-gray-500 transition-colors hover:text-emerald-600 dark:text-gray-500 dark:hover:text-emerald-400"
+                >
+                  Політика конфіденційності
+                </Link>
+                <Link
+                  href="/terms"
+                  className="text-gray-500 transition-colors hover:text-emerald-600 dark:text-gray-500 dark:hover:text-emerald-400"
+                >
+                  Умови використання
+                </Link>
+                <Link
                   href="/contact"
                   className="text-gray-500 transition-colors hover:text-emerald-600 dark:text-gray-500 dark:hover:text-emerald-400"
                 >

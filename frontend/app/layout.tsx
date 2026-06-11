@@ -2,9 +2,11 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import ClientWrapper from "./ClientWrapper"; // наш client-only wrapper
+import { fetchServerPublicSiteSettings } from "@/lib/server-api";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#10b981",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -13,18 +15,31 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "Plant Shop - Преміум рослини",
-    template: "%s | Plant Shop"
+    default: "PlantShop — преміум рослини з доставкою",
+    template: "%s | PlantShop"
   },
   description: "Ексклюзивні рослини, професійний догляд та авторські рішення для створення ідеального простору",
+  manifest: "/manifest.json",
+  openGraph: {
+    type: "website",
+    locale: "uk_UA",
+    siteName: "PlantShop",
+    images: ["/images/block.jpg"],
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const initialSettings = await fetchServerPublicSiteSettings({ revalidate: 300 });
+
   return (
     <html lang="uk" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
-        <ClientWrapper>
+        <ClientWrapper initialSettings={initialSettings}>
           {children}
         </ClientWrapper>
       </body>
