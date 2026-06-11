@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ClipboardList, Leaf, Map, MessageCircle, Sprout } from "lucide-react";
+import { buildOpenGraph } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Ландшафтний дизайн і озеленення просторів",
@@ -10,14 +11,13 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/landscape-design",
   },
-  openGraph: {
-    type: "website",
+  openGraph: buildOpenGraph({
     url: "/landscape-design",
     title: "Ландшафтний дизайн і озеленення просторів | PlantShop",
     description:
       "Консультація, план озеленення, добір рослин і супровід після висадки — для квартир, офісів і ділянок.",
     images: ["/images/plants-bg.jpg"],
-  },
+  }),
 };
 
 const services = [

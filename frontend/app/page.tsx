@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import JsonLd from "@/components/JsonLd";
 import HomeContent from "./HomeContent";
 import { fetchServerPublicSiteSettings } from "@/lib/server-api";
-import { toMetaDescription } from "@/lib/seo";
+import { buildOpenGraph, toMetaDescription } from "@/lib/seo";
 import { absoluteUrl, getSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 300;
@@ -23,12 +23,12 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: "/",
     },
-    openGraph: {
-      type: "website",
+    openGraph: buildOpenGraph({
       url: "/",
       title: `${settings.siteName} — преміум рослини та озеленення`,
       description,
-    },
+      images: ["/images/block.jpg"],
+    }),
   };
 }
 

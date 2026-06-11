@@ -2,24 +2,24 @@ import type { Metadata } from "next";
 import JsonLd from "@/components/JsonLd";
 import ContactContent from "./ContactContent";
 import { fetchServerPublicSiteSettings } from "@/lib/server-api";
+import { buildOpenGraph } from "@/lib/seo";
 import { getSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Контакти — звʼязатися з PlantShop",
+  title: "Контакти — телефон, email, форма звернення",
   description:
     "Контакти PlantShop: телефон, email, адреса та форма звернення. Допоможемо підібрати рослини, відповімо на питання щодо замовлення й озеленення.",
   alternates: {
     canonical: "/contact",
   },
-  openGraph: {
-    type: "website",
+  openGraph: buildOpenGraph({
     url: "/contact",
-    title: "Контакти — звʼязатися з PlantShop",
+    title: "Контакти PlantShop — телефон, email, форма звернення",
     description:
       "Телефон, email, адреса та форма звернення PlantShop. Допоможемо підібрати рослини й відповімо на питання щодо замовлення.",
-  },
+  }),
 };
 
 export default async function ContactPage() {

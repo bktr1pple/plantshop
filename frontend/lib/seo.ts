@@ -1,6 +1,29 @@
+import type { Metadata } from 'next';
 import { absoluteUrl } from '@/lib/site-url';
 
 const DESCRIPTION_MAX_LENGTH = 160;
+
+/**
+ * Open Graph для конкретної сторінки. Next НЕ домерджує поля openGraph
+ * з root layout (обʼєкт заміняється цілком), тому locale/siteName
+ * додаємо тут, щоб вони не губилися на сторінках із власним OG.
+ */
+export function buildOpenGraph(input: {
+  url: string;
+  title: string;
+  description: string;
+  images?: string[];
+}): NonNullable<Metadata['openGraph']> {
+  return {
+    type: 'website',
+    locale: 'uk_UA',
+    siteName: 'PlantShop',
+    url: input.url,
+    title: input.title,
+    description: input.description,
+    ...(input.images ? { images: input.images } : {}),
+  };
+}
 
 /**
  * Одна нормалізована фраза для meta description: без переносів рядків,

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import PlantsList from './PlantsList';
+import { buildOpenGraph } from '@/lib/seo';
 import type { PaginatedPlantsResponse, Plant } from '../types/plant';
 
 export const revalidate = 60; // ISR
@@ -63,13 +64,12 @@ export async function generateMetadata({
       // Сторінка 1 канонічна на чистий /plants, решта — self-canonical.
       canonical: isFirstPage ? '/plants' : `/plants?page=${page}`,
     },
-    openGraph: {
-      type: 'website',
+    openGraph: buildOpenGraph({
       url: isFirstPage ? '/plants' : `/plants?page=${page}`,
       title: `${title} | PlantShop`,
       description:
         'Каталог преміум рослин PlantShop: кімнатні, садові й декоративні рослини для дому, офісу та ландшафтних рішень.',
-    },
+    }),
   };
 }
 

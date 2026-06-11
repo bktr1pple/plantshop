@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import JsonLd from '@/components/JsonLd';
 import { fetchServerPlant } from '@/lib/server-api';
 import { formatPrice } from '@/lib/format-price';
-import { toAbsoluteImageUrl, toMetaDescription } from '@/lib/seo';
+import { buildOpenGraph, toAbsoluteImageUrl, toMetaDescription } from '@/lib/seo';
 import { absoluteUrl } from '@/lib/site-url';
 import type { Plant } from '@/app/types/plant';
 import AddToCartButton from './AddToCartButton';
@@ -63,13 +63,12 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalPath,
     },
-    openGraph: {
-      type: 'website',
+    openGraph: buildOpenGraph({
       url: canonicalPath,
       title: `${plant.name} — купити | PlantShop`,
       description,
-      images: coverImage ? [toAbsoluteImageUrl(coverImage)] : undefined,
-    },
+      ...(coverImage ? { images: [toAbsoluteImageUrl(coverImage)] } : {}),
+    }),
     twitter: {
       card: 'summary_large_image',
       title: `${plant.name} — купити | PlantShop`,
