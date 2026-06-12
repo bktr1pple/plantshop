@@ -16,7 +16,8 @@ interface DesktopNavigationProps {
   theme: string;
   isAnimating: boolean;
   totalItems: number;
-  onThemeToggle: () => void;
+  // Подія прокидається в toggleTheme: з clientX/clientY стартує хвиля теми
+  onThemeToggle: (event?: React.MouseEvent) => void;
   onAuthOpen: () => void;
   onCartOpen: () => void;
   onSearchOpen: () => void;

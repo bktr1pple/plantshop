@@ -12,6 +12,7 @@ import React, {
 
 import { useNotification } from '@/app/components/NotificationSystem';
 import { fetchWithRefresh } from '@/lib/fetchWithRefresh';
+import { hasSessionHint } from '@/lib/session-hint';
 import {
   verifyLoginChallenge,
   type SecurityErrorCode,
@@ -193,6 +194,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hasCheckedAuth.current) return;
     hasCheckedAuth.current = true;
+
+    // Гість без session-hint cookie ніколи не мав активної сесії — не б'ємо
+    // /auth/me даремно (це позбавляє кожного анонімного візиту зайвого
+    // запиту і 401 у консолі). Реальна перевірка лишається за /auth/me для
+    // тих, у кого hint є.
+    if (!hasSessionHint()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
 
     void checkAuthStatus();
   }, [checkAuthStatus]);

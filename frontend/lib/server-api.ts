@@ -7,10 +7,16 @@ import {
 const INTERNAL_API_URL =
   process.env.INTERNAL_API_URL ?? 'http://localhost:3001';
 
-export async function fetchServerPlants(): Promise<Plant[]> {
+export async function fetchServerPlants(
+  options?: { revalidate?: number },
+): Promise<Plant[]> {
   try {
+    // Без revalidate лишається no-store (admin-флоу потребує свіжих даних);
+    // публічні сторінки передають revalidate для ISR-кешування.
     const res = await fetch(`${INTERNAL_API_URL}/plants?all=true`, {
-      cache: 'no-store',
+      ...(options?.revalidate !== undefined
+        ? { next: { revalidate: options.revalidate } }
+        : { cache: 'no-store' }),
     });
 
     if (!res.ok) {

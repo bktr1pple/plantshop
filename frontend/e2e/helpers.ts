@@ -48,5 +48,14 @@ export async function setSessionRole(
       httpOnly: true,
       sameSite: 'Lax',
     },
+    {
+      // Не-httpOnly session-hint, який реальний бекенд ставить поряд із
+      // auth-cookies; без нього AuthContext свідомо не робить /auth/me.
+      name: 'ps_session',
+      value: '1',
+      url: E2E_FRONTEND_ORIGIN,
+      httpOnly: false,
+      sameSite: 'Lax',
+    },
   ]);
 }

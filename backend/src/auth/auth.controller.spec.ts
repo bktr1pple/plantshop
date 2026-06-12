@@ -230,7 +230,8 @@ describe('AuthController', () => {
         'Перш ніж увійти, підтвердіть email. Ми надіслали або щойно повторили лист підтвердження.',
     });
     expect(res.cookie).not.toHaveBeenCalled();
-    expect(res.clearCookie).toHaveBeenCalledTimes(2);
+    // access + refresh + session-hint
+    expect(res.clearCookie).toHaveBeenCalledTimes(3);
   });
 
   it('login повертає verification_required для pending registration без створеного User', async () => {
@@ -275,7 +276,7 @@ describe('AuthController', () => {
         resent: true,
       },
     );
-    expect(res.clearCookie).toHaveBeenCalledTimes(2);
+    expect(res.clearCookie).toHaveBeenCalledTimes(3);
   });
 
   it('login повертає challenge_required без auth cookies для невпізнаного контексту', async () => {
@@ -385,7 +386,8 @@ describe('AuthController', () => {
       trustedLoginToken: 'trusted-token',
       userAgentSummary: 'chrome:macos:desktop',
     });
-    expect(res.cookie).toHaveBeenCalledTimes(3);
+    // access + refresh + trusted_login + session-hint
+    expect(res.cookie).toHaveBeenCalledTimes(4);
   });
 
   it('verify-email завершує pending registration і створює акаунт лише після токена', async () => {
@@ -442,7 +444,8 @@ describe('AuthController', () => {
       message:
         'Пароль оновлено. Для безпеки всі попередні сесії завершено. Увійдіть знову.',
     });
-    expect(res.clearCookie).toHaveBeenCalledTimes(3);
+    // access + refresh + trusted_login + session-hint
+    expect(res.clearCookie).toHaveBeenCalledTimes(4);
   });
 
   it('change-password відхиляє невірний current password', async () => {
@@ -522,7 +525,8 @@ describe('AuthController', () => {
       },
     );
     expect(loginChallengeMock.rememberTrustedContext).toHaveBeenCalled();
-    expect(res.cookie).toHaveBeenCalledTimes(3);
+    // access + refresh + trusted_login + session-hint
+    expect(res.cookie).toHaveBeenCalledTimes(4);
   });
 
   it('logout відкликає refresh token і чистить лише session cookies', async () => {
@@ -541,7 +545,8 @@ describe('AuthController', () => {
     expect(authServiceMock.revokeRefreshToken).toHaveBeenCalledWith(
       'refresh-token',
     );
-    expect(res.clearCookie).toHaveBeenCalledTimes(2);
+    // access + refresh + session-hint (trusted_login лишається)
+    expect(res.clearCookie).toHaveBeenCalledTimes(3);
   });
 
   it('me робить refresh по refresh_token і повертає користувача', async () => {
@@ -594,7 +599,8 @@ describe('AuthController', () => {
       },
     });
 
-    expect(res.cookie).toHaveBeenCalledTimes(2);
+    // access + refresh + session-hint (refresh-ротація в /auth/me)
+    expect(res.cookie).toHaveBeenCalledTimes(3);
   });
 
   it('me кидає UnauthorizedException без access і refresh token', async () => {

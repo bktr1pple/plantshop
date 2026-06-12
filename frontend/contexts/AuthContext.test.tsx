@@ -35,6 +35,14 @@ vi.mock('@/lib/fetchWithRefresh', () => ({
   fetchWithRefresh: mockFetchWithRefresh,
 }));
 
+function setSessionHintCookie() {
+  document.cookie = 'ps_session=1';
+}
+
+function clearSessionHintCookie() {
+  document.cookie = 'ps_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+}
+
 const authenticatedUser = {
   id: 1,
   email: 'user@example.com',
@@ -75,11 +83,30 @@ describe('AuthContext', () => {
     mockRefresh.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubGlobal('fetch', vi.fn());
+    // За замовчуванням імітуємо наявну сесію (hint cookie присутній),
+    // щоб тести автентифікованого користувача виконували /auth/me на mount.
+    setSessionHintCookie();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    clearSessionHintCookie();
+  });
+
+  it('не викликає /auth/me для гостя без session-hint cookie', async () => {
+    clearSessionHintCookie();
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('auth-user')).toHaveTextContent('none'),
+    );
+    expect(mockFetchWithRefresh).not.toHaveBeenCalled();
   });
 
   it('очищає user лише після підтвердженого backend logout', async () => {

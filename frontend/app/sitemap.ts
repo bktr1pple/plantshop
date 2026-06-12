@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import type { Plant } from '@/app/types/plant';
+import { getPlantPath } from '@/lib/plant-slug';
 import { getSiteUrl } from '@/lib/site-url';
 
 const INTERNAL_API_URL =
@@ -78,7 +79,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const plantPages: MetadataRoute.Sitemap = plants.map((plant) => ({
-    url: `${siteUrl}/plants/${plant.id}`,
+    url: `${siteUrl}${getPlantPath(plant)}`,
     lastModified: toLastModified(plant.updatedAt),
     changeFrequency: 'weekly',
     priority: 0.8,
