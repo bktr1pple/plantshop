@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import JsonLd from '@/components/JsonLd';
 import { fetchServerPlant, fetchServerPlants } from '@/lib/server-api';
 import { formatPrice } from '@/lib/format-price';
-import { findPlantBySlug, getPlantPath } from '@/lib/plant-slug';
+import { findPlantBySlug, getPlantPath, getPlantSlug } from '@/lib/plant-slug';
 import { buildOpenGraph, toAbsoluteImageUrl, toMetaDescription } from '@/lib/seo';
 import { absoluteUrl } from '@/lib/site-url';
 import type { Plant } from '@/app/types/plant';
@@ -21,12 +21,32 @@ type PlantPageProps = {
 
 type ResolvedPlant = {
   plant: Plant;
-  // false → URL не канонічний (старий numeric id), сторінка має редиректити
+  // false → URL не канонічний (numeric id, інший регістр тощо) → редирект
   isCanonical: boolean;
 };
 
+// Канонічний слаг завжди коротший: довші значення відсікаємо без запитів
+const MAX_SLUG_LENGTH = 200;
+
+function safeDecode(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    // Некоректний percent-encoding (/plants/%zz) — не 500, а чесний 404
+    return null;
+  }
+}
+
 async function resolvePlant(rawSlug: string): Promise<ResolvedPlant | null> {
-  const decoded = decodeURIComponent(rawSlug);
+  if (!rawSlug || rawSlug.length > MAX_SLUG_LENGTH) {
+    return null;
+  }
+
+  const decoded = safeDecode(rawSlug);
+
+  if (!decoded) {
+    return null;
+  }
 
   // Старі URL виду /plants/25: знаходимо рослину за id і редиректимо
   // на канонічний слаг, щоб уже проіндексовані посилання не зникли.
@@ -41,9 +61,24 @@ async function resolvePlant(rawSlug: string): Promise<ResolvedPlant | null> {
     return plant ? { plant, isCanonical: false } : null;
   }
 
+  // Канонічний формат — лише [a-z0-9-]. Усе інше (кирилиця, спецсимволи,
+  // спроби ін'єкцій) гарантовано не існує — відсікаємо без запитів,
+  // лише нормалізуючи регістр для зручності ручного вводу.
+  const normalized = decoded.toLowerCase();
+
+  if (!/^[a-z0-9-]+$/.test(normalized)) {
+    return null;
+  }
+
   const plants = await fetchServerPlants({ revalidate: 300 });
-  const plant = findPlantBySlug(plants, decoded);
-  return plant ? { plant, isCanonical: true } : null;
+  const plant = findPlantBySlug(plants, normalized);
+
+  if (!plant) {
+    return null;
+  }
+
+  // Не-канонічний запис (інший регістр) редиректимо на канонічний слаг
+  return { plant, isCanonical: decoded === getPlantSlug(plant) };
 }
 
 export async function generateMetadata({
