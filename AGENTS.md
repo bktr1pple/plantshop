@@ -144,7 +144,8 @@ Treat the current codebase as the source of truth. Do not rely on historical ass
   - `access_token`
   - `refresh_token`
   - `trusted_login`
-- Frontend auth bootstrap performs a real `/auth/me` check on mount.
+- A non-httpOnly `ps_session` "session-hint" cookie is set alongside the auth cookies (inside `setAuthCookies`) and cleared alongside them (inside `clearSessionCookies`), so it stays in sync with the refresh session and expires with it. It carries no token and grants no access — it only lets the client skip a pointless `/auth/me` for a guest who never logged in. The frontend reads it via `frontend/lib/session-hint.ts` (`hasSessionHint()`). Keep it set/cleared only through the centralized cookie helpers; never put sensitive data in it, and never treat its presence as proof of authentication (real validation always remains `/auth/me`).
+- Frontend auth bootstrap performs a real `/auth/me` check on mount only when `ps_session` is present; without the hint cookie the guest is treated as unauthenticated with no network call. The `proxy.ts` middleware already short-circuits protected routes that lack a `refresh_token` cookie before hitting `/auth/me`. The shared in-flight `/auth/me` mutex still dedupes concurrent recovery checks.
 - Frontend auth modal is the native surface for:
   - login
   - registration

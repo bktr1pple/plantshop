@@ -61,6 +61,11 @@ interface RecaptchaVerifyResponse {
 }
 
 const TRUSTED_LOGIN_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000;
+// Не-httpOnly підказка для фронтенду: "можливо є активна сесія, варто
+// перевірити /auth/me". Не містить токенів і не дає доступу — лише дозволяє
+// клієнту не смикати /auth/me у гостя, що ніколи не логінився. Живе стільки ж,
+// скільки refresh-сесія, тож протухає разом із нею.
+const SESSION_HINT_COOKIE = 'ps_session';
 const AUTH_ENDPOINT_THROTTLE = { default: { ttl: 60_000, limit: 10 } } as const;
 const AUTH_CHALLENGE_THROTTLE = {
   default: { ttl: 60_000, limit: 5 },
@@ -325,6 +330,25 @@ export class AuthController {
       ...opts,
       maxAge: getJwtRefreshTtlMilliseconds(),
     });
+
+    this.setSessionHintCookie(res);
+  }
+
+  private setSessionHintCookie(res: Response) {
+    // Свідомо httpOnly: false — клієнтський JS має це прочитати.
+    const { httpOnly: _httpOnly, ...rest } = this.getCommonCookieOptions();
+    void _httpOnly;
+
+    res.cookie(SESSION_HINT_COOKIE, '1', {
+      ...rest,
+      httpOnly: false,
+      maxAge: getJwtRefreshTtlMilliseconds(),
+    });
+  }
+
+  private clearSessionHintCookie(res: Response) {
+    const domain = this.getCookieDomain();
+    res.clearCookie(SESSION_HINT_COOKIE, { path: '/', domain });
   }
 
   private setTrustedLoginCookie(res: Response, token: string) {
@@ -342,6 +366,7 @@ export class AuthController {
 
     res.clearCookie('access_token', opts);
     res.clearCookie('refresh_token', opts);
+    this.clearSessionHintCookie(res);
   }
 
   private clearTrustedLoginCookie(res: Response) {
